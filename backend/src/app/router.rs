@@ -1,7 +1,7 @@
 use axum::{
     http::{
         header::{AUTHORIZATION, CONTENT_TYPE},
-        Method,
+        HeaderValue, Method,
     },
     routing::{get, post, put},
     Router,
@@ -14,8 +14,18 @@ use crate::{
 };
 
 pub fn build_app(state: AppState) -> Router {
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
+    let allow_any = state.cors_allowed_origins.iter().any(|origin| origin == "*");
+    let parsed_allowed_origins: Vec<HeaderValue> = state
+        .cors_allowed_origins
+        .iter()
+        .filter_map(|origin| origin.parse::<HeaderValue>().ok())
+        .collect();
+
+    let cors = if allow_any || parsed_allowed_origins.is_empty() {
+        CorsLayer::new().allow_origin(Any)
+    } else {
+        CorsLayer::new().allow_origin(parsed_allowed_origins)
+    }
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -74,6 +84,10 @@ pub fn build_app(state: AppState) -> Router {
         .route(
             "/api/events/:event_id/signup-link",
             get(events::get_event_signup_link),
+        )
+        .route(
+            "/api/events/:event_id/signup-link/rotate",
+            post(events::rotate_event_signup_link),
         )
         .route(
             "/api/events/:event_id/signup-requests",

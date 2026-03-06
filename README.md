@@ -33,6 +33,7 @@ Backend variables (`backend/.env`):
 
 - `DATABASE_URL`: Postgres connection string
 - `JWT_SECRET`: signing secret for auth tokens
+- `CORS_ALLOWED_ORIGINS`: comma-separated allowed frontend origins (e.g. `https://app.example.com,http://localhost:5173`)
 
 Frontend variables (`frontend/.env`):
 
