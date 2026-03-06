@@ -1,10 +1,8 @@
-use axum::http::HeaderMap;
 use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
     features::{
-        auth::require_authenticated_user_id,
         permissions::{require_event_manage_access, require_event_owner_access, require_event_view_access},
     },
     shared::{
@@ -20,11 +18,10 @@ use crate::{
 
 use super::repo;
 
-pub async fn list_events_for_headers(
+pub async fn list_events_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
 ) -> Result<Vec<Event>, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     let event_ids = repo::list_visible_event_ids(&state.pool, user_id).await?;
 
     let mut events = Vec::with_capacity(event_ids.len());
@@ -35,22 +32,20 @@ pub async fn list_events_for_headers(
     Ok(events)
 }
 
-pub async fn get_event_for_headers(
+pub async fn get_event_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
 ) -> Result<Event, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_view_access(state, event_id, user_id).await?;
     load_event(&state.pool, event_id).await
 }
 
-pub async fn create_event_for_headers(
+pub async fn create_event_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     payload: CreateEventInput,
 ) -> Result<Event, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     validate_create_event_input(&payload)?;
 
     let event_id = Uuid::new_v4();
@@ -76,13 +71,12 @@ pub async fn create_event_for_headers(
     load_event(&state.pool, event_id).await
 }
 
-pub async fn update_event_for_headers(
+pub async fn update_event_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
     payload: UpdateEventInput,
 ) -> Result<Event, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_manage_access(state, event_id, user_id).await?;
     validate_update_event_input(&payload)?;
 
@@ -104,12 +98,11 @@ pub async fn update_event_for_headers(
     load_event(&state.pool, event_id).await
 }
 
-pub async fn delete_event_for_headers(
+pub async fn delete_event_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
 ) -> Result<MessageResponse, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_owner_access(state, event_id, user_id).await?;
 
     let result = sqlx::query("DELETE FROM events WHERE id = $1")
@@ -127,13 +120,12 @@ pub async fn delete_event_for_headers(
     })
 }
 
-pub async fn create_event_match_for_headers(
+pub async fn create_event_match_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
     payload: CreateEventMatchInput,
 ) -> Result<Match, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_manage_access(state, event_id, user_id).await?;
 
     let Some(max_players_i32) = repo::event_max_players(&state.pool, event_id).await? else {
@@ -149,13 +141,12 @@ pub async fn create_event_match_for_headers(
     create_match_record(state, create_match, event_id).await
 }
 
-pub async fn add_event_player_for_headers(
+pub async fn add_event_player_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
     payload: AddPlayerInput,
 ) -> Result<Event, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_manage_access(state, event_id, user_id).await?;
     validate_add_player_input(&payload)?;
 
@@ -183,13 +174,12 @@ pub async fn add_event_player_for_headers(
     load_event(&state.pool, event_id).await
 }
 
-pub async fn delete_event_player_for_headers(
+pub async fn delete_event_player_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
     player_id: Uuid,
 ) -> Result<MessageResponse, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_manage_access(state, event_id, user_id).await?;
 
     if !repo::event_exists(&state.pool, event_id).await? {
@@ -212,14 +202,13 @@ pub async fn delete_event_player_for_headers(
     })
 }
 
-pub async fn update_event_player_for_headers(
+pub async fn update_event_player_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
     player_id: Uuid,
     payload: UpdateEventPlayerInput,
 ) -> Result<Event, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_manage_access(state, event_id, user_id).await?;
     validate_event_player_update_input(&payload)?;
 
@@ -242,13 +231,12 @@ pub async fn update_event_player_for_headers(
     load_event(&state.pool, event_id).await
 }
 
-pub async fn create_event_team_for_headers(
+pub async fn create_event_team_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
     payload: CreateEventTeamInput,
 ) -> Result<Event, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_manage_access(state, event_id, user_id).await?;
 
     let name = payload.name.trim();
@@ -274,13 +262,12 @@ pub async fn create_event_team_for_headers(
     load_event(&state.pool, event_id).await
 }
 
-pub async fn delete_event_team_for_headers(
+pub async fn delete_event_team_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
     team_id: Uuid,
 ) -> Result<MessageResponse, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_manage_access(state, event_id, user_id).await?;
 
     if !repo::event_exists(&state.pool, event_id).await? {
@@ -317,14 +304,13 @@ pub async fn delete_event_team_for_headers(
     })
 }
 
-pub async fn update_event_team_for_headers(
+pub async fn update_event_team_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
     team_id: Uuid,
     payload: UpdateEventTeamInput,
 ) -> Result<Event, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_manage_access(state, event_id, user_id).await?;
     validate_event_team_name(&payload.name)?;
 
@@ -348,13 +334,12 @@ pub async fn update_event_team_for_headers(
     load_event(&state.pool, event_id).await
 }
 
-pub async fn assign_event_player_team_for_headers(
+pub async fn assign_event_player_team_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
     payload: AssignEventPlayerTeamInput,
 ) -> Result<Event, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_manage_access(state, event_id, user_id).await?;
 
     if !repo::event_player_exists(&state.pool, event_id, payload.player_id).await? {
@@ -391,14 +376,13 @@ pub async fn assign_event_player_team_for_headers(
     load_event(&state.pool, event_id).await
 }
 
-pub async fn set_matchup_for_headers(
+pub async fn set_matchup_for_user(
     state: &AppState,
-    headers: &HeaderMap,
+    user_id: Uuid,
     event_id: Uuid,
     match_id: Uuid,
     payload: SetMatchupInput,
 ) -> Result<Match, ApiError> {
-    let user_id = require_authenticated_user_id(state, headers)?;
     require_event_manage_access(state, event_id, user_id).await?;
 
     if !repo::event_match_exists(&state.pool, event_id, match_id).await? {

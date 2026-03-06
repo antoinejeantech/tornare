@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
+    features::auth::require_authenticated_user_id,
     shared::{
         errors::ApiResult,
         models::{
@@ -20,7 +21,8 @@ use crate::{
 use super::service;
 
 pub async fn list_events(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Vec<Event>> {
-    service::list_events_for_headers(&state, &headers).await.map(Json)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::list_events_for_user(&state, user_id).await.map(Json)
 }
 
 pub async fn get_event(
@@ -28,7 +30,8 @@ pub async fn get_event(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> ApiResult<Event> {
-    service::get_event_for_headers(&state, &headers, event_id)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::get_event_for_user(&state, user_id, event_id)
         .await
         .map(Json)
 }
@@ -38,7 +41,8 @@ pub async fn create_event(
     headers: HeaderMap,
     Json(payload): Json<CreateEventInput>,
 ) -> ApiResult<Event> {
-    service::create_event_for_headers(&state, &headers, payload)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::create_event_for_user(&state, user_id, payload)
         .await
         .map(Json)
 }
@@ -49,7 +53,8 @@ pub async fn update_event(
     headers: HeaderMap,
     Json(payload): Json<UpdateEventInput>,
 ) -> ApiResult<Event> {
-    service::update_event_for_headers(&state, &headers, event_id, payload)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::update_event_for_user(&state, user_id, event_id, payload)
         .await
         .map(Json)
 }
@@ -59,7 +64,8 @@ pub async fn delete_event(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> ApiResult<MessageResponse> {
-    service::delete_event_for_headers(&state, &headers, event_id)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::delete_event_for_user(&state, user_id, event_id)
         .await
         .map(Json)
 }
@@ -70,7 +76,8 @@ pub async fn create_event_match(
     headers: HeaderMap,
     Json(payload): Json<CreateEventMatchInput>,
 ) -> ApiResult<Match> {
-    service::create_event_match_for_headers(&state, &headers, event_id, payload)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::create_event_match_for_user(&state, user_id, event_id, payload)
         .await
         .map(Json)
 }
@@ -81,7 +88,8 @@ pub async fn add_event_player(
     headers: HeaderMap,
     Json(payload): Json<AddPlayerInput>,
 ) -> ApiResult<Event> {
-    service::add_event_player_for_headers(&state, &headers, event_id, payload)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::add_event_player_for_user(&state, user_id, event_id, payload)
         .await
         .map(Json)
 }
@@ -91,7 +99,8 @@ pub async fn delete_event_player(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> ApiResult<MessageResponse> {
-    service::delete_event_player_for_headers(&state, &headers, event_id, player_id)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::delete_event_player_for_user(&state, user_id, event_id, player_id)
         .await
         .map(Json)
 }
@@ -102,7 +111,8 @@ pub async fn update_event_player(
     headers: HeaderMap,
     Json(payload): Json<UpdateEventPlayerInput>,
 ) -> ApiResult<Event> {
-    service::update_event_player_for_headers(&state, &headers, event_id, player_id, payload)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::update_event_player_for_user(&state, user_id, event_id, player_id, payload)
         .await
         .map(Json)
 }
@@ -113,7 +123,8 @@ pub async fn create_event_team(
     headers: HeaderMap,
     Json(payload): Json<CreateEventTeamInput>,
 ) -> ApiResult<Event> {
-    service::create_event_team_for_headers(&state, &headers, event_id, payload)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::create_event_team_for_user(&state, user_id, event_id, payload)
         .await
         .map(Json)
 }
@@ -123,7 +134,8 @@ pub async fn delete_event_team(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> ApiResult<MessageResponse> {
-    service::delete_event_team_for_headers(&state, &headers, event_id, team_id)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::delete_event_team_for_user(&state, user_id, event_id, team_id)
         .await
         .map(Json)
 }
@@ -134,7 +146,8 @@ pub async fn update_event_team(
     headers: HeaderMap,
     Json(payload): Json<UpdateEventTeamInput>,
 ) -> ApiResult<Event> {
-    service::update_event_team_for_headers(&state, &headers, event_id, team_id, payload)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::update_event_team_for_user(&state, user_id, event_id, team_id, payload)
         .await
         .map(Json)
 }
@@ -145,7 +158,8 @@ pub async fn assign_event_player_team(
     headers: HeaderMap,
     Json(payload): Json<AssignEventPlayerTeamInput>,
 ) -> ApiResult<Event> {
-    service::assign_event_player_team_for_headers(&state, &headers, event_id, payload)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::assign_event_player_team_for_user(&state, user_id, event_id, payload)
         .await
         .map(Json)
 }
@@ -156,7 +170,8 @@ pub async fn set_matchup(
     headers: HeaderMap,
     Json(payload): Json<SetMatchupInput>,
 ) -> ApiResult<Match> {
-    service::set_matchup_for_headers(&state, &headers, event_id, match_id, payload)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::set_matchup_for_user(&state, user_id, event_id, match_id, payload)
         .await
         .map(Json)
 }

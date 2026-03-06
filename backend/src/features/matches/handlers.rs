@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
+    features::auth::require_authenticated_user_id,
     shared::{
         errors::ApiResult,
         models::{Match, MessageResponse},
@@ -16,7 +17,8 @@ use crate::{
 use super::service;
 
 pub async fn list_matches(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Vec<Match>> {
-    service::list_matches_for_headers(&state, &headers).await.map(Json)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::list_matches_for_user(&state, user_id).await.map(Json)
 }
 
 pub async fn get_match(
@@ -24,7 +26,8 @@ pub async fn get_match(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> ApiResult<Match> {
-    service::get_match_for_headers(&state, &headers, match_id)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::get_match_for_user(&state, user_id, match_id)
         .await
         .map(Json)
 }
@@ -34,7 +37,8 @@ pub async fn delete_match(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> ApiResult<MessageResponse> {
-    service::delete_match_for_headers(&state, &headers, match_id)
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::delete_match_for_user(&state, user_id, match_id)
         .await
         .map(Json)
 }
