@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { apiCall } from '../lib/api'
 import overwatchLogo from '../assets/ranks/overwatch-logo.png'
 import { formatEventStartDate } from '../lib/dates'
+import torbjornImage from '../assets/ranks/torbjorn.webp'
 
 const events = ref([])
 const loadingEvents = ref(false)
@@ -33,6 +34,7 @@ function eventStartLabel(event) {
 <template>
   <main class="app-shell">
     <section class="home-hero card">
+      <img class="home-hero-art" :src="torbjornImage" alt="Torbjorn hero art" />
       <p class="home-eyebrow">Community Match Ops</p>
       <h1 class="home-title">Run cleaner Overwatch events from signup to final matchup.</h1>
       <p class="home-subtitle muted">
@@ -95,10 +97,23 @@ function eventStartLabel(event) {
   position: relative;
   overflow: hidden;
   padding: 1.25rem;
+  padding-right: clamp(1.25rem, 25vw, 15.5rem);
   border-color: color-mix(in srgb, var(--brand-2) 38%, var(--line) 62%);
   background:
     radial-gradient(600px 220px at 85% 0%, color-mix(in srgb, var(--brand-1) 22%, transparent) 0%, transparent 70%),
     linear-gradient(145deg, color-mix(in srgb, var(--card) 86%, #e7f1ff 14%) 0%, var(--card) 100%);
+}
+
+.home-hero-art {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0;
+  width: clamp(120px, 24vw, 230px);
+  max-height: 95%;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 18px rgba(6, 16, 36, 0.35));
+  opacity: 0.95;
 }
 
 .home-eyebrow {
@@ -235,6 +250,18 @@ function eventStartLabel(event) {
 }
 
 @media (max-width: 980px) {
+  .home-hero {
+    padding-right: 1.25rem;
+    padding-bottom: 7.4rem;
+  }
+
+  .home-hero-art {
+    right: 50%;
+    transform: translateX(50%);
+    width: clamp(130px, 42vw, 210px);
+    opacity: 0.9;
+  }
+
   .home-grid {
     grid-template-columns: 1fr;
   }
