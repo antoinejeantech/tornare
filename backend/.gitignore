@@ -1,0 +1,10 @@
+# Rust build outputs
+/target/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Backend logs
+*.log
