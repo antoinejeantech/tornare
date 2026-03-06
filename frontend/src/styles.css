@@ -224,14 +224,17 @@ body {
 }
 
 .top-nav-user-action {
+  display: block;
   width: 100%;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-1) 12%);
   background: color-mix(in srgb, var(--card) 90%, #edf4ff 10%);
   color: var(--ink-1);
   text-align: left;
+  text-decoration: none;
   padding: 0.42rem 0.56rem;
   font-weight: 700;
+  cursor: pointer;
 }
 
 .top-nav-user-action:hover {

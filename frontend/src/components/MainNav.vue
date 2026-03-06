@@ -63,6 +63,7 @@ onMounted(() => {
             <span class="material-symbols-rounded" aria-hidden="true">expand_more</span>
           </button>
           <div class="top-nav-user-dropdown" role="menu" aria-label="User menu">
+            <RouterLink class="top-nav-user-action" to="/my-events">My Events</RouterLink>
             <button class="top-nav-user-action" type="button" @click="logout">Logout</button>
           </div>
         </div>

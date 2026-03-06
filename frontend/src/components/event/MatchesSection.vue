@@ -35,7 +35,8 @@ function openMatch(matchId) {
 <template>
   <section>
     <h3>Matches and Matchups</h3>
-    <form class="grid-form compact-form" @submit.prevent="ctx.createMatch">
+    <p v-if="!ctx.canManageEvent" class="muted">Read-only matches. Only the event owner can create matches or edit matchups.</p>
+    <form v-if="ctx.canManageEvent" class="grid-form compact-form" @submit.prevent="ctx.createMatch">
       <label>
         Match title
         <input v-model="ctx.newMatchTitle" placeholder="Match 1" />
@@ -67,20 +68,27 @@ function openMatch(matchId) {
           <span class="entry-title">{{ match.title }}</span>
           <span class="muted">{{ match.players.length }}/{{ match.max_players }} · {{ match.map }}</span>
           <div class="matchup-row" @click.stop>
-            <select v-model="ctx.matchupSelections[match.id].teamAId" :disabled="Boolean(ctx.savingMatchups[match.id])">
+            <select
+              v-model="ctx.matchupSelections[match.id].teamAId"
+              :disabled="!ctx.canManageEvent || Boolean(ctx.savingMatchups[match.id])"
+            >
               <option value="">Choose team</option>
               <option v-for="team in ctx.event.teams" :key="`a-${team.id}`" :value="String(team.id)">
                 {{ team.name }}
               </option>
             </select>
             <span class="muted">vs</span>
-            <select v-model="ctx.matchupSelections[match.id].teamBId" :disabled="Boolean(ctx.savingMatchups[match.id])">
+            <select
+              v-model="ctx.matchupSelections[match.id].teamBId"
+              :disabled="!ctx.canManageEvent || Boolean(ctx.savingMatchups[match.id])"
+            >
               <option value="">Choose team</option>
               <option v-for="team in ctx.event.teams" :key="`b-${team.id}`" :value="String(team.id)">
                 {{ team.name }}
               </option>
             </select>
             <button
+              v-if="ctx.canManageEvent"
               class="btn-secondary icon-btn"
               :disabled="Boolean(ctx.savingMatchups[match.id])"
               :title="ctx.savingMatchups[match.id] ? 'Saving matchup' : 'Save matchup'"
@@ -95,6 +103,7 @@ function openMatch(matchId) {
         </div>
         <div class="match-side-actions" @click.stop>
           <button
+            v-if="ctx.canManageEvent"
             class="btn-danger icon-btn"
             :disabled="ctx.deletingMatchId === match.id"
             :title="ctx.deletingMatchId === match.id ? 'Deleting match' : 'Delete match'"

@@ -51,6 +51,7 @@ const editEventMaxPlayers = ref(10)
 const activeSection = ref('overview')
 
 const eventId = computed(() => String(route.params.id || ''))
+const canManageEvent = computed(() => Boolean(event.value?.is_owner))
 
 const canCreateMatch = computed(() => {
   return (
@@ -91,6 +92,15 @@ function setNotice(message) {
 
 function resetFeedback() {
   // Global alerts are transient and don't require manual reset.
+}
+
+function ensureOwnerAction() {
+  if (canManageEvent.value) {
+    return true
+  }
+
+  setError('Only the event owner can modify this event.')
+  return false
 }
 
 function hydrateSelections() {
@@ -137,6 +147,10 @@ async function loadEvent() {
 }
 
 async function createTeam() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!eventId.value || !canCreateTeam.value || creatingTeam.value) {
     return
   }
@@ -159,6 +173,10 @@ async function createTeam() {
 }
 
 async function saveTeamEdit(teamId) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!eventId.value || !editTeamName.value.trim() || savingTeamEdits.value[teamId]) {
     return
   }
@@ -189,6 +207,10 @@ async function saveTeamEdit(teamId) {
 }
 
 async function deleteTeam(team) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!eventId.value || deletingTeams.value[team.id]) {
     return
   }
@@ -221,6 +243,10 @@ async function deleteTeam(team) {
 }
 
 async function addPlayer() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!eventId.value || !canAddPlayer.value || addingPlayer.value) {
     return
   }
@@ -255,6 +281,10 @@ async function addPlayer() {
 }
 
 async function savePlayerEdit(playerId) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!eventId.value || !editPlayerName.value.trim() || savingPlayerEdits.value[playerId]) {
     return
   }
@@ -291,6 +321,10 @@ async function savePlayerEdit(playerId) {
 }
 
 async function setPlayerTeam(playerId, teamId) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!eventId.value || savingPlayerTeams.value[playerId]) {
     return
   }
@@ -336,6 +370,10 @@ async function removePlayerFromTeam(playerId) {
 }
 
 async function removePlayer(player) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!eventId.value || deletingPlayers.value[player.id]) {
     return
   }
@@ -384,6 +422,10 @@ async function removePlayer(player) {
 }
 
 async function saveMatchup(matchId) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!eventId.value || savingMatchups.value[matchId]) {
     return
   }
@@ -426,6 +468,10 @@ async function saveMatchup(matchId) {
 }
 
 async function createMatch() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!eventId.value || !canCreateMatch.value || creatingMatch.value) {
     return
   }
@@ -465,6 +511,10 @@ async function createMatch() {
 }
 
 async function deleteMatch(matchId) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (deletingMatchId.value) {
     return
   }
@@ -497,6 +547,10 @@ async function deleteMatch(matchId) {
 }
 
 async function deleteEvent() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!event.value || deletingEvent.value) {
     return
   }
@@ -521,6 +575,10 @@ async function deleteEvent() {
 }
 
 function startEditEvent() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!event.value) {
     return
   }
@@ -535,6 +593,10 @@ function cancelEditEvent() {
 }
 
 async function saveEventEdit() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
   if (!event.value || updatingEvent.value || !canSaveEventMeta.value) {
     return
   }
@@ -611,6 +673,7 @@ provide('eventCtx', proxyRefs({
   canCreateTeam,
   canCreateMatch,
   canAddPlayer,
+  canManageEvent,
   openSection,
   createTeam,
   createMatch,
@@ -642,9 +705,10 @@ provide('eventCtx', proxyRefs({
     <section v-else-if="event" class="card event-workspace-card">
       <div class="event-header-row">
         <h2>{{ event.name }}</h2>
+        <p v-if="!canManageEvent" class="muted owner-note">Read-only view. Only the event owner can edit this event.</p>
         <div class="event-header-actions">
           <button
-            v-if="!editingEventMeta"
+            v-if="canManageEvent && !editingEventMeta"
             class="btn-secondary icon-btn"
             :disabled="updatingEvent"
             :title="updatingEvent ? 'Saving event' : 'Edit event details'"
@@ -656,7 +720,7 @@ provide('eventCtx', proxyRefs({
             <span class="sr-only">{{ updatingEvent ? 'Saving event' : 'Edit event details' }}</span>
           </button>
           <button
-            v-if="editingEventMeta"
+            v-if="canManageEvent && editingEventMeta"
             class="btn-primary icon-btn"
             :disabled="updatingEvent || !canSaveEventMeta"
             :title="updatingEvent ? 'Saving event' : 'Save event'"
@@ -668,7 +732,7 @@ provide('eventCtx', proxyRefs({
             <span class="sr-only">{{ updatingEvent ? 'Saving event' : 'Save event' }}</span>
           </button>
           <button
-            v-if="editingEventMeta"
+            v-if="canManageEvent && editingEventMeta"
             class="btn-secondary icon-btn"
             :disabled="updatingEvent"
             title="Cancel event edit"
@@ -678,7 +742,7 @@ provide('eventCtx', proxyRefs({
             <span class="sr-only">Cancel event edit</span>
           </button>
           <button
-            v-if="!editingEventMeta"
+            v-if="canManageEvent && !editingEventMeta"
             class="btn-danger icon-btn"
             :disabled="deletingEvent"
             :title="deletingEvent ? 'Deleting event' : 'Delete event'"

@@ -31,7 +31,8 @@ function cancelEditPlayer() {
 <template>
   <section>
     <h3>Roster</h3>
-    <form class="player-form compact-form" @submit.prevent="ctx.addPlayer">
+    <p v-if="!ctx.canManageEvent" class="muted">Read-only roster. Sign in as the owner to add or edit players.</p>
+    <form v-if="ctx.canManageEvent" class="player-form compact-form" @submit.prevent="ctx.addPlayer">
       <label>
         Player name
         <input v-model="ctx.newPlayerName" placeholder="Player123" />
@@ -88,7 +89,7 @@ function cancelEditPlayer() {
         </div>
         <div class="player-actions">
           <button
-            v-if="ctx.editingPlayerId === player.id"
+            v-if="ctx.canManageEvent && ctx.editingPlayerId === player.id"
             class="btn-primary icon-btn"
             :disabled="Boolean(ctx.savingPlayerEdits[player.id])"
             :title="ctx.savingPlayerEdits[player.id] ? 'Saving player' : 'Save player'"
@@ -100,7 +101,7 @@ function cancelEditPlayer() {
             <span class="sr-only">{{ ctx.savingPlayerEdits[player.id] ? 'Saving player' : 'Save player' }}</span>
           </button>
           <button
-            v-if="ctx.editingPlayerId === player.id"
+            v-if="ctx.canManageEvent && ctx.editingPlayerId === player.id"
             class="btn-secondary icon-btn"
             title="Cancel editing player"
             @click="cancelEditPlayer"
@@ -109,7 +110,7 @@ function cancelEditPlayer() {
             <span class="sr-only">Cancel editing player</span>
           </button>
           <button
-            v-else
+            v-if="ctx.canManageEvent && ctx.editingPlayerId !== player.id"
             class="btn-secondary icon-btn"
             title="Edit player"
             @click="startEditPlayer(player)"
@@ -118,7 +119,7 @@ function cancelEditPlayer() {
             <span class="sr-only">Edit player</span>
           </button>
           <button
-            v-if="ctx.editingPlayerId !== player.id"
+            v-if="ctx.canManageEvent && ctx.editingPlayerId !== player.id"
             class="btn-danger icon-btn"
             :disabled="Boolean(ctx.deletingPlayers[player.id])"
             :title="ctx.deletingPlayers[player.id] ? 'Removing player' : 'Remove player'"

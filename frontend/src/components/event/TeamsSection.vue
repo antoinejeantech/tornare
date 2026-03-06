@@ -68,7 +68,8 @@ function formatTeamAverageElo(teamId) {
 <template>
   <section>
     <h3>Teams</h3>
-    <form class="grid-form compact-form" @submit.prevent="ctx.createTeam">
+    <p v-if="!ctx.canManageEvent" class="muted">Read-only teams. Only the event owner can manage teams and assignments.</p>
+    <form v-if="ctx.canManageEvent" class="grid-form compact-form" @submit.prevent="ctx.createTeam">
       <label>
         Team name
         <input v-model="ctx.newTeamName" placeholder="Team Alpha" />
@@ -121,6 +122,7 @@ function formatTeamAverageElo(teamId) {
                 </span>
               </span>
               <button
+                v-if="ctx.canManageEvent"
                 class="btn-secondary icon-btn team-player-remove"
                 :disabled="Boolean(ctx.savingPlayerTeams[player.id])"
                 :title="ctx.savingPlayerTeams[player.id] ? 'Removing from team' : 'Remove from team'"
@@ -135,13 +137,17 @@ function formatTeamAverageElo(teamId) {
           </ul>
           <span v-else class="muted team-player-empty">No players assigned</span>
           <div class="team-assign-row">
-            <select v-model="ctx.teamAssignmentSelections[team.id]" :disabled="playersAssignableToTeam(team.id).length === 0">
+            <select
+              v-model="ctx.teamAssignmentSelections[team.id]"
+              :disabled="!ctx.canManageEvent || playersAssignableToTeam(team.id).length === 0"
+            >
               <option value="">Assign player to {{ team.name }}</option>
               <option v-for="player in playersAssignableToTeam(team.id)" :key="`assign-${team.id}-${player.id}`" :value="String(player.id)">
                 {{ player.name }} · {{ player.role }} · {{ player.rank }}
               </option>
             </select>
             <button
+              v-if="ctx.canManageEvent"
               class="btn-secondary icon-btn"
               :disabled="!ctx.teamAssignmentSelections[team.id]"
               title="Assign selected player"
@@ -154,7 +160,7 @@ function formatTeamAverageElo(teamId) {
         </div>
         <div class="team-actions">
           <button
-            v-if="ctx.editingTeamId !== team.id"
+            v-if="ctx.canManageEvent && ctx.editingTeamId !== team.id"
             class="btn-secondary icon-btn"
             title="Edit team"
             @click="startEditTeam(team)"
@@ -163,7 +169,7 @@ function formatTeamAverageElo(teamId) {
             <span class="sr-only">Edit team</span>
           </button>
           <button
-            v-if="ctx.editingTeamId !== team.id"
+            v-if="ctx.canManageEvent && ctx.editingTeamId !== team.id"
             class="btn-danger icon-btn"
             :disabled="Boolean(ctx.deletingTeams[team.id])"
             :title="ctx.deletingTeams[team.id] ? 'Deleting team' : 'Delete team'"

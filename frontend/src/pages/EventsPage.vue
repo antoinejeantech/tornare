@@ -2,8 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const events = ref([])
 const error = ref('')
@@ -17,6 +19,10 @@ const newEventType = ref('PUG')
 const newEventMaxPlayers = ref(10)
 
 const canCreateEvent = computed(() => {
+  if (!authStore.isAuthenticated) {
+    return false
+  }
+
   return (
     newEventName.value.trim().length > 0 &&
     Number.isInteger(Number(newEventMaxPlayers.value)) &&
@@ -133,7 +139,7 @@ onMounted(loadEvents)
     <p v-if="error" class="status status-error">{{ error }}</p>
     <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
-    <section class="card">
+    <section v-if="authStore.isAuthenticated" class="card">
       <h2>Create event</h2>
       <form class="grid-form" @submit.prevent="createEvent">
         <label>
@@ -157,6 +163,11 @@ onMounted(loadEvents)
       </form>
     </section>
 
+    <section v-else class="card">
+      <h2>Create event</h2>
+      <p class="muted">Sign in to create and manage your own events.</p>
+    </section>
+
     <section class="card">
       <h2>Events</h2>
       <p v-if="loadingEvents">Loading events...</p>
@@ -168,6 +179,7 @@ onMounted(loadEvents)
             <span class="muted">{{ event.event_type }} · {{ event.matches.length }} matches · {{ event.max_players }} players</span>
           </button>
           <button
+            v-if="authStore.isAuthenticated"
             class="btn-danger icon-btn"
             :disabled="deletingEventId === event.id"
             :title="deletingEventId === event.id ? 'Deleting event' : 'Delete event'"
