@@ -5,16 +5,12 @@ use crate::shared::errors::internal_error;
 
 pub async fn list_visible_event_ids(
     pool: &PgPool,
-    user_id: Uuid,
 ) -> Result<Vec<Uuid>, crate::shared::errors::ApiError> {
     let rows = sqlx::query(
         "SELECT e.id
          FROM events e
-         INNER JOIN event_memberships m ON m.event_id = e.id
-         WHERE m.user_id = $1
          ORDER BY e.id DESC",
     )
-    .bind(user_id)
     .fetch_all(pool)
     .await
     .map_err(internal_error)?;
@@ -101,3 +97,22 @@ pub async fn event_match_exists(
         .map_err(internal_error)?;
     Ok(row.is_some())
 }
+
+    pub async fn is_event_owner(
+        pool: &PgPool,
+        event_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<bool, crate::shared::errors::ApiError> {
+        let row = sqlx::query(
+            "SELECT id
+             FROM event_memberships
+             WHERE event_id = $1 AND user_id = $2 AND role = 'owner'",
+        )
+        .bind(event_id)
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(internal_error)?;
+
+        Ok(row.is_some())
+    }

@@ -2,9 +2,7 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
-    features::{
-        permissions::{require_event_manage_access, require_event_owner_access, require_event_view_access},
-    },
+    features::permissions::require_event_owner_access,
     shared::{
         db::{i32_to_u8, i32_to_usize, i64_to_usize, load_event, load_match},
         errors::{bad_request, internal_error, not_found, ApiError},
@@ -18,27 +16,36 @@ use crate::{
 
 use super::repo;
 
-pub async fn list_events_for_user(
+pub async fn list_events_public(
     state: &AppState,
-    user_id: Uuid,
+    viewer_user_id: Option<Uuid>,
 ) -> Result<Vec<Event>, ApiError> {
-    let event_ids = repo::list_visible_event_ids(&state.pool, user_id).await?;
+    let event_ids = repo::list_visible_event_ids(&state.pool).await?;
 
     let mut events = Vec::with_capacity(event_ids.len());
     for event_id in event_ids {
-        events.push(load_event(&state.pool, event_id).await?);
+        let mut event = load_event(&state.pool, event_id).await?;
+        event.is_owner = match viewer_user_id {
+            Some(user_id) => repo::is_event_owner(&state.pool, event_id, user_id).await?,
+            None => false,
+        };
+        events.push(event);
     }
 
     Ok(events)
 }
 
-pub async fn get_event_for_user(
+pub async fn get_event_public(
     state: &AppState,
-    user_id: Uuid,
     event_id: Uuid,
+    viewer_user_id: Option<Uuid>,
 ) -> Result<Event, ApiError> {
-    require_event_view_access(state, event_id, user_id).await?;
-    load_event(&state.pool, event_id).await
+    let mut event = load_event(&state.pool, event_id).await?;
+    event.is_owner = match viewer_user_id {
+        Some(user_id) => repo::is_event_owner(&state.pool, event_id, user_id).await?,
+        None => false,
+    };
+    Ok(event)
 }
 
 pub async fn create_event_for_user(
@@ -68,7 +75,9 @@ pub async fn create_event_for_user(
         .await
         .map_err(internal_error)?;
 
-    load_event(&state.pool, event_id).await
+    let mut event = load_event(&state.pool, event_id).await?;
+    event.is_owner = true;
+    Ok(event)
 }
 
 pub async fn update_event_for_user(
@@ -77,7 +86,7 @@ pub async fn update_event_for_user(
     event_id: Uuid,
     payload: UpdateEventInput,
 ) -> Result<Event, ApiError> {
-    require_event_manage_access(state, event_id, user_id).await?;
+    require_event_owner_access(state, event_id, user_id).await?;
     validate_update_event_input(&payload)?;
 
     let updated = sqlx::query(
@@ -95,7 +104,9 @@ pub async fn update_event_for_user(
         return Err(not_found("Event not found"));
     }
 
-    load_event(&state.pool, event_id).await
+    let mut event = load_event(&state.pool, event_id).await?;
+    event.is_owner = true;
+    Ok(event)
 }
 
 pub async fn delete_event_for_user(
@@ -126,7 +137,7 @@ pub async fn create_event_match_for_user(
     event_id: Uuid,
     payload: CreateEventMatchInput,
 ) -> Result<Match, ApiError> {
-    require_event_manage_access(state, event_id, user_id).await?;
+    require_event_owner_access(state, event_id, user_id).await?;
 
     let Some(max_players_i32) = repo::event_max_players(&state.pool, event_id).await? else {
         return Err(not_found("Event not found"));
@@ -147,7 +158,7 @@ pub async fn add_event_player_for_user(
     event_id: Uuid,
     payload: AddPlayerInput,
 ) -> Result<Event, ApiError> {
-    require_event_manage_access(state, event_id, user_id).await?;
+    require_event_owner_access(state, event_id, user_id).await?;
     validate_add_player_input(&payload)?;
 
     let Some(max_players_i32) = repo::event_max_players(&state.pool, event_id).await? else {
@@ -171,7 +182,9 @@ pub async fn add_event_player_for_user(
         .await
         .map_err(internal_error)?;
 
-    load_event(&state.pool, event_id).await
+    let mut event = load_event(&state.pool, event_id).await?;
+    event.is_owner = true;
+    Ok(event)
 }
 
 pub async fn delete_event_player_for_user(
@@ -180,7 +193,7 @@ pub async fn delete_event_player_for_user(
     event_id: Uuid,
     player_id: Uuid,
 ) -> Result<MessageResponse, ApiError> {
-    require_event_manage_access(state, event_id, user_id).await?;
+    require_event_owner_access(state, event_id, user_id).await?;
 
     if !repo::event_exists(&state.pool, event_id).await? {
         return Err(not_found("Event not found"));
@@ -209,7 +222,7 @@ pub async fn update_event_player_for_user(
     player_id: Uuid,
     payload: UpdateEventPlayerInput,
 ) -> Result<Event, ApiError> {
-    require_event_manage_access(state, event_id, user_id).await?;
+    require_event_owner_access(state, event_id, user_id).await?;
     validate_event_player_update_input(&payload)?;
 
     let updated = sqlx::query(
@@ -228,7 +241,9 @@ pub async fn update_event_player_for_user(
         return Err(not_found("Player not found in this event"));
     }
 
-    load_event(&state.pool, event_id).await
+    let mut event = load_event(&state.pool, event_id).await?;
+    event.is_owner = true;
+    Ok(event)
 }
 
 pub async fn create_event_team_for_user(
@@ -237,7 +252,7 @@ pub async fn create_event_team_for_user(
     event_id: Uuid,
     payload: CreateEventTeamInput,
 ) -> Result<Event, ApiError> {
-    require_event_manage_access(state, event_id, user_id).await?;
+    require_event_owner_access(state, event_id, user_id).await?;
 
     let name = payload.name.trim();
     if name.is_empty() {
@@ -259,7 +274,9 @@ pub async fn create_event_team_for_user(
         return Err(bad_request("Team name already exists in this event"));
     }
 
-    load_event(&state.pool, event_id).await
+    let mut event = load_event(&state.pool, event_id).await?;
+    event.is_owner = true;
+    Ok(event)
 }
 
 pub async fn delete_event_team_for_user(
@@ -268,7 +285,7 @@ pub async fn delete_event_team_for_user(
     event_id: Uuid,
     team_id: Uuid,
 ) -> Result<MessageResponse, ApiError> {
-    require_event_manage_access(state, event_id, user_id).await?;
+    require_event_owner_access(state, event_id, user_id).await?;
 
     if !repo::event_exists(&state.pool, event_id).await? {
         return Err(not_found("Event not found"));
@@ -311,7 +328,7 @@ pub async fn update_event_team_for_user(
     team_id: Uuid,
     payload: UpdateEventTeamInput,
 ) -> Result<Event, ApiError> {
-    require_event_manage_access(state, event_id, user_id).await?;
+    require_event_owner_access(state, event_id, user_id).await?;
     validate_event_team_name(&payload.name)?;
 
     let updated =
@@ -331,7 +348,9 @@ pub async fn update_event_team_for_user(
         return Err(not_found("Team not found in this event"));
     }
 
-    load_event(&state.pool, event_id).await
+    let mut event = load_event(&state.pool, event_id).await?;
+    event.is_owner = true;
+    Ok(event)
 }
 
 pub async fn assign_event_player_team_for_user(
@@ -340,7 +359,7 @@ pub async fn assign_event_player_team_for_user(
     event_id: Uuid,
     payload: AssignEventPlayerTeamInput,
 ) -> Result<Event, ApiError> {
-    require_event_manage_access(state, event_id, user_id).await?;
+    require_event_owner_access(state, event_id, user_id).await?;
 
     if !repo::event_player_exists(&state.pool, event_id, payload.player_id).await? {
         return Err(not_found("Player not found in this event"));
@@ -373,7 +392,9 @@ pub async fn assign_event_player_team_for_user(
             .map_err(internal_error)?;
     }
 
-    load_event(&state.pool, event_id).await
+    let mut event = load_event(&state.pool, event_id).await?;
+    event.is_owner = true;
+    Ok(event)
 }
 
 pub async fn set_matchup_for_user(
@@ -383,7 +404,7 @@ pub async fn set_matchup_for_user(
     match_id: Uuid,
     payload: SetMatchupInput,
 ) -> Result<Match, ApiError> {
-    require_event_manage_access(state, event_id, user_id).await?;
+    require_event_owner_access(state, event_id, user_id).await?;
 
     if !repo::event_match_exists(&state.pool, event_id, match_id).await? {
         return Err(not_found("Match not found in this event"));

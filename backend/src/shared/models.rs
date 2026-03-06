@@ -124,6 +124,7 @@ pub struct Event {
     pub id: Uuid,
     pub name: String,
     pub event_type: EventType,
+    pub is_owner: bool,
     pub max_players: u8,
     pub players: Vec<Player>,
     pub teams: Vec<EventTeam>,

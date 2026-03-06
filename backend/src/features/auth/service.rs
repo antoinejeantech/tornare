@@ -135,6 +135,10 @@ pub fn require_authenticated_user_id(state: &AppState, headers: &HeaderMap) -> R
     Uuid::parse_str(&token_data.claims.sub).map_err(|_| unauthorized("Invalid access token subject"))
 }
 
+pub fn maybe_authenticated_user_id(state: &AppState, headers: &HeaderMap) -> Option<Uuid> {
+    require_authenticated_user_id(state, headers).ok()
+}
+
 pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<AuthUser, ApiError> {
     let Some((id, email, display_name, is_active)) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
         return Err(unauthorized("User not found"));

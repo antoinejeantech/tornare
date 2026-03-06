@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
-    features::auth::require_authenticated_user_id,
+    features::auth::{maybe_authenticated_user_id, require_authenticated_user_id},
     shared::{
         errors::ApiResult,
         models::{
@@ -21,8 +21,8 @@ use crate::{
 use super::service;
 
 pub async fn list_events(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Vec<Event>> {
-    let user_id = require_authenticated_user_id(&state, &headers)?;
-    service::list_events_for_user(&state, user_id).await.map(Json)
+    let viewer_user_id = maybe_authenticated_user_id(&state, &headers);
+    service::list_events_public(&state, viewer_user_id).await.map(Json)
 }
 
 pub async fn get_event(
@@ -30,8 +30,8 @@ pub async fn get_event(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> ApiResult<Event> {
-    let user_id = require_authenticated_user_id(&state, &headers)?;
-    service::get_event_for_user(&state, user_id, event_id)
+    let viewer_user_id = maybe_authenticated_user_id(&state, &headers);
+    service::get_event_public(&state, event_id, viewer_user_id)
         .await
         .map(Json)
 }

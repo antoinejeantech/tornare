@@ -246,6 +246,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, ApiError
         id: db_id,
         name: row.get("name"),
         event_type,
+        is_owner: false,
         max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,
         players,
         teams,
