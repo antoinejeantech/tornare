@@ -1,12 +1,14 @@
 <script setup>
 import { computed, inject } from 'vue'
 import overwatchLogo from '../../assets/ranks/overwatch-logo.png'
+import { formatEventStartDate } from '../../lib/dates'
 
 const ctx = inject('eventCtx')
 
 const rosterCount = computed(() => ctx.event?.players.length || 0)
 const teamCount = computed(() => ctx.event?.teams.length || 0)
 const matchCount = computed(() => ctx.event?.matches.length || 0)
+const formattedStartDate = computed(() => formatEventStartDate(ctx.event?.start_date))
 
 const assignedCount = computed(() => {
   if (!ctx.event) {
@@ -59,6 +61,8 @@ function matchupLabel(match) {
       <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
       <span>Overview</span>
     </h3>
+    <p v-if="formattedStartDate" class="muted">{{ formattedStartDate }}</p>
+    <p v-if="ctx.event.description" class="overview-description muted">{{ ctx.event.description }}</p>
     <p class="muted">Quick snapshot of this event before you jump into roster, teams, or matches.</p>
 
     <div class="overview-kpis">
@@ -134,6 +138,11 @@ function matchupLabel(match) {
   height: 20px;
   object-fit: contain;
   flex: 0 0 auto;
+}
+
+.overview-description {
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 .overview-kpi {

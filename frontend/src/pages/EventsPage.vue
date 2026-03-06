@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import overwatchLogo from '../assets/ranks/overwatch-logo.png'
+import { formatEventStartDate } from '../lib/dates'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -16,6 +17,8 @@ const creatingEvent = ref(false)
 const deletingEventId = ref(null)
 
 const newEventName = ref('')
+const newEventDescription = ref('')
+const newEventStartDate = ref('')
 const newEventType = ref('PUG')
 const newEventMaxPlayers = ref(10)
 
@@ -26,6 +29,7 @@ const canCreateEvent = computed(() => {
 
   return (
     newEventName.value.trim().length > 0 &&
+    newEventDescription.value.trim().length <= 5000 &&
     Number.isInteger(Number(newEventMaxPlayers.value)) &&
     Number(newEventMaxPlayers.value) >= 2 &&
     Number(newEventMaxPlayers.value) <= 12
@@ -47,6 +51,11 @@ function setNotice(message) {
 
 function clearNotice() {
   notice.value = ''
+}
+
+function eventStartLabel(event) {
+  const formatted = formatEventStartDate(event?.start_date)
+  return formatted || ''
 }
 
 async function loadEvents() {
@@ -82,6 +91,8 @@ async function createEvent() {
       method: 'POST',
       body: JSON.stringify({
         name: newEventName.value.trim(),
+        description: newEventDescription.value.trim(),
+        start_date: newEventStartDate.value ? newEventStartDate.value : null,
         event_type: newEventType.value,
         max_players: Number(newEventMaxPlayers.value)
       })
@@ -89,6 +100,8 @@ async function createEvent() {
 
     events.value.unshift(created)
     newEventName.value = ''
+    newEventDescription.value = ''
+    newEventStartDate.value = ''
     newEventType.value = 'PUG'
     newEventMaxPlayers.value = 10
     setNotice('Event created successfully')
@@ -148,6 +161,14 @@ onMounted(loadEvents)
           <input v-model="newEventName" placeholder="Friday Night PUG" />
         </label>
         <label>
+          Description
+          <textarea v-model="newEventDescription" rows="4" placeholder="Rules, cashprize, check-in info..." />
+        </label>
+        <label>
+          Start date
+          <input v-model="newEventStartDate" type="datetime-local" />
+        </label>
+        <label>
           Event type
           <select v-model="newEventType">
             <option value="PUG">PUG</option>
@@ -180,7 +201,7 @@ onMounted(loadEvents)
               <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
               <span class="home-event-title">{{ event.name }}</span>
             </span>
-            <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }} · {{ event.matches.length }} matches · {{ event.players.length }}/{{ event.max_players }} players</span>
+            <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
           </button>
           <button
             v-if="authStore.isAuthenticated"

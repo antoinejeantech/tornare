@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { apiCall } from '../lib/api'
 import overwatchLogo from '../assets/ranks/overwatch-logo.png'
+import { formatEventStartDate } from '../lib/dates'
 
 const events = ref([])
 const loadingEvents = ref(false)
@@ -22,6 +23,11 @@ async function loadLatestEvents() {
 }
 
 onMounted(loadLatestEvents)
+
+function eventStartLabel(event) {
+  const formatted = formatEventStartDate(event?.start_date)
+  return formatted || ''
+}
 </script>
 
 <template>
@@ -71,7 +77,7 @@ onMounted(loadLatestEvents)
               <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
               <span class="home-latest-title">{{ event.name }}</span>
             </span>
-            <span class="muted">{{ event.event_type }} · {{ event.matches.length }} matches · {{ event.players.length }}/{{ event.max_players }} players</span>
+            <span class="muted">{{ event.event_type }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
           </RouterLink>
         </li>
       </ul>

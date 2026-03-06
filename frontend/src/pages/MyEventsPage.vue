@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import overwatchLogo from '../assets/ranks/overwatch-logo.png'
+import { formatEventStartDate } from '../lib/dates'
 
 const router = useRouter()
 
@@ -36,6 +37,11 @@ function goToAllEvents() {
   router.push({ name: 'events' })
 }
 
+function eventStartLabel(event) {
+  const formatted = formatEventStartDate(event?.start_date)
+  return formatted || ''
+}
+
 onMounted(loadMyEvents)
 </script>
 
@@ -63,7 +69,7 @@ onMounted(loadMyEvents)
               <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
               <span class="my-event-title">{{ event.name }}</span>
             </span>
-            <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }} · {{ event.matches.length }} matches · {{ event.players.length }}/{{ event.max_players }} players</span>
+            <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
           </button>
         </li>
       </ul>

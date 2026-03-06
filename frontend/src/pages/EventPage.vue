@@ -2,6 +2,7 @@
 import { computed, onMounted, provide, proxyRefs, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
+import { formatEventStartDate } from '../lib/dates'
 import { useAlert } from '../lib/alerts'
 import { useEventStore } from '../stores/event'
 import { useMatchStore } from '../stores/match'
@@ -53,11 +54,14 @@ const editTeamName = ref('')
 const teamAssignmentSelections = ref({})
 const matchupSelections = ref({})
 const editEventName = ref('')
+const editEventDescription = ref('')
+const editEventStartDate = ref('')
 const editEventMaxPlayers = ref(10)
 const activeSection = ref('overview')
 
 const eventId = computed(() => String(route.params.id || ''))
 const canManageEvent = computed(() => Boolean(event.value?.is_owner))
+const formattedEventStartDate = computed(() => formatEventStartDate(event.value?.start_date))
 const signupShareUrl = computed(() => {
   if (!signupToken.value) {
     return ''
@@ -725,6 +729,8 @@ function startEditEvent() {
   }
 
   editEventName.value = event.value.name
+  editEventDescription.value = event.value.description || ''
+  editEventStartDate.value = event.value.start_date || ''
   editEventMaxPlayers.value = Number(event.value.max_players)
   editingEventMeta.value = true
 }
@@ -750,6 +756,8 @@ async function saveEventEdit() {
 
     const updatedEvent = await eventStore.updateEvent(eventId.value, {
       name: editEventName.value.trim(),
+      description: editEventDescription.value.trim(),
+      start_date: editEventStartDate.value ? editEventStartDate.value : null,
       event_type: payloadType,
       max_players: editEventMaxPlayers.value,
     })
@@ -911,6 +919,14 @@ provide('eventCtx', proxyRefs({
           <input v-model="editEventName" placeholder="Event name" />
         </label>
         <label>
+          Description
+          <textarea v-model="editEventDescription" rows="4" placeholder="Rules, cashprize, check-in info..." />
+        </label>
+        <label>
+          Start date
+          <input v-model="editEventStartDate" type="datetime-local" />
+        </label>
+        <label>
           Max players
           <input v-model.number="editEventMaxPlayers" type="number" min="2" max="12" step="1" />
         </label>
@@ -918,10 +934,12 @@ provide('eventCtx', proxyRefs({
       <div class="event-meta-row">
         <span class="meta-chip">{{ event.event_type }}</span>
         <span class="meta-chip">by {{ event.creator_name || 'Unknown' }}</span>
+        <span v-if="formattedEventStartDate" class="meta-chip">{{ formattedEventStartDate }}</span>
         <span class="meta-chip">{{ event.players.length }}/{{ event.max_players }} players</span>
         <span class="meta-chip">{{ event.teams.length }} teams</span>
         <span class="meta-chip">{{ event.matches.length }} matches</span>
       </div>
+      <p v-if="event.description" class="event-description muted">{{ event.description }}</p>
 
       <div class="event-layout">
         <aside class="event-left-nav" aria-label="Event sections">
@@ -983,7 +1001,7 @@ provide('eventCtx', proxyRefs({
 
 .event-edit-form {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.7fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   gap: 0.5rem;
   margin: 0.55rem 0 0.7rem;
 }
@@ -998,6 +1016,11 @@ provide('eventCtx', proxyRefs({
   flex-wrap: wrap;
   gap: 0.48rem;
   margin-bottom: 0.75rem;
+}
+
+.event-description {
+  margin: 0 0 0.75rem;
+  white-space: pre-wrap;
 }
 
 .meta-chip {
