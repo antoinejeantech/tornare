@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
-import overwatchLogo from '../assets/ranks/overwatch-logo.png'
+import overwatchLogo from '../assets/branding/overwatch-logo.png'
 import { formatEventStartDate } from '../lib/dates'
 
 const router = useRouter()

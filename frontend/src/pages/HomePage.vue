@@ -2,9 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { apiCall } from '../lib/api'
-import overwatchLogo from '../assets/ranks/overwatch-logo.png'
+import overwatchLogo from '../assets/branding/overwatch-logo.png'
 import { formatEventStartDate } from '../lib/dates'
-import torbjornImage from '../assets/ranks/torbjorn.webp'
+import torbjornImage from '../assets/branding/torbjorn.webp'
 
 const events = ref([])
 const loadingEvents = ref(false)

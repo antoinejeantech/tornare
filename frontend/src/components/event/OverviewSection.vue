@@ -1,6 +1,6 @@
 <script setup>
 import { computed, inject } from 'vue'
-import overwatchLogo from '../../assets/ranks/overwatch-logo.png'
+import overwatchLogo from '../../assets/branding/overwatch-logo.png'
 import { formatEventStartDate } from '../../lib/dates'
 
 const ctx = inject('eventCtx')
