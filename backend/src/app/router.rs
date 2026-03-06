@@ -1,5 +1,8 @@
 use axum::{
-    http::{header::{AUTHORIZATION, CONTENT_TYPE}, Method},
+    http::{
+        header::{AUTHORIZATION, CONTENT_TYPE},
+        Method,
+    },
     routing::{get, post, put},
     Router,
 };
@@ -13,7 +16,13 @@ use crate::{
 pub fn build_app(state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
         .allow_headers([CONTENT_TYPE, AUTHORIZATION]);
 
     Router::new()
@@ -61,6 +70,30 @@ pub fn build_app(state: AppState) -> Router {
         .route(
             "/api/events/:event_id/matches/:match_id/matchup",
             post(events::set_matchup),
+        )
+        .route(
+            "/api/events/:event_id/signup-link",
+            get(events::get_event_signup_link),
+        )
+        .route(
+            "/api/events/:event_id/signup-requests",
+            get(events::list_event_signup_requests),
+        )
+        .route(
+            "/api/events/:event_id/signup-requests/:request_id/accept",
+            post(events::accept_event_signup_request),
+        )
+        .route(
+            "/api/events/:event_id/signup-requests/:request_id/decline",
+            post(events::decline_event_signup_request),
+        )
+        .route(
+            "/api/public/event-signups/:signup_token",
+            get(events::get_public_signup_info),
+        )
+        .route(
+            "/api/public/event-signups/:signup_token/requests",
+            post(events::create_public_signup_request),
         )
         .route("/api/matches", get(matches::list_matches))
         .route(

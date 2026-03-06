@@ -195,6 +195,37 @@ pub struct UpdateEventPlayerInput {
     pub rank: String,
 }
 
+#[derive(Deserialize)]
+pub struct CreateEventSignupRequestInput {
+    pub name: String,
+    pub role: String,
+    pub rank: String,
+}
+
+#[derive(Serialize)]
+pub struct EventSignupRequest {
+    pub id: Uuid,
+    pub event_id: Uuid,
+    pub name: String,
+    pub role: String,
+    pub rank: String,
+    pub status: String,
+}
+
+#[derive(Serialize)]
+pub struct EventSignupLinkResponse {
+    pub signup_token: String,
+}
+
+#[derive(Serialize)]
+pub struct PublicEventSignupInfo {
+    pub event_id: Uuid,
+    pub event_name: String,
+    pub event_type: EventType,
+    pub max_players: u8,
+    pub current_players: usize,
+}
+
 #[cfg(test)]
 mod tests {
     use super::EventType;
@@ -202,7 +233,10 @@ mod tests {
     #[test]
     fn event_type_try_from_roundtrip() {
         assert!(matches!(EventType::try_from("PUG"), Ok(EventType::Pug)));
-        assert!(matches!(EventType::try_from("TOURNEY"), Ok(EventType::Tourney)));
+        assert!(matches!(
+            EventType::try_from("TOURNEY"),
+            Ok(EventType::Tourney)
+        ));
         assert!(EventType::try_from("OTHER").is_err());
     }
 }

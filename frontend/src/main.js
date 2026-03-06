@@ -12,6 +12,7 @@ import AboutPage from './pages/AboutPage.vue'
 import NewsPage from './pages/NewsPage.vue'
 import AuthPage from './pages/AuthPage.vue'
 import MyEventsPage from './pages/MyEventsPage.vue'
+import JoinEventPage from './pages/JoinEventPage.vue'
 
 const pinia = createPinia()
 
@@ -25,6 +26,7 @@ const router = createRouter({
 		{ path: '/auth', name: 'auth', component: AuthPage },
 		{ path: '/my-events', name: 'my-events', component: MyEventsPage, meta: { requiresAuth: true } },
 		{ path: '/events/:id', name: 'event', component: EventPage },
+		{ path: '/join/:token', name: 'join-event', component: JoinEventPage },
 		{ path: '/matches/:id', name: 'match', component: MatchPage, meta: { requiresAuth: true } }
 	]
 })

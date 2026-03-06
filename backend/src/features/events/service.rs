@@ -8,8 +8,10 @@ use crate::{
         errors::{bad_request, internal_error, not_found, ApiError},
         models::{
             AddPlayerInput, AssignEventPlayerTeamInput, CreateEventInput, CreateEventMatchInput,
-            CreateEventTeamInput, CreateMatchInput, Event, Match, MessageResponse, SetMatchupInput,
-            UpdateEventInput, UpdateEventPlayerInput, UpdateEventTeamInput, OVERWATCH_RANKS,
+            CreateEventSignupRequestInput, CreateEventTeamInput, CreateMatchInput, Event,
+            EventSignupLinkResponse, EventSignupRequest, Match, MessageResponse,
+            PublicEventSignupInfo, SetMatchupInput, UpdateEventInput, UpdateEventPlayerInput,
+            UpdateEventTeamInput, OVERWATCH_RANKS,
         },
     },
 };
@@ -56,24 +58,31 @@ pub async fn create_event_for_user(
     validate_create_event_input(&payload)?;
 
     let event_id = Uuid::new_v4();
+    let signup_token = Uuid::new_v4().to_string();
 
-    sqlx::query("INSERT INTO events (id, name, event_type, max_players) VALUES ($1, $2, $3, $4)")
-        .bind(event_id)
-        .bind(payload.name.trim())
-        .bind(payload.event_type.as_db_value())
-        .bind(i32::from(payload.max_players))
-        .execute(&state.pool)
-        .await
-        .map_err(internal_error)?;
+    sqlx::query(
+        "INSERT INTO events (id, name, event_type, max_players, signup_token)
+         VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(event_id)
+    .bind(payload.name.trim())
+    .bind(payload.event_type.as_db_value())
+    .bind(i32::from(payload.max_players))
+    .bind(signup_token)
+    .execute(&state.pool)
+    .await
+    .map_err(internal_error)?;
 
-    sqlx::query("INSERT INTO event_memberships (id, event_id, user_id, role) VALUES ($1, $2, $3, $4)")
-        .bind(Uuid::new_v4())
-        .bind(event_id)
-        .bind(user_id)
-        .bind("owner")
-        .execute(&state.pool)
-        .await
-        .map_err(internal_error)?;
+    sqlx::query(
+        "INSERT INTO event_memberships (id, event_id, user_id, role) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(event_id)
+    .bind(user_id)
+    .bind("owner")
+    .execute(&state.pool)
+    .await
+    .map_err(internal_error)?;
 
     let mut event = load_event(&state.pool, event_id).await?;
     event.is_owner = true;
@@ -166,25 +175,176 @@ pub async fn add_event_player_for_user(
     };
 
     let max_players = i32_to_usize(max_players_i32, "max_players")?;
-    let current_count = i64_to_usize(repo::count_event_players(&state.pool, event_id).await?, "player count")?;
+    let current_count = i64_to_usize(
+        repo::count_event_players(&state.pool, event_id).await?,
+        "player count",
+    )?;
 
     if current_count >= max_players {
         return Err(bad_request("Event roster is already full"));
     }
 
-    sqlx::query("INSERT INTO event_players (id, event_id, name, role, rank) VALUES ($1, $2, $3, $4, $5)")
-        .bind(Uuid::new_v4())
-        .bind(event_id)
-        .bind(payload.name.trim())
-        .bind(payload.role.trim())
-        .bind(payload.rank.trim())
-        .execute(&state.pool)
-        .await
-        .map_err(internal_error)?;
+    sqlx::query(
+        "INSERT INTO event_players (id, event_id, name, role, rank) VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(event_id)
+    .bind(payload.name.trim())
+    .bind(payload.role.trim())
+    .bind(payload.rank.trim())
+    .execute(&state.pool)
+    .await
+    .map_err(internal_error)?;
 
     let mut event = load_event(&state.pool, event_id).await?;
     event.is_owner = true;
     Ok(event)
+}
+
+pub async fn get_event_signup_link_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+) -> Result<EventSignupLinkResponse, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    let Some(signup_token) = repo::signup_token_for_event(&state.pool, event_id).await? else {
+        return Err(not_found("Event not found"));
+    };
+
+    Ok(EventSignupLinkResponse { signup_token })
+}
+
+pub async fn get_public_signup_info(
+    state: &AppState,
+    signup_token: &str,
+) -> Result<PublicEventSignupInfo, ApiError> {
+    let Some(info) = repo::event_signup_info_by_token(&state.pool, signup_token).await? else {
+        return Err(not_found("Signup link not found"));
+    };
+
+    Ok(info)
+}
+
+pub async fn create_public_signup_request(
+    state: &AppState,
+    signup_token: &str,
+    payload: CreateEventSignupRequestInput,
+) -> Result<MessageResponse, ApiError> {
+    validate_signup_request_input(&payload)?;
+
+    let Some(info) = repo::event_signup_info_by_token(&state.pool, signup_token).await? else {
+        return Err(not_found("Signup link not found"));
+    };
+
+    if info.current_players >= usize::from(info.max_players) {
+        return Err(bad_request("Event roster is already full"));
+    }
+
+    let clean_name = payload.name.trim();
+    if repo::has_pending_signup_request_with_name(&state.pool, info.event_id, clean_name).await? {
+        return Err(bad_request(
+            "A signup request with this name is already pending",
+        ));
+    }
+
+    repo::create_signup_request(
+        &state.pool,
+        info.event_id,
+        clean_name,
+        payload.role.trim(),
+        payload.rank.trim(),
+    )
+    .await?;
+
+    Ok(MessageResponse {
+        message: "Signup request sent".to_string(),
+    })
+}
+
+pub async fn list_signup_requests_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+) -> Result<Vec<EventSignupRequest>, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    if !repo::event_exists(&state.pool, event_id).await? {
+        return Err(not_found("Event not found"));
+    }
+
+    repo::list_signup_requests_for_event(&state.pool, event_id).await
+}
+
+pub async fn accept_signup_request_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+    request_id: Uuid,
+) -> Result<Event, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    let Some(request) = repo::get_signup_request(&state.pool, event_id, request_id).await? else {
+        return Err(not_found("Signup request not found"));
+    };
+
+    if request.status != "pending" {
+        return Err(bad_request("This signup request has already been reviewed"));
+    }
+
+    let Some(max_players_i32) = repo::event_max_players(&state.pool, event_id).await? else {
+        return Err(not_found("Event not found"));
+    };
+
+    let max_players = i32_to_usize(max_players_i32, "max_players")?;
+    let current_count = i64_to_usize(
+        repo::count_event_players(&state.pool, event_id).await?,
+        "player count",
+    )?;
+    if current_count >= max_players {
+        return Err(bad_request("Event roster is already full"));
+    }
+
+    sqlx::query(
+        "INSERT INTO event_players (id, event_id, name, role, rank) VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(event_id)
+    .bind(request.name)
+    .bind(request.role)
+    .bind(request.rank)
+    .execute(&state.pool)
+    .await
+    .map_err(internal_error)?;
+
+    let updated_count =
+        repo::update_signup_request_status(&state.pool, event_id, request_id, "accepted").await?;
+    if updated_count == 0 {
+        return Err(bad_request("This signup request has already been reviewed"));
+    }
+
+    let mut event = load_event(&state.pool, event_id).await?;
+    event.is_owner = true;
+    Ok(event)
+}
+
+pub async fn decline_signup_request_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+    request_id: Uuid,
+) -> Result<MessageResponse, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    let updated_count =
+        repo::update_signup_request_status(&state.pool, event_id, request_id, "declined").await?;
+    if updated_count == 0 {
+        return Err(not_found("Pending signup request not found"));
+    }
+
+    Ok(MessageResponse {
+        message: "Signup request declined".to_string(),
+    })
 }
 
 pub async fn delete_event_player_for_user(
@@ -199,12 +359,13 @@ pub async fn delete_event_player_for_user(
         return Err(not_found("Event not found"));
     }
 
-    let deleted = sqlx::query("DELETE FROM event_players WHERE id = $1 AND event_id = $2 RETURNING id")
-        .bind(player_id)
-        .bind(event_id)
-        .fetch_optional(&state.pool)
-        .await
-        .map_err(internal_error)?;
+    let deleted =
+        sqlx::query("DELETE FROM event_players WHERE id = $1 AND event_id = $2 RETURNING id")
+            .bind(player_id)
+            .bind(event_id)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(internal_error)?;
 
     if deleted.is_none() {
         return Err(not_found("Player not found in this event"));
@@ -291,12 +452,13 @@ pub async fn delete_event_team_for_user(
         return Err(not_found("Event not found"));
     }
 
-    let deleted = sqlx::query("DELETE FROM event_teams WHERE id = $1 AND event_id = $2 RETURNING id")
-        .bind(team_id)
-        .bind(event_id)
-        .fetch_optional(&state.pool)
-        .await
-        .map_err(internal_error)?;
+    let deleted =
+        sqlx::query("DELETE FROM event_teams WHERE id = $1 AND event_id = $2 RETURNING id")
+            .bind(team_id)
+            .bind(event_id)
+            .fetch_optional(&state.pool)
+            .await
+            .map_err(internal_error)?;
 
     if deleted.is_none() {
         return Err(not_found("Team not found in this event"));
@@ -331,13 +493,14 @@ pub async fn update_event_team_for_user(
     require_event_owner_access(state, event_id, user_id).await?;
     validate_event_team_name(&payload.name)?;
 
-    let updated =
-        sqlx::query("UPDATE event_teams SET name = $1 WHERE id = $2 AND event_id = $3 RETURNING id")
-            .bind(payload.name.trim())
-            .bind(team_id)
-            .bind(event_id)
-            .fetch_optional(&state.pool)
-            .await;
+    let updated = sqlx::query(
+        "UPDATE event_teams SET name = $1 WHERE id = $2 AND event_id = $3 RETURNING id",
+    )
+    .bind(payload.name.trim())
+    .bind(team_id)
+    .bind(event_id)
+    .fetch_optional(&state.pool)
+    .await;
 
     let updated = match updated {
         Ok(value) => value,
@@ -432,11 +595,13 @@ pub async fn set_matchup_for_user(
                 .map_err(internal_error)?;
         }
         (None, None) => {
-            sqlx::query("UPDATE event_matches SET team_a_id = NULL, team_b_id = NULL WHERE id = $1")
-                .bind(match_id)
-                .execute(&state.pool)
-                .await
-                .map_err(internal_error)?;
+            sqlx::query(
+                "UPDATE event_matches SET team_a_id = NULL, team_b_id = NULL WHERE id = $1",
+            )
+            .bind(match_id)
+            .execute(&state.pool)
+            .await
+            .map_err(internal_error)?;
         }
         _ => return Err(bad_request("Provide both teams or clear both")),
     }
@@ -549,4 +714,14 @@ fn validate_event_team_name(name: &str) -> Result<(), ApiError> {
     }
 
     Ok(())
+}
+
+fn validate_signup_request_input(payload: &CreateEventSignupRequestInput) -> Result<(), ApiError> {
+    let add_player_shape = AddPlayerInput {
+        name: payload.name.clone(),
+        role: payload.role.clone(),
+        rank: payload.rank.clone(),
+    };
+
+    validate_add_player_input(&add_player_shape)
 }

@@ -9,6 +9,7 @@ import RosterSection from '../components/event/RosterSection.vue'
 import TeamsSection from '../components/event/TeamsSection.vue'
 import MatchesSection from '../components/event/MatchesSection.vue'
 import OverviewSection from '../components/event/OverviewSection.vue'
+import SignupRequestsSection from '../components/event/SignupRequestsSection.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,6 +32,10 @@ const savingPlayerTeams = ref({})
 const savingPlayerEdits = ref({})
 const savingTeamEdits = ref({})
 const savingMatchups = ref({})
+const loadingSignupRequests = ref(false)
+const signupRequests = ref([])
+const reviewingSignupRequests = ref({})
+const signupToken = ref('')
 
 const newMatchTitle = ref('')
 const newMatchMap = ref('')
@@ -52,6 +57,17 @@ const activeSection = ref('overview')
 
 const eventId = computed(() => String(route.params.id || ''))
 const canManageEvent = computed(() => Boolean(event.value?.is_owner))
+const signupShareUrl = computed(() => {
+  if (!signupToken.value) {
+    return ''
+  }
+
+  if (typeof window === 'undefined') {
+    return `/join/${signupToken.value}`
+  }
+
+  return `${window.location.origin}/join/${signupToken.value}`
+})
 
 const canCreateMatch = computed(() => {
   return (
@@ -138,11 +154,109 @@ async function loadEvent() {
     resetFeedback()
     event.value = await eventStore.fetchEvent(eventId.value)
     hydrateSelections()
+    if (event.value?.is_owner) {
+      await loadOwnerSignupData()
+    } else {
+      signupToken.value = ''
+      signupRequests.value = []
+    }
   } catch (err) {
     event.value = null
     setError(err instanceof Error ? err.message : 'Failed to load event')
   } finally {
     loadingEvent.value = false
+  }
+}
+
+async function loadOwnerSignupData() {
+  if (!eventId.value || !canManageEvent.value) {
+    return
+  }
+
+  loadingSignupRequests.value = true
+  try {
+    const [linkResponse, requests] = await Promise.all([
+      eventStore.fetchSignupLink(eventId.value),
+      eventStore.listSignupRequests(eventId.value),
+    ])
+
+    signupToken.value = linkResponse.signup_token || ''
+    signupRequests.value = Array.isArray(requests) ? requests : []
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to load signup requests')
+  } finally {
+    loadingSignupRequests.value = false
+  }
+}
+
+async function copySignupLink() {
+  if (!signupShareUrl.value) {
+    return
+  }
+
+  try {
+    await navigator.clipboard.writeText(signupShareUrl.value)
+    setNotice('Signup link copied')
+  } catch {
+    setError('Could not copy signup link')
+  }
+}
+
+async function acceptSignupRequest(requestId) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || reviewingSignupRequests.value[requestId]) {
+    return
+  }
+
+  reviewingSignupRequests.value = {
+    ...reviewingSignupRequests.value,
+    [requestId]: true,
+  }
+
+  try {
+    const updatedEvent = await eventStore.acceptSignupRequest(eventId.value, requestId)
+    event.value = updatedEvent
+    hydrateSelections()
+    await loadOwnerSignupData()
+    setNotice('Signup request accepted')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to accept signup request')
+  } finally {
+    reviewingSignupRequests.value = {
+      ...reviewingSignupRequests.value,
+      [requestId]: false,
+    }
+  }
+}
+
+async function declineSignupRequest(requestId) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || reviewingSignupRequests.value[requestId]) {
+    return
+  }
+
+  reviewingSignupRequests.value = {
+    ...reviewingSignupRequests.value,
+    [requestId]: true,
+  }
+
+  try {
+    await eventStore.declineSignupRequest(eventId.value, requestId)
+    await loadOwnerSignupData()
+    setNotice('Signup request declined')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to decline signup request')
+  } finally {
+    reviewingSignupRequests.value = {
+      ...reviewingSignupRequests.value,
+      [requestId]: false,
+    }
   }
 }
 
@@ -674,6 +788,10 @@ provide('eventCtx', proxyRefs({
   canCreateMatch,
   canAddPlayer,
   canManageEvent,
+  signupRequests,
+  loadingSignupRequests,
+  reviewingSignupRequests,
+  signupShareUrl,
   openSection,
   createTeam,
   createMatch,
@@ -687,6 +805,9 @@ provide('eventCtx', proxyRefs({
   savePlayerEdit,
   addPlayer,
   removePlayer,
+  copySignupLink,
+  acceptSignupRequest,
+  declineSignupRequest,
   getRankIcon,
   overwatchRanks,
 }))
@@ -779,13 +900,16 @@ provide('eventCtx', proxyRefs({
           <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="activeSection = 'roster'">Roster</button>
           <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="activeSection = 'teams'">Teams</button>
           <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="activeSection = 'matches'">Matches</button>
+          <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'requests' }" @click="activeSection = 'requests'">Requests</button>
         </aside>
 
         <section class="event-panel">
           <OverviewSection v-if="activeSection === 'overview'" />
           <RosterSection v-else-if="activeSection === 'roster'" />
           <TeamsSection v-else-if="activeSection === 'teams'" />
-          <MatchesSection v-else />
+          <MatchesSection v-else-if="activeSection === 'matches'" />
+          <SignupRequestsSection v-else-if="activeSection === 'requests' && canManageEvent" />
+          <OverviewSection v-else />
         </section>
       </div>
 

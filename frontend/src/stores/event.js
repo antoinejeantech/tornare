@@ -60,5 +60,30 @@ export const useEventStore = defineStore('event', {
         }),
       })
     },
+    fetchSignupLink(eventId) {
+      return apiCall(`/api/events/${eventId}/signup-link`)
+    },
+    listSignupRequests(eventId) {
+      return apiCall(`/api/events/${eventId}/signup-requests`)
+    },
+    acceptSignupRequest(eventId, requestId) {
+      return apiCall(`/api/events/${eventId}/signup-requests/${requestId}/accept`, {
+        method: 'POST',
+      })
+    },
+    declineSignupRequest(eventId, requestId) {
+      return apiCall(`/api/events/${eventId}/signup-requests/${requestId}/decline`, {
+        method: 'POST',
+      })
+    },
+    fetchPublicSignupInfo(signupToken) {
+      return apiCall(`/api/public/event-signups/${signupToken}`)
+    },
+    submitPublicSignupRequest(signupToken, payload) {
+      return apiCall(`/api/public/event-signups/${signupToken}/requests`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+    },
   },
 })

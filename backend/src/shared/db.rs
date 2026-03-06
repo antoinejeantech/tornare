@@ -1,8 +1,6 @@
-use crate::{
-    shared::{
-        errors::{bad_request, internal_error, not_found, ApiError},
-        models::{Event, EventTeam, EventType, Match, Player},
-    },
+use crate::shared::{
+    errors::{bad_request, internal_error, not_found, ApiError},
+    models::{Event, EventTeam, EventType, Match, Player},
 };
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
@@ -70,6 +68,17 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
     .execute(pool)
     .await?;
 
+    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS signup_token TEXT")
+        .execute(pool)
+        .await?;
+
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_events_signup_token
+         ON events(signup_token)",
+    )
+    .execute(pool)
+    .await?;
+
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS event_players (
             id UUID PRIMARY KEY,
@@ -130,6 +139,37 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
     )
     .execute(pool)
     .await?;
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS event_signup_requests (
+            id UUID PRIMARY KEY,
+            event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            rank TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'declined')),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )",
+    )
+    .execute(pool)
+    .await?;
+
+    let event_token_rows = sqlx::query(
+        "SELECT id
+         FROM events
+         WHERE signup_token IS NULL OR signup_token = ''",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    for row in event_token_rows {
+        let event_id: Uuid = row.get("id");
+        sqlx::query("UPDATE events SET signup_token = $1 WHERE id = $2")
+            .bind(Uuid::new_v4().to_string())
+            .bind(event_id)
+            .execute(pool)
+            .await?;
+    }
 
     // Legacy data backfill: ensure every event has an owner membership so creator metadata resolves.
     let orphan_event_rows = sqlx::query(
@@ -278,10 +318,10 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, ApiError
          LEFT JOIN users u ON u.id = m.user_id
          WHERE e.id = $1",
     )
-        .bind(event_id)
-        .fetch_optional(pool)
-        .await
-        .map_err(internal_error)?;
+    .bind(event_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
 
     let Some(row) = row else {
         return Err(not_found("Event not found"));
@@ -308,7 +348,10 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, ApiError
     })
 }
 
-pub async fn load_event_players_for_event(pool: &PgPool, event_id: Uuid) -> Result<Vec<Player>, ApiError> {
+pub async fn load_event_players_for_event(
+    pool: &PgPool,
+    event_id: Uuid,
+) -> Result<Vec<Player>, ApiError> {
     let rows = sqlx::query(
         "SELECT
             ep.id,
@@ -343,12 +386,16 @@ pub async fn load_event_players_for_event(pool: &PgPool, event_id: Uuid) -> Resu
     Ok(players)
 }
 
-pub async fn load_event_teams_for_event(pool: &PgPool, event_id: Uuid) -> Result<Vec<EventTeam>, ApiError> {
-    let team_rows = sqlx::query("SELECT id, name FROM event_teams WHERE event_id = $1 ORDER BY id ASC")
-        .bind(event_id)
-        .fetch_all(pool)
-        .await
-        .map_err(internal_error)?;
+pub async fn load_event_teams_for_event(
+    pool: &PgPool,
+    event_id: Uuid,
+) -> Result<Vec<EventTeam>, ApiError> {
+    let team_rows =
+        sqlx::query("SELECT id, name FROM event_teams WHERE event_id = $1 ORDER BY id ASC")
+            .bind(event_id)
+            .fetch_all(pool)
+            .await
+            .map_err(internal_error)?;
 
     let mut teams = Vec::with_capacity(team_rows.len());
     for row in team_rows {

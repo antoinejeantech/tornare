@@ -12,17 +12,23 @@ use crate::{
         errors::ApiResult,
         models::{
             AddPlayerInput, AssignEventPlayerTeamInput, CreateEventInput, CreateEventMatchInput,
-            CreateEventTeamInput, Event, Match, MessageResponse, SetMatchupInput, UpdateEventInput,
-            UpdateEventPlayerInput, UpdateEventTeamInput,
+            CreateEventSignupRequestInput, CreateEventTeamInput, Event, EventSignupLinkResponse,
+            EventSignupRequest, Match, MessageResponse, PublicEventSignupInfo, SetMatchupInput,
+            UpdateEventInput, UpdateEventPlayerInput, UpdateEventTeamInput,
         },
     },
 };
 
 use super::service;
 
-pub async fn list_events(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Vec<Event>> {
+pub async fn list_events(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Vec<Event>> {
     let viewer_user_id = maybe_authenticated_user_id(&state, &headers);
-    service::list_events_public(&state, viewer_user_id).await.map(Json)
+    service::list_events_public(&state, viewer_user_id)
+        .await
+        .map(Json)
 }
 
 pub async fn get_event(
@@ -172,6 +178,69 @@ pub async fn set_matchup(
 ) -> ApiResult<Match> {
     let user_id = require_authenticated_user_id(&state, &headers)?;
     service::set_matchup_for_user(&state, user_id, event_id, match_id, payload)
+        .await
+        .map(Json)
+}
+
+pub async fn get_event_signup_link(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<EventSignupLinkResponse> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::get_event_signup_link_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
+pub async fn list_event_signup_requests(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Vec<EventSignupRequest>> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::list_signup_requests_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
+pub async fn accept_event_signup_request(
+    Path((event_id, request_id)): Path<(Uuid, Uuid)>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Event> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::accept_signup_request_for_user(&state, user_id, event_id, request_id)
+        .await
+        .map(Json)
+}
+
+pub async fn decline_event_signup_request(
+    Path((event_id, request_id)): Path<(Uuid, Uuid)>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<MessageResponse> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::decline_signup_request_for_user(&state, user_id, event_id, request_id)
+        .await
+        .map(Json)
+}
+
+pub async fn get_public_signup_info(
+    Path(signup_token): Path<String>,
+    State(state): State<AppState>,
+) -> ApiResult<PublicEventSignupInfo> {
+    service::get_public_signup_info(&state, &signup_token)
+        .await
+        .map(Json)
+}
+
+pub async fn create_public_signup_request(
+    Path(signup_token): Path<String>,
+    State(state): State<AppState>,
+    Json(payload): Json<CreateEventSignupRequestInput>,
+) -> ApiResult<MessageResponse> {
+    service::create_public_signup_request(&state, &signup_token, payload)
         .await
         .map(Json)
 }
