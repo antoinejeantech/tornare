@@ -63,6 +63,11 @@ export const useEventStore = defineStore('event', {
     fetchSignupLink(eventId) {
       return apiCall(`/api/events/${eventId}/signup-link`)
     },
+    rotateSignupLink(eventId) {
+      return apiCall(`/api/events/${eventId}/signup-link/rotate`, {
+        method: 'POST',
+      })
+    },
     listSignupRequests(eventId) {
       return apiCall(`/api/events/${eventId}/signup-requests`)
     },

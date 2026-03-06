@@ -215,6 +215,25 @@ pub async fn get_event_signup_link_for_user(
     Ok(EventSignupLinkResponse { signup_token })
 }
 
+pub async fn rotate_event_signup_link_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+) -> Result<EventSignupLinkResponse, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    let new_token = Uuid::new_v4().to_string();
+    let updated = repo::rotate_signup_token_for_event(&state.pool, event_id, &new_token).await?;
+
+    if !updated {
+        return Err(not_found("Event not found"));
+    }
+
+    Ok(EventSignupLinkResponse {
+        signup_token: new_token,
+    })
+}
+
 pub async fn get_public_signup_info(
     state: &AppState,
     signup_token: &str,
@@ -683,8 +702,16 @@ fn validate_add_player_input(payload: &AddPlayerInput) -> Result<(), ApiError> {
         return Err(bad_request("Player name is required"));
     }
 
+    if name.len() > 60 {
+        return Err(bad_request("Player name must be 60 characters or fewer"));
+    }
+
     if role.is_empty() {
         return Err(bad_request("Player role is required"));
+    }
+
+    if !matches!(role, "Tank" | "DPS" | "Support") {
+        return Err(bad_request("Role must be Tank, DPS, or Support"));
     }
 
     if rank.is_empty() {

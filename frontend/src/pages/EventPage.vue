@@ -36,6 +36,7 @@ const loadingSignupRequests = ref(false)
 const signupRequests = ref([])
 const reviewingSignupRequests = ref({})
 const signupToken = ref('')
+const rotatingSignupLink = ref(false)
 
 const newMatchTitle = ref('')
 const newMatchMap = ref('')
@@ -199,6 +200,32 @@ async function copySignupLink() {
     setNotice('Signup link copied')
   } catch {
     setError('Could not copy signup link')
+  }
+}
+
+async function rotateSignupLink() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || rotatingSignupLink.value) {
+    return
+  }
+
+  const confirmed = window.confirm('Rotate signup link? The current shared link will stop working immediately.')
+  if (!confirmed) {
+    return
+  }
+
+  rotatingSignupLink.value = true
+  try {
+    const response = await eventStore.rotateSignupLink(eventId.value)
+    signupToken.value = response.signup_token || ''
+    setNotice('Signup link rotated')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to rotate signup link')
+  } finally {
+    rotatingSignupLink.value = false
   }
 }
 
@@ -791,6 +818,7 @@ provide('eventCtx', proxyRefs({
   signupRequests,
   loadingSignupRequests,
   reviewingSignupRequests,
+  rotatingSignupLink,
   signupShareUrl,
   openSection,
   createTeam,
@@ -806,6 +834,7 @@ provide('eventCtx', proxyRefs({
   addPlayer,
   removePlayer,
   copySignupLink,
+  rotateSignupLink,
   acceptSignupRequest,
   declineSignupRequest,
   getRankIcon,

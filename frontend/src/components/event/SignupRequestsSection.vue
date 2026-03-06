@@ -22,8 +22,11 @@ const reviewedRequests = computed(() => {
       <p class="muted">Share this public link so players can request to join this event.</p>
       <div class="signup-link-row">
         <input :value="ctx.signupShareUrl || ''" readonly placeholder="Loading signup link..." />
-        <button class="btn-secondary" :disabled="!ctx.signupShareUrl" @click="ctx.copySignupLink">
+        <button class="btn-secondary" :disabled="!ctx.signupShareUrl || ctx.rotatingSignupLink" @click="ctx.copySignupLink">
           Copy link
+        </button>
+        <button class="btn-danger" :disabled="ctx.rotatingSignupLink" @click="ctx.rotateSignupLink">
+          {{ ctx.rotatingSignupLink ? 'Rotating...' : 'Rotate link' }}
         </button>
       </div>
     </div>
@@ -87,7 +90,7 @@ const reviewedRequests = computed(() => {
 
 .signup-link-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.5rem;
 }
 

@@ -132,6 +132,21 @@ pub async fn signup_token_for_event(
     Ok(row.map(|value| value.get("signup_token")))
 }
 
+pub async fn rotate_signup_token_for_event(
+    pool: &PgPool,
+    event_id: Uuid,
+    signup_token: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let result = sqlx::query("UPDATE events SET signup_token = $1 WHERE id = $2")
+        .bind(signup_token)
+        .bind(event_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(result.rows_affected() > 0)
+}
+
 pub async fn event_signup_info_by_token(
     pool: &PgPool,
     signup_token: &str,
