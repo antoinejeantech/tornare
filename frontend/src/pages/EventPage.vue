@@ -767,6 +767,7 @@ provide('eventCtx', proxyRefs({
       </form>
       <div class="event-meta-row">
         <span class="meta-chip">{{ event.event_type }}</span>
+        <span class="meta-chip">by {{ event.creator_name || 'Unknown' }}</span>
         <span class="meta-chip">{{ event.players.length }}/{{ event.max_players }} players</span>
         <span class="meta-chip">{{ event.teams.length }} teams</span>
         <span class="meta-chip">{{ event.matches.length }} matches</span>

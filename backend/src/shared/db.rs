@@ -131,6 +131,48 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
     .execute(pool)
     .await?;
 
+    // Legacy data backfill: ensure every event has an owner membership so creator metadata resolves.
+    let orphan_event_rows = sqlx::query(
+        "SELECT e.id
+         FROM events e
+         LEFT JOIN event_memberships m ON m.event_id = e.id AND m.role = 'owner'
+         WHERE m.id IS NULL",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    if !orphan_event_rows.is_empty() {
+        let fallback_owner_row = sqlx::query(
+            "SELECT id
+             FROM users
+             WHERE is_active = TRUE
+             ORDER BY created_at ASC
+             LIMIT 1",
+        )
+        .fetch_optional(pool)
+        .await?;
+
+        if let Some(fallback_owner_row) = fallback_owner_row {
+            let fallback_owner_id: Uuid = fallback_owner_row.get("id");
+
+            for orphan_event_row in orphan_event_rows {
+                let orphan_event_id: Uuid = orphan_event_row.get("id");
+
+                sqlx::query(
+                    "INSERT INTO event_memberships (id, event_id, user_id, role)
+                     VALUES ($1, $2, $3, $4)
+                     ON CONFLICT (event_id, user_id) DO NOTHING",
+                )
+                .bind(Uuid::new_v4())
+                .bind(orphan_event_id)
+                .bind(fallback_owner_id)
+                .bind("owner")
+                .execute(pool)
+                .await?;
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -224,7 +266,18 @@ pub async fn load_matches_for_event(pool: &PgPool, event_id: Uuid) -> Result<Vec
 }
 
 pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, ApiError> {
-    let row = sqlx::query("SELECT id, name, event_type, max_players FROM events WHERE id = $1")
+    let row = sqlx::query(
+        "SELECT
+            e.id,
+            e.name,
+            e.event_type,
+            e.max_players,
+            u.display_name AS creator_name
+         FROM events e
+         LEFT JOIN event_memberships m ON m.event_id = e.id AND m.role = 'owner'
+         LEFT JOIN users u ON u.id = m.user_id
+         WHERE e.id = $1",
+    )
         .bind(event_id)
         .fetch_optional(pool)
         .await
@@ -247,6 +300,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, ApiError
         name: row.get("name"),
         event_type,
         is_owner: false,
+        creator_name: row.get("creator_name"),
         max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,
         players,
         teams,
