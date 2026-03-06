@@ -67,7 +67,7 @@ onMounted(loadLatestEvents)
         <li v-for="event in latestEvents" :key="event.id" class="home-latest-item">
           <RouterLink class="home-latest-link" :to="{ name: 'event', params: { id: event.id } }">
             <span class="home-latest-title">{{ event.name }}</span>
-            <span class="muted">{{ event.event_type }} · {{ event.matches.length }} matches · {{ event.max_players }} players</span>
+            <span class="muted">{{ event.event_type }} · {{ event.matches.length }} matches · {{ event.players.length }}/{{ event.max_players }} players</span>
           </RouterLink>
         </li>
       </ul>

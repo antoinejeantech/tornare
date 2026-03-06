@@ -176,7 +176,7 @@ onMounted(loadEvents)
         <li v-for="event in events" :key="event.id" class="home-event-row">
           <button class="home-event-select" @click="openEvent(event.id)">
             <span class="home-event-title">{{ event.name }}</span>
-            <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }} · {{ event.matches.length }} matches · {{ event.max_players }} players</span>
+            <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }} · {{ event.matches.length }} matches · {{ event.players.length }}/{{ event.max_players }} players</span>
           </button>
           <button
             v-if="authStore.isAuthenticated"

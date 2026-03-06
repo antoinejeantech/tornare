@@ -59,7 +59,7 @@ onMounted(loadMyEvents)
         <li v-for="event in ownedEvents" :key="event.id" class="my-event-row">
           <button class="my-event-select" @click="openEvent(event.id)">
             <span class="my-event-title">{{ event.name }}</span>
-            <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }} · {{ event.matches.length }} matches · {{ event.max_players }} players</span>
+            <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }} · {{ event.matches.length }} matches · {{ event.players.length }}/{{ event.max_players }} players</span>
           </button>
         </li>
       </ul>
