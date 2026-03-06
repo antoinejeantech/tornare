@@ -1,6 +1,8 @@
 use crate::{
-    errors::{bad_request, internal_error, not_found, ApiError},
-    models::{Event, EventTeam, EventType, Match, Player},
+    shared::{
+        errors::{bad_request, internal_error, not_found, ApiError},
+        models::{Event, EventTeam, EventType, Match, Player},
+    },
 };
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
@@ -149,7 +151,7 @@ pub async fn load_match(pool: &PgPool, match_id: Uuid) -> Result<Match, ApiError
          LEFT JOIN event_teams tb ON tb.id = g.team_b_id
          WHERE g.id = $1",
     )
-        .bind(match_id)
+    .bind(match_id)
     .fetch_optional(pool)
     .await
     .map_err(internal_error)?;
@@ -222,12 +224,11 @@ pub async fn load_matches_for_event(pool: &PgPool, event_id: Uuid) -> Result<Vec
 }
 
 pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, ApiError> {
-    let row =
-        sqlx::query("SELECT id, name, event_type, max_players FROM events WHERE id = $1")
-            .bind(event_id)
-            .fetch_optional(pool)
-            .await
-            .map_err(internal_error)?;
+    let row = sqlx::query("SELECT id, name, event_type, max_players FROM events WHERE id = $1")
+        .bind(event_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(internal_error)?;
 
     let Some(row) = row else {
         return Err(not_found("Event not found"));
@@ -235,8 +236,8 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, ApiError
 
     let db_id: Uuid = row.get("id");
     let db_event_type: String = row.get("event_type");
-    let event_type =
-        EventType::try_from(db_event_type.as_str()).map_err(|_| bad_request("Invalid event type value in database"))?;
+    let event_type = EventType::try_from(db_event_type.as_str())
+        .map_err(|_| bad_request("Invalid event type value in database"))?;
     let players = load_event_players_for_event(pool, db_id).await?;
     let teams = load_event_teams_for_event(pool, db_id).await?;
     let matches = load_matches_for_event(pool, db_id).await?;

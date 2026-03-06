@@ -5,7 +5,10 @@ use axum::{
 };
 use tower_http::cors::{Any, CorsLayer};
 
-use crate::{handlers, state::AppState};
+use crate::{
+    app::state::AppState,
+    features::{auth, events, matches, system},
+};
 
 pub fn build_app(state: AppState) -> Router {
     let cors = CorsLayer::new()
@@ -14,55 +17,55 @@ pub fn build_app(state: AppState) -> Router {
         .allow_headers([CONTENT_TYPE, AUTHORIZATION]);
 
     Router::new()
-        .route("/health", get(handlers::health))
-        .route("/api/hello", get(handlers::hello))
-        .route("/api/auth/register", post(handlers::register))
-        .route("/api/auth/login", post(handlers::login))
-        .route("/api/auth/me", get(handlers::me))
-        .route("/api/auth/refresh", post(handlers::refresh))
-        .route("/api/auth/logout", post(handlers::logout))
+        .route("/health", get(system::health))
+        .route("/api/hello", get(system::hello))
+        .route("/api/auth/register", post(auth::register))
+        .route("/api/auth/login", post(auth::login))
+        .route("/api/auth/me", get(auth::me))
+        .route("/api/auth/refresh", post(auth::refresh))
+        .route("/api/auth/logout", post(auth::logout))
         .route(
             "/api/events",
-            get(handlers::list_events).post(handlers::create_event),
+            get(events::list_events).post(events::create_event),
         )
         .route(
             "/api/events/:event_id",
-            get(handlers::get_event)
-                .put(handlers::update_event)
-                .delete(handlers::delete_event),
+            get(events::get_event)
+                .put(events::update_event)
+                .delete(events::delete_event),
         )
         .route(
             "/api/events/:event_id/matches",
-            post(handlers::create_event_match),
+            post(events::create_event_match),
         )
         .route(
             "/api/events/:event_id/players",
-            post(handlers::add_event_player),
+            post(events::add_event_player),
         )
         .route(
             "/api/events/:event_id/players/:player_id",
-            put(handlers::update_event_player).delete(handlers::delete_event_player),
+            put(events::update_event_player).delete(events::delete_event_player),
         )
         .route(
             "/api/events/:event_id/teams",
-            post(handlers::create_event_team),
+            post(events::create_event_team),
         )
         .route(
             "/api/events/:event_id/teams/:team_id",
-            put(handlers::update_event_team).delete(handlers::delete_event_team),
+            put(events::update_event_team).delete(events::delete_event_team),
         )
         .route(
             "/api/events/:event_id/team-members",
-            post(handlers::assign_event_player_team),
+            post(events::assign_event_player_team),
         )
         .route(
             "/api/events/:event_id/matches/:match_id/matchup",
-            post(handlers::set_matchup),
+            post(events::set_matchup),
         )
-        .route("/api/matches", get(handlers::list_matches))
+        .route("/api/matches", get(matches::list_matches))
         .route(
             "/api/matches/:match_id",
-            get(handlers::get_match).delete(handlers::delete_match),
+            get(matches::get_match).delete(matches::delete_match),
         )
         .with_state(state)
         .layer(cors)

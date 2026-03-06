@@ -1,14 +1,10 @@
-mod db;
-mod errors;
-mod handlers;
-mod models;
-mod router;
-mod state;
+mod app;
+mod features;
+mod shared;
 
-use db::init_schema;
-use router::build_app;
+use app::{router::build_app, state::AppState};
+use shared::db::init_schema;
 use sqlx::postgres::PgPoolOptions;
-use state::AppState;
 use std::env;
 
 #[tokio::main]
