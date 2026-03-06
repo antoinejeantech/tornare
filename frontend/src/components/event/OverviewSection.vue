@@ -1,5 +1,6 @@
 <script setup>
 import { computed, inject } from 'vue'
+import overwatchLogo from '../../assets/ranks/overwatch-logo.png'
 
 const ctx = inject('eventCtx')
 
@@ -54,7 +55,10 @@ function matchupLabel(match) {
 
 <template>
   <section>
-    <h3>Overview</h3>
+    <h3 class="overview-title">
+      <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
+      <span>Overview</span>
+    </h3>
     <p class="muted">Quick snapshot of this event before you jump into roster, teams, or matches.</p>
 
     <div class="overview-kpis">
@@ -116,6 +120,20 @@ function matchupLabel(match) {
   gap: 0.5rem;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 0.7rem;
+}
+
+.overview-title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.overwatch-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
 .overview-kpi {

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
+import overwatchLogo from '../assets/ranks/overwatch-logo.png'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -175,7 +176,10 @@ onMounted(loadEvents)
       <ul v-else class="home-events-list">
         <li v-for="event in events" :key="event.id" class="home-event-row">
           <button class="home-event-select" @click="openEvent(event.id)">
-            <span class="home-event-title">{{ event.name }}</span>
+            <span class="event-title-wrap">
+              <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
+              <span class="home-event-title">{{ event.name }}</span>
+            </span>
             <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }} · {{ event.matches.length }} matches · {{ event.players.length }}/{{ event.max_players }} players</span>
           </button>
           <button
@@ -234,5 +238,18 @@ onMounted(loadEvents)
   color: var(--ink-1);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.event-title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.overwatch-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 </style>

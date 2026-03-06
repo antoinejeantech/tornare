@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { apiCall } from '../lib/api'
+import overwatchLogo from '../assets/ranks/overwatch-logo.png'
 
 const events = ref([])
 const loadingEvents = ref(false)
@@ -66,7 +67,10 @@ onMounted(loadLatestEvents)
       <ul v-else class="home-latest-list">
         <li v-for="event in latestEvents" :key="event.id" class="home-latest-item">
           <RouterLink class="home-latest-link" :to="{ name: 'event', params: { id: event.id } }">
-            <span class="home-latest-title">{{ event.name }}</span>
+            <span class="home-latest-title-wrap">
+              <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
+              <span class="home-latest-title">{{ event.name }}</span>
+            </span>
             <span class="muted">{{ event.event_type }} · {{ event.matches.length }} matches · {{ event.players.length }}/{{ event.max_players }} players</span>
           </RouterLink>
         </li>
@@ -205,6 +209,19 @@ onMounted(loadLatestEvents)
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.home-latest-title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.overwatch-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
 .home-banner p {
