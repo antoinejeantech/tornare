@@ -59,13 +59,16 @@ pub async fn create_event_for_user(
 
     let event_id = Uuid::new_v4();
     let signup_token = Uuid::new_v4().to_string();
+    let normalized_start_date = normalize_optional_string(&payload.start_date);
 
     sqlx::query(
-        "INSERT INTO events (id, name, event_type, max_players, signup_token)
-         VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO events (id, name, description, start_date, event_type, max_players, signup_token)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)",
     )
     .bind(event_id)
     .bind(payload.name.trim())
+    .bind(payload.description.trim())
+    .bind(normalized_start_date)
     .bind(payload.event_type.as_db_value())
     .bind(i32::from(payload.max_players))
     .bind(signup_token)
@@ -97,11 +100,17 @@ pub async fn update_event_for_user(
 ) -> Result<Event, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
     validate_update_event_input(&payload)?;
+    let normalized_start_date = normalize_optional_string(&payload.start_date);
 
     let updated = sqlx::query(
-        "UPDATE events SET name = $1, event_type = $2, max_players = $3 WHERE id = $4 RETURNING id",
+        "UPDATE events
+         SET name = $1, description = $2, start_date = $3, event_type = $4, max_players = $5
+         WHERE id = $6
+         RETURNING id",
     )
     .bind(payload.name.trim())
+    .bind(payload.description.trim())
+    .bind(normalized_start_date)
     .bind(payload.event_type.as_db_value())
     .bind(i32::from(payload.max_players))
     .bind(event_id)
@@ -649,9 +658,26 @@ fn validate_create_match_input(payload: &CreateMatchInput) -> Result<(), ApiErro
 
 fn validate_create_event_input(payload: &CreateEventInput) -> Result<(), ApiError> {
     let name = payload.name.trim();
+    let description = payload.description.trim();
 
     if name.is_empty() {
         return Err(bad_request("Event name is required"));
+    }
+
+    if name.len() > 120 {
+        return Err(bad_request("Event name must be 120 characters or fewer"));
+    }
+
+    if description.len() > 5000 {
+        return Err(bad_request(
+            "Event description must be 5000 characters or fewer",
+        ));
+    }
+
+    if let Some(start_date) = normalize_optional_string(&payload.start_date) {
+        if start_date.len() > 40 {
+            return Err(bad_request("Event start date is too long"));
+        }
     }
 
     if !(2..=12).contains(&payload.max_players) {
@@ -664,11 +690,20 @@ fn validate_create_event_input(payload: &CreateEventInput) -> Result<(), ApiErro
 fn validate_update_event_input(payload: &UpdateEventInput) -> Result<(), ApiError> {
     let create_shape = CreateEventInput {
         name: payload.name.clone(),
+        description: payload.description.clone(),
+        start_date: payload.start_date.clone(),
         event_type: payload.event_type.clone(),
         max_players: payload.max_players,
     };
 
     validate_create_event_input(&create_shape)
+}
+
+fn normalize_optional_string(value: &Option<String>) -> Option<String> {
+    value
+        .as_ref()
+        .map(|text| text.trim().to_string())
+        .filter(|text| !text.is_empty())
 }
 
 async fn create_match_record(

@@ -123,6 +123,8 @@ pub struct EventTeam {
 pub struct Event {
     pub id: Uuid,
     pub name: String,
+    pub description: String,
+    pub start_date: Option<String>,
     pub event_type: EventType,
     pub is_owner: bool,
     pub creator_name: Option<String>,
@@ -135,6 +137,8 @@ pub struct Event {
 #[derive(Deserialize)]
 pub struct CreateEventInput {
     pub name: String,
+    pub description: String,
+    pub start_date: Option<String>,
     pub event_type: EventType,
     pub max_players: u8,
 }
@@ -142,6 +146,8 @@ pub struct CreateEventInput {
 #[derive(Deserialize)]
 pub struct UpdateEventInput {
     pub name: String,
+    pub description: String,
+    pub start_date: Option<String>,
     pub event_type: EventType,
     pub max_players: u8,
 }

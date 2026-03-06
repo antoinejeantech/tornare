@@ -61,12 +61,22 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
         "CREATE TABLE IF NOT EXISTS events (
             id UUID PRIMARY KEY,
             name TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            start_date TEXT,
             event_type TEXT NOT NULL CHECK (event_type IN ('PUG', 'TOURNEY')),
             max_players INTEGER NOT NULL CHECK (max_players BETWEEN 2 AND 12)
         )",
     )
     .execute(pool)
     .await?;
+
+    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''")
+        .execute(pool)
+        .await?;
+
+    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS start_date TEXT")
+        .execute(pool)
+        .await?;
 
     sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS signup_token TEXT")
         .execute(pool)
@@ -310,6 +320,8 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, ApiError
         "SELECT
             e.id,
             e.name,
+            e.description,
+            e.start_date,
             e.event_type,
             e.max_players,
             u.display_name AS creator_name
@@ -338,6 +350,8 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, ApiError
     Ok(Event {
         id: db_id,
         name: row.get("name"),
+        description: row.get("description"),
+        start_date: row.get("start_date"),
         event_type,
         is_owner: false,
         creator_name: row.get("creator_name"),
