@@ -1,7 +1,7 @@
 use axum::{extract::State, http::HeaderMap, Json};
 
 use crate::{
-    app::state::AppState,
+    app::{security::enforce_rate_limit, state::AppState},
     shared::{
         errors::ApiResult,
         models::{AuthResponse, AuthUser, LoginInput, LogoutInput, MessageResponse, RefreshInput, RegisterInput},
@@ -12,15 +12,19 @@ use super::service;
 
 pub async fn register(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(payload): Json<RegisterInput>,
 ) -> ApiResult<AuthResponse> {
+    enforce_rate_limit(&state.rate_limiter, &headers, "auth_register", 10, 60).await?;
     service::register_user(&state, payload).await.map(Json)
 }
 
 pub async fn login(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(payload): Json<LoginInput>,
 ) -> ApiResult<AuthResponse> {
+    enforce_rate_limit(&state.rate_limiter, &headers, "auth_login", 20, 60).await?;
     service::login_user(&state, payload).await.map(Json)
 }
 
@@ -32,8 +36,10 @@ pub async fn me(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<
 
 pub async fn refresh(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(payload): Json<RefreshInput>,
 ) -> ApiResult<AuthResponse> {
+    enforce_rate_limit(&state.rate_limiter, &headers, "auth_refresh", 30, 60).await?;
     service::refresh_auth(&state, &payload.refresh_token).await.map(Json)
 }
 

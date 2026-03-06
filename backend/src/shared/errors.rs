@@ -32,6 +32,15 @@ pub fn forbidden(message: &str) -> ApiError {
     )
 }
 
+pub fn too_many_requests(message: &str) -> ApiError {
+    (
+        StatusCode::TOO_MANY_REQUESTS,
+        Json(ErrorResponse {
+            error: message.to_string(),
+        }),
+    )
+}
+
 pub fn not_found(message: &str) -> ApiError {
     (
         StatusCode::NOT_FOUND,

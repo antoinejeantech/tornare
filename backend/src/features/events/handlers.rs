@@ -6,7 +6,7 @@ use axum::{
 use uuid::Uuid;
 
 use crate::{
-    app::state::AppState,
+    app::{security::enforce_rate_limit, state::AppState},
     features::auth::{maybe_authenticated_user_id, require_authenticated_user_id},
     shared::{
         errors::ApiResult,
@@ -193,6 +193,17 @@ pub async fn get_event_signup_link(
         .map(Json)
 }
 
+pub async fn rotate_event_signup_link(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<EventSignupLinkResponse> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::rotate_event_signup_link_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
 pub async fn list_event_signup_requests(
     Path(event_id): Path<Uuid>,
     State(state): State<AppState>,
@@ -238,8 +249,18 @@ pub async fn get_public_signup_info(
 pub async fn create_public_signup_request(
     Path(signup_token): Path<String>,
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(payload): Json<CreateEventSignupRequestInput>,
 ) -> ApiResult<MessageResponse> {
+    enforce_rate_limit(
+        &state.rate_limiter,
+        &headers,
+        "public_event_signup_request",
+        8,
+        60,
+    )
+    .await?;
+
     service::create_public_signup_request(&state, &signup_token, payload)
         .await
         .map(Json)
