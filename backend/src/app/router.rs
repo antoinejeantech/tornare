@@ -48,70 +48,70 @@ pub fn build_app(state: AppState) -> Router {
             get(events::list_events).post(events::create_event),
         )
         .route(
-            "/api/events/:event_id",
+            "/api/events/{event_id}",
             get(events::get_event)
                 .put(events::update_event)
                 .delete(events::delete_event),
         )
         .route(
-            "/api/events/:event_id/matches",
+            "/api/events/{event_id}/matches",
             post(events::create_event_match),
         )
         .route(
-            "/api/events/:event_id/players",
+            "/api/events/{event_id}/players",
             post(events::add_event_player),
         )
         .route(
-            "/api/events/:event_id/players/:player_id",
+            "/api/events/{event_id}/players/{player_id}",
             put(events::update_event_player).delete(events::delete_event_player),
         )
         .route(
-            "/api/events/:event_id/teams",
+            "/api/events/{event_id}/teams",
             post(events::create_event_team),
         )
         .route(
-            "/api/events/:event_id/teams/:team_id",
+            "/api/events/{event_id}/teams/{team_id}",
             put(events::update_event_team).delete(events::delete_event_team),
         )
         .route(
-            "/api/events/:event_id/team-members",
+            "/api/events/{event_id}/team-members",
             post(events::assign_event_player_team),
         )
         .route(
-            "/api/events/:event_id/matches/:match_id/matchup",
+            "/api/events/{event_id}/matches/{match_id}/matchup",
             post(events::set_matchup),
         )
         .route(
-            "/api/events/:event_id/signup-link",
+            "/api/events/{event_id}/signup-link",
             get(events::get_event_signup_link),
         )
         .route(
-            "/api/events/:event_id/signup-link/rotate",
+            "/api/events/{event_id}/signup-link/rotate",
             post(events::rotate_event_signup_link),
         )
         .route(
-            "/api/events/:event_id/signup-requests",
+            "/api/events/{event_id}/signup-requests",
             get(events::list_event_signup_requests),
         )
         .route(
-            "/api/events/:event_id/signup-requests/:request_id/accept",
+            "/api/events/{event_id}/signup-requests/{request_id}/accept",
             post(events::accept_event_signup_request),
         )
         .route(
-            "/api/events/:event_id/signup-requests/:request_id/decline",
+            "/api/events/{event_id}/signup-requests/{request_id}/decline",
             post(events::decline_event_signup_request),
         )
         .route(
-            "/api/public/event-signups/:signup_token",
+            "/api/public/event-signups/{signup_token}",
             get(events::get_public_signup_info),
         )
         .route(
-            "/api/public/event-signups/:signup_token/requests",
+            "/api/public/event-signups/{signup_token}/requests",
             post(events::create_public_signup_request),
         )
         .route("/api/matches", get(matches::list_matches))
         .route(
-            "/api/matches/:match_id",
+            "/api/matches/{match_id}",
             get(matches::get_match).delete(matches::delete_match),
         )
         .with_state(state)
