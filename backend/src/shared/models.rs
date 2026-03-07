@@ -273,6 +273,12 @@ pub struct EventSignupLinkResponse {
 }
 
 #[derive(Serialize)]
+pub struct AutoBalanceTeamsResponse {
+    pub event: Event,
+    pub summary: String,
+}
+
+#[derive(Serialize)]
 pub struct PublicEventSignupInfo {
     pub event_id: Uuid,
     pub event_name: String,

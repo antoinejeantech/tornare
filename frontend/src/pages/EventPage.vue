@@ -30,6 +30,7 @@ const addingPlayer = ref(false)
 const deletingPlayers = ref({})
 const creatingTeam = ref(false)
 const creatingSoloTeams = ref(false)
+const balancingTeams = ref(false)
 const deletingTeams = ref({})
 const savingPlayerTeams = ref({})
 const savingPlayerEdits = ref({})
@@ -41,6 +42,7 @@ const signupRequests = ref([])
 const reviewingSignupRequests = ref({})
 const signupToken = ref('')
 const rotatingSignupLink = ref(false)
+const lastBalanceSummary = ref('')
 
 const newMatchTitle = ref('')
 const newMatchMap = ref('')
@@ -175,6 +177,7 @@ async function loadEvent() {
 
   loadingEvent.value = true
   try {
+    lastBalanceSummary.value = ''
     event.value = await eventStore.fetchEvent(eventId.value)
     hydrateSelections()
     if (event.value?.is_owner) {
@@ -352,6 +355,30 @@ async function autoCreateSoloTeams() {
     setError(err instanceof Error ? err.message : 'Failed to auto-create solo teams')
   } finally {
     creatingSoloTeams.value = false
+  }
+}
+
+async function autoBalanceTeams() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || balancingTeams.value) {
+    return
+  }
+
+  balancingTeams.value = true
+  try {
+    const response = await eventStore.autoBalanceTeams(eventId.value)
+    const updatedEvent = response?.event || response
+    event.value = updatedEvent
+    hydrateSelections()
+    lastBalanceSummary.value = response?.summary || 'Teams auto-balanced by rank ELO'
+    setNotice(lastBalanceSummary.value)
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to auto-balance teams')
+  } finally {
+    balancingTeams.value = false
   }
 }
 
@@ -874,6 +901,7 @@ provide('eventCtx', proxyRefs({
   loadingEvent,
   creatingTeam,
   creatingSoloTeams,
+  balancingTeams,
   creatingMatch,
   deletingEvent,
   deletingMatchId,
@@ -909,9 +937,11 @@ provide('eventCtx', proxyRefs({
   reviewingSignupRequests,
   rotatingSignupLink,
   signupShareUrl,
+  lastBalanceSummary,
   openSection,
   createTeam,
   autoCreateSoloTeams,
+  autoBalanceTeams,
   createMatch,
   generateTourneyBracket,
   deleteEvent,

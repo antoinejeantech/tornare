@@ -116,9 +116,23 @@ function playersForTeam(teamId) {
     return []
   }
 
+  const rolePriority = {
+    Tank: 0,
+    DPS: 1,
+    Support: 2,
+  }
+
   return ctx.event.players
     .filter((player) => player.team_id === teamId)
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort((a, b) => {
+      const aPriority = rolePriority[a.role] ?? 99
+      const bPriority = rolePriority[b.role] ?? 99
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority
+      }
+
+      return a.name.localeCompare(b.name)
+    })
 }
 
 function teamRoleCounts(teamId) {
@@ -362,7 +376,19 @@ function assignmentNotice(player) {
       >
         {{ ctx.creatingSoloTeams ? 'Creating solo teams...' : `Auto-create solo teams (${unassignedPlayersCount})` }}
       </button>
+      <button
+        class="btn-secondary"
+        :disabled="ctx.balancingTeams || ctx.event.teams.length === 0"
+        @click="ctx.autoBalanceTeams"
+      >
+        {{ ctx.balancingTeams ? 'Balancing teams...' : 'Best team setup (ELO)' }}
+      </button>
       <p class="muted">Creates one team per unassigned player.</p>
+    </div>
+
+    <div v-if="ctx.canManageEvent && ctx.lastBalanceSummary" class="balance-report-box" role="status" aria-live="polite">
+      <p class="balance-report-title">Last auto-balance report</p>
+      <p class="balance-report-text">{{ ctx.lastBalanceSummary }}</p>
     </div>
 
     <div v-if="ctx.canManageEvent && !ctx.isTourneyEvent && ctx.event.teams.length > 0" class="balance-helper-panel">
@@ -588,6 +614,26 @@ function assignmentNotice(player) {
 
 .solo-team-action-row .muted {
   margin: 0;
+}
+
+.balance-report-box {
+  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-2) 12%);
+  background: color-mix(in srgb, var(--card) 94%, #eef6ff 6%);
+  border-radius: 10px;
+  padding: 0.52rem 0.6rem;
+  margin: -0.18rem 0 0.72rem;
+}
+
+.balance-report-title {
+  margin: 0;
+  font-weight: 760;
+  color: var(--ink-1);
+}
+
+.balance-report-text {
+  margin: 0.2rem 0 0;
+  color: var(--ink-2);
+  font-size: 0.9rem;
 }
 
 .balance-helper-panel {

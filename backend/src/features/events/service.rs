@@ -10,8 +10,8 @@ use crate::{
         models::{
             AddPlayerInput, AssignEventPlayerTeamInput, CreateEventInput, CreateEventMatchInput,
             CreateEventSignupRequestInput, CreateEventTeamInput, CreateMatchInput, Event,
-            EventFormat, EventSignupLinkResponse, EventSignupRequest, EventType, Match,
-            MessageResponse,
+            AutoBalanceTeamsResponse, EventFormat, EventSignupLinkResponse, EventSignupRequest,
+            EventType, Match, MessageResponse,
             PublicEventSignupInfo, ReportMatchWinnerInput, SetMatchupInput, UpdateEventInput,
             UpdateEventPlayerInput, UpdateEventTeamInput, OVERWATCH_RANKS,
         },
@@ -909,6 +909,170 @@ pub async fn auto_create_solo_teams_for_user(
     Ok(event)
 }
 
+pub async fn auto_balance_teams_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+) -> Result<AutoBalanceTeamsResponse, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    let event = repo::load_event(&state.pool, event_id).await?;
+    if event.teams.is_empty() {
+        return Err(bad_request("Create at least one team before auto-balancing"));
+    }
+
+    let team_size = format_team_size(&event.format);
+    if team_size == 0 {
+        return Err(bad_request("Invalid event format for auto-balance"));
+    }
+
+    let required_players = team_size * event.teams.len();
+    if event.players.len() < required_players {
+        return Err(bad_request(&format!(
+            "Need at least {required_players} players to fill {} teams in {} format",
+            event.teams.len(),
+            event.format.as_db_value()
+        )));
+    }
+
+    let role_targets = pug_role_targets_for_format(&event.format);
+    let mut ranked_players: Vec<BalancePlayer> = event
+        .players
+        .iter()
+        .map(|player| BalancePlayer {
+            id: player.id,
+            role: player.role.clone(),
+            elo: rank_elo_for_balance(&player.rank),
+        })
+        .collect();
+
+    ranked_players.sort_by(|a, b| b.elo.cmp(&a.elo));
+    let selected_players: Vec<BalancePlayer> = ranked_players
+        .into_iter()
+        .take(required_players)
+        .collect();
+
+    let total_elo: i32 = selected_players.iter().map(|player| player.elo).sum();
+    let target_team_avg = total_elo as f64 / event.teams.len() as f64;
+
+    let mut team_states: Vec<BalanceTeamState> = event
+        .teams
+        .iter()
+        .map(|team| BalanceTeamState {
+            id: team.id,
+            player_ids: Vec::with_capacity(team_size),
+            elo_sum: 0,
+            role_counts: RoleCounts::default(),
+        })
+        .collect();
+
+    for player in selected_players {
+        let mut best_index: Option<usize> = None;
+        let mut best_score: Option<f64> = None;
+
+        for (index, team) in team_states.iter().enumerate() {
+            if team.player_ids.len() >= team_size {
+                continue;
+            }
+
+            let projected_elo = team.elo_sum + player.elo;
+            let projected_size = team.player_ids.len() + 1;
+            let projected_avg = projected_elo as f64 / projected_size as f64;
+            let avg_penalty = (projected_avg - target_team_avg).abs();
+
+            let role_penalty = match role_targets {
+                Some(targets) => role_overflow_penalty(team, &player.role, targets),
+                None => 0.0,
+            };
+
+            let fill_penalty = projected_size as f64 * 0.01;
+            let score = avg_penalty + role_penalty + fill_penalty;
+
+            match best_score {
+                Some(current_best) if score >= current_best => {}
+                _ => {
+                    best_score = Some(score);
+                    best_index = Some(index);
+                }
+            }
+        }
+
+        let Some(team_index) = best_index else {
+            return Err(bad_request("Unable to build balanced team setup"));
+        };
+
+        let target_team = &mut team_states[team_index];
+        target_team.player_ids.push(player.id);
+        target_team.elo_sum += player.elo;
+        target_team.role_counts.add(&player.role);
+    }
+
+    let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+    sqlx::query("DELETE FROM event_team_members WHERE event_id = $1")
+        .bind(event_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(internal_error)?;
+
+    for team in &team_states {
+        for player_id in &team.player_ids {
+            sqlx::query(
+                "INSERT INTO event_team_members (id, event_id, event_team_id, event_player_id)
+                 VALUES ($1, $2, $3, $4)",
+            )
+            .bind(Uuid::new_v4())
+            .bind(event_id)
+            .bind(team.id)
+            .bind(player_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(internal_error)?;
+        }
+    }
+
+    tx.commit().await.map_err(internal_error)?;
+
+    let mut updated_event = repo::load_event(&state.pool, event_id).await?;
+    updated_event.is_owner = true;
+
+    let mut team_summaries = Vec::new();
+    let mut min_avg = f64::MAX;
+    let mut max_avg = f64::MIN;
+    for team in &updated_event.teams {
+        let players: Vec<_> = updated_event
+            .players
+            .iter()
+            .filter(|player| player.team_id == Some(team.id))
+            .collect();
+        let avg = average_team_elo_from_players(&players);
+        if let Some(value) = avg {
+            min_avg = min_avg.min(value);
+            max_avg = max_avg.max(value);
+            team_summaries.push(format!("{}: {}", team.name, value.round() as i32));
+        } else {
+            team_summaries.push(format!("{}: N/A", team.name));
+        }
+    }
+
+    let delta = if min_avg.is_finite() && max_avg.is_finite() {
+        (max_avg - min_avg).round() as i32
+    } else {
+        0
+    };
+
+    let summary = format!(
+        "Balanced {required_players} players across {} teams. Avg ELO delta: {delta}. {}",
+        updated_event.teams.len(),
+        team_summaries.join(" | ")
+    );
+
+    Ok(AutoBalanceTeamsResponse {
+        event: updated_event,
+        summary,
+    })
+}
+
 pub async fn delete_event_team_for_user(
     state: &AppState,
     user_id: Uuid,
@@ -1218,6 +1382,137 @@ struct BracketMatchPlan {
     next_match_slot: Option<String>,
     winner_team_id: Option<Uuid>,
     status: String,
+}
+
+#[derive(Clone)]
+struct BalancePlayer {
+    id: Uuid,
+    role: String,
+    elo: i32,
+}
+
+#[derive(Default, Clone, Copy)]
+struct RoleCounts {
+    tank: usize,
+    dps: usize,
+    support: usize,
+}
+
+impl RoleCounts {
+    fn add(&mut self, role: &str) {
+        match role {
+            "Tank" => self.tank += 1,
+            "DPS" => self.dps += 1,
+            "Support" => self.support += 1,
+            _ => {}
+        }
+    }
+
+    fn get(&self, role: &str) -> usize {
+        match role {
+            "Tank" => self.tank,
+            "DPS" => self.dps,
+            "Support" => self.support,
+            _ => 0,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct BalanceTeamState {
+    id: Uuid,
+    player_ids: Vec<Uuid>,
+    elo_sum: i32,
+    role_counts: RoleCounts,
+}
+
+#[derive(Clone, Copy)]
+struct PugRoleTargets {
+    tank: usize,
+    dps: usize,
+    support: usize,
+}
+
+impl PugRoleTargets {
+    fn get(&self, role: &str) -> usize {
+        match role {
+            "Tank" => self.tank,
+            "DPS" => self.dps,
+            "Support" => self.support,
+            _ => usize::MAX,
+        }
+    }
+}
+
+fn format_team_size(format: &crate::shared::models::EventFormat) -> usize {
+    match format {
+        crate::shared::models::EventFormat::OneVOne => 1,
+        crate::shared::models::EventFormat::SixVSix => 6,
+        crate::shared::models::EventFormat::FiveVFive => 5,
+    }
+}
+
+fn pug_role_targets_for_format(
+    format: &crate::shared::models::EventFormat,
+) -> Option<PugRoleTargets> {
+    match format {
+        crate::shared::models::EventFormat::FiveVFive => Some(PugRoleTargets {
+            tank: 1,
+            dps: 2,
+            support: 2,
+        }),
+        crate::shared::models::EventFormat::SixVSix => Some(PugRoleTargets {
+            tank: 2,
+            dps: 2,
+            support: 2,
+        }),
+        crate::shared::models::EventFormat::OneVOne => None,
+    }
+}
+
+fn role_overflow_penalty(team: &BalanceTeamState, role: &str, targets: PugRoleTargets) -> f64 {
+    let current = team.role_counts.get(role);
+    let target = targets.get(role);
+    if target == usize::MAX {
+        return 500.0;
+    }
+
+    if current + 1 <= target {
+        return 0.0;
+    }
+
+    ((current + 1 - target) as f64) * 400.0
+}
+
+fn rank_elo_for_balance(rank: &str) -> i32 {
+    match rank {
+        "Bronze" => 1000,
+        "Silver" => 1500,
+        "Gold" => 2000,
+        "Platinum" => 2500,
+        "Diamond" => 3000,
+        "Master" => 3500,
+        "Grandmaster" => 4000,
+        "Champion" => 4500,
+        // Frontend exposes Unranked as null ELO; use Gold midpoint for balancing.
+        _ => 2000,
+    }
+}
+
+fn average_team_elo_from_players(players: &[&crate::shared::models::Player]) -> Option<f64> {
+    let mut total = 0i32;
+    let mut count = 0usize;
+
+    for player in players {
+        total += rank_elo_for_balance(&player.rank);
+        count += 1;
+    }
+
+    if count == 0 {
+        return None;
+    }
+
+    Some(total as f64 / count as f64)
 }
 
 fn unique_team_name(base_name: &str, used_names: &mut HashSet<String>) -> String {

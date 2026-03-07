@@ -79,6 +79,10 @@ pub fn build_app(state: AppState) -> Router {
             post(events::auto_create_solo_teams),
         )
         .route(
+            "/api/events/{event_id}/teams/auto-balance",
+            post(events::auto_balance_teams),
+        )
+        .route(
             "/api/events/{event_id}/teams/{team_id}",
             put(events::update_event_team).delete(events::delete_event_team),
         )

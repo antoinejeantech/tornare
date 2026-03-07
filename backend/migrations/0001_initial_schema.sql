@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS events (
     start_date TEXT,
     signup_token TEXT,
     event_type TEXT NOT NULL,
+    format TEXT NOT NULL DEFAULT '5v5',
     max_players INTEGER NOT NULL
 );
 

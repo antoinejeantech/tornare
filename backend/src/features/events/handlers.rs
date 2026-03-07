@@ -11,9 +11,10 @@ use crate::{
     shared::{
         errors::ApiResult,
         models::{
-            AddPlayerInput, AssignEventPlayerTeamInput, CreateEventInput, CreateEventMatchInput,
-            CreateEventSignupRequestInput, CreateEventTeamInput, Event, EventSignupLinkResponse,
-            EventSignupRequest, Match, MessageResponse, PublicEventSignupInfo,
+            AddPlayerInput, AssignEventPlayerTeamInput, AutoBalanceTeamsResponse,
+            CreateEventInput, CreateEventMatchInput, CreateEventSignupRequestInput,
+            CreateEventTeamInput, Event, EventSignupLinkResponse, EventSignupRequest, Match,
+            MessageResponse, PublicEventSignupInfo,
             ReportMatchWinnerInput, SetMatchupInput, UpdateEventInput, UpdateEventPlayerInput,
             UpdateEventTeamInput,
         },
@@ -143,6 +144,17 @@ pub async fn auto_create_solo_teams(
 ) -> ApiResult<Event> {
     let user_id = require_authenticated_user_id(&state, &headers)?;
     service::auto_create_solo_teams_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
+pub async fn auto_balance_teams(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<AutoBalanceTeamsResponse> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::auto_balance_teams_for_user(&state, user_id, event_id)
         .await
         .map(Json)
 }

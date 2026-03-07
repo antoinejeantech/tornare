@@ -28,6 +28,11 @@ export const useEventStore = defineStore('event', {
         method: 'POST',
       })
     },
+    autoBalanceTeams(eventId) {
+      return apiCall(`/api/events/${eventId}/teams/auto-balance`, {
+        method: 'POST',
+      })
+    },
     updateTeam(eventId, teamId, name) {
       return apiCall(`/api/events/${eventId}/teams/${teamId}`, {
         method: 'PUT',

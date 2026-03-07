@@ -18,14 +18,32 @@ const matchId = computed(() => String(route.params.id || ''))
 const isEventMatch = computed(() => Boolean(match.value?.event_id))
 const hasEventMatchup = computed(() => Boolean(match.value?.team_a_id && match.value?.team_b_id))
 
+const rolePriority = {
+  Tank: 0,
+  DPS: 1,
+  Support: 2,
+}
+
+function sortTeamPlayers(players) {
+  return [...players].sort((a, b) => {
+    const aPriority = rolePriority[a.role] ?? 99
+    const bPriority = rolePriority[b.role] ?? 99
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority
+    }
+
+    return a.name.localeCompare(b.name)
+  })
+}
+
 const teamAPlayers = computed(() => {
   if (!match.value?.team_a_id) {
     return []
   }
 
-  return match.value.players
-    .filter((player) => player.team_id === match.value.team_a_id)
-    .sort((a, b) => a.name.localeCompare(b.name))
+  return sortTeamPlayers(
+    match.value.players.filter((player) => player.team_id === match.value.team_a_id)
+  )
 })
 
 const teamBPlayers = computed(() => {
@@ -33,9 +51,9 @@ const teamBPlayers = computed(() => {
     return []
   }
 
-  return match.value.players
-    .filter((player) => player.team_id === match.value.team_b_id)
-    .sort((a, b) => a.name.localeCompare(b.name))
+  return sortTeamPlayers(
+    match.value.players.filter((player) => player.team_id === match.value.team_b_id)
+  )
 })
 
 function averageElo(players) {
