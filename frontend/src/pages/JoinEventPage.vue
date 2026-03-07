@@ -98,7 +98,7 @@ onMounted(loadSignupInfo)
       <p v-if="loading">Loading signup page...</p>
       <template v-else-if="signupInfo">
         <h2>{{ signupInfo.event_name }}</h2>
-        <p class="muted">{{ signupInfo.event_type }} · {{ signupInfo.current_players }}/{{ signupInfo.max_players }} players</p>
+        <p class="muted">{{ signupInfo.event_type }} · {{ signupInfo.format || '5v5' }} · {{ signupInfo.current_players }}/{{ signupInfo.max_players }} players</p>
 
         <p v-if="error" class="status status-error">{{ error }}</p>
         <p v-else-if="notice" class="status status-ok">{{ notice }}</p>

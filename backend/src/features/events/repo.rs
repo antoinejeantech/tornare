@@ -5,7 +5,8 @@ use crate::shared::errors::{bad_request, internal_error, not_found};
 use crate::shared::numeric::i32_to_u8;
 
 use crate::shared::models::{
-    Event, EventSignupRequest, EventTeam, EventType, Match, Player, PublicEventSignupInfo,
+    Event, EventFormat, EventSignupRequest, EventTeam, EventType, Match, Player,
+    PublicEventSignupInfo,
 };
 
 pub async fn list_visible_event_ids(
@@ -180,12 +181,13 @@ pub async fn event_signup_info_by_token(
                 e.id,
                 e.name,
                 e.event_type,
+                     e.format,
                 e.max_players,
                 COUNT(ep.id) AS current_players
              FROM events e
              LEFT JOIN event_players ep ON ep.event_id = e.id
              WHERE e.signup_token = $1
-             GROUP BY e.id, e.name, e.event_type, e.max_players",
+                 GROUP BY e.id, e.name, e.event_type, e.format, e.max_players",
     )
     .bind(signup_token)
     .fetch_optional(pool)
@@ -199,6 +201,9 @@ pub async fn event_signup_info_by_token(
     let event_type_db: String = row.get("event_type");
     let event_type = EventType::try_from(event_type_db.as_str())
         .map_err(|_| bad_request("Invalid event type value in database"))?;
+    let format_db: String = row.get("format");
+    let format = EventFormat::try_from(format_db.as_str())
+        .map_err(|_| bad_request("Invalid event format value in database"))?;
 
     let current_players_i64: i64 = row.get("current_players");
     let current_players = usize::try_from(current_players_i64)
@@ -211,6 +216,7 @@ pub async fn event_signup_info_by_token(
         event_id: row.get("id"),
         event_name: row.get("name"),
         event_type,
+        format,
         max_players,
         current_players,
     }))
@@ -344,6 +350,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
             e.description,
             e.start_date,
             e.event_type,
+            e.format,
             e.max_players,
             u.display_name AS creator_name
          FROM events e
@@ -364,6 +371,9 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
     let db_event_type: String = row.get("event_type");
     let event_type = EventType::try_from(db_event_type.as_str())
         .map_err(|_| bad_request("Invalid event type value in database"))?;
+    let db_format: String = row.get("format");
+    let format = EventFormat::try_from(db_format.as_str())
+        .map_err(|_| bad_request("Invalid event format value in database"))?;
     let players = load_event_players_for_event(pool, db_id).await?;
     let teams = load_event_teams_for_event(pool, db_id).await?;
     let matches = load_matches_for_event(pool, db_id).await?;
@@ -374,6 +384,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         description: row.get("description"),
         start_date: row.get("start_date"),
         event_type,
+        format,
         is_owner: false,
         creator_name: row.get("creator_name"),
         max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,

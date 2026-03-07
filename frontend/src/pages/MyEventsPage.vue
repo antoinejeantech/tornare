@@ -69,7 +69,7 @@ onMounted(loadMyEvents)
               <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
               <span class="my-event-title">{{ event.name }}</span>
             </span>
-            <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
+            <span class="muted">{{ event.event_type }} · {{ event.format || '5v5' }} · by {{ event.creator_name || 'Unknown' }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
           </button>
         </li>
       </ul>

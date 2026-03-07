@@ -7,6 +7,60 @@ const assignmentSearchByTeam = reactive({})
 const quickAssignTeamByPlayer = reactive({})
 const quickAssignSearch = ref('')
 
+const effectivePugFormat = computed(() => {
+  const format = String(ctx.event?.format || '').trim().toLowerCase()
+  if (format === '6v6') {
+    return '6v6'
+  }
+
+  return '5v5'
+})
+
+const pugRoleTargets = computed(() => {
+  if (effectivePugFormat.value === '6v6') {
+    return { Tank: 2, DPS: 2, Support: 2 }
+  }
+
+  return { Tank: 1, DPS: 2, Support: 2 }
+})
+
+const pugTeamSize = computed(() => {
+  const targets = pugRoleTargets.value
+  return targets.Tank + targets.DPS + targets.Support
+})
+
+const rosterRoleCounts = computed(() => {
+  if (!ctx.event) {
+    return { Tank: 0, DPS: 0, Support: 0 }
+  }
+
+  const counts = { Tank: 0, DPS: 0, Support: 0 }
+  for (const player of ctx.event.players) {
+    if (player.role === 'Tank' || player.role === 'DPS' || player.role === 'Support') {
+      counts[player.role] += 1
+    }
+  }
+
+  return counts
+})
+
+const maxBalancedTeamsFromRoster = computed(() => {
+  if (!ctx.event) {
+    return 0
+  }
+
+  const targets = pugRoleTargets.value
+  const roles = rosterRoleCounts.value
+  const byRole = Math.min(
+    Math.floor(roles.Tank / targets.Tank),
+    Math.floor(roles.DPS / targets.DPS),
+    Math.floor(roles.Support / targets.Support)
+  )
+
+  const byTotal = Math.floor(ctx.event.players.length / pugTeamSize.value)
+  return Math.max(0, Math.min(byRole, byTotal))
+})
+
 function normalizeSearch(value) {
   return String(value || '')
     .toLowerCase()
@@ -65,6 +119,60 @@ function playersForTeam(teamId) {
   return ctx.event.players
     .filter((player) => player.team_id === teamId)
     .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function teamRoleCounts(teamId) {
+  const counts = { Tank: 0, DPS: 0, Support: 0 }
+  for (const player of playersForTeam(teamId)) {
+    if (player.role === 'Tank' || player.role === 'DPS' || player.role === 'Support') {
+      counts[player.role] += 1
+    }
+  }
+
+  return counts
+}
+
+function roleStatusClass(teamId, role) {
+  const count = teamRoleCounts(teamId)[role]
+  const target = pugRoleTargets.value[role]
+  if (count < target) {
+    return 'missing'
+  }
+  if (count > target) {
+    return 'excess'
+  }
+
+  return 'ok'
+}
+
+function teamBalanceNeeds(teamId) {
+  const counts = teamRoleCounts(teamId)
+  const targets = pugRoleTargets.value
+  const needs = []
+
+  for (const role of ['Tank', 'DPS', 'Support']) {
+    const missing = targets[role] - counts[role]
+    if (missing > 0) {
+      needs.push(`${role} x${missing}`)
+    }
+  }
+
+  return needs.join(', ')
+}
+
+function teamBalanceExcess(teamId) {
+  const counts = teamRoleCounts(teamId)
+  const targets = pugRoleTargets.value
+  const extra = []
+
+  for (const role of ['Tank', 'DPS', 'Support']) {
+    const overflow = counts[role] - targets[role]
+    if (overflow > 0) {
+      extra.push(`${role} x${overflow}`)
+    }
+  }
+
+  return extra.join(', ')
 }
 
 function playersAssignableToTeam(teamId) {
@@ -257,6 +365,21 @@ function assignmentNotice(player) {
       <p class="muted">Creates one team per unassigned player.</p>
     </div>
 
+    <div v-if="ctx.canManageEvent && !ctx.isTourneyEvent && ctx.event.teams.length > 0" class="balance-helper-panel">
+      <div class="balance-helper-head">
+        <p class="balance-helper-title">PUG balance assistant</p>
+        <span class="balance-helper-format-label">Format: {{ effectivePugFormat }}</span>
+      </div>
+      <p class="muted balance-helper-summary">
+        Current roster can support up to {{ maxBalancedTeamsFromRoster }} fully balanced teams for {{ effectivePugFormat }}.
+      </p>
+      <div class="balance-roster-row">
+        <span class="balance-roster-chip">Tank: {{ rosterRoleCounts.Tank }}</span>
+        <span class="balance-roster-chip">DPS: {{ rosterRoleCounts.DPS }}</span>
+        <span class="balance-roster-chip">Support: {{ rosterRoleCounts.Support }}</span>
+      </div>
+    </div>
+
     <div v-if="ctx.canManageEvent && unassignedPlayersCount > 0" class="quick-assign-panel">
       <div class="quick-assign-header">
         <p class="quick-assign-title">Unassigned players</p>
@@ -322,6 +445,13 @@ function assignmentNotice(player) {
             <span>{{ team.player_ids.length }} players</span>
             <span>{{ formatTeamAverageElo(team.id) }}</span>
           </div>
+          <div v-if="ctx.canManageEvent && !ctx.isTourneyEvent" class="team-balance-row">
+            <span class="team-balance-pill" :class="roleStatusClass(team.id, 'Tank')">Tank {{ teamRoleCounts(team.id).Tank }}/{{ pugRoleTargets.Tank }}</span>
+            <span class="team-balance-pill" :class="roleStatusClass(team.id, 'DPS')">DPS {{ teamRoleCounts(team.id).DPS }}/{{ pugRoleTargets.DPS }}</span>
+            <span class="team-balance-pill" :class="roleStatusClass(team.id, 'Support')">Support {{ teamRoleCounts(team.id).Support }}/{{ pugRoleTargets.Support }}</span>
+          </div>
+          <p v-if="ctx.canManageEvent && !ctx.isTourneyEvent && teamBalanceNeeds(team.id)" class="muted team-balance-note">Needs: {{ teamBalanceNeeds(team.id) }}</p>
+          <p v-if="ctx.canManageEvent && !ctx.isTourneyEvent && teamBalanceExcess(team.id)" class="muted team-balance-note">Over target: {{ teamBalanceExcess(team.id) }}</p>
           <ul v-if="playersForTeam(team.id).length > 0" class="team-player-list">
             <li v-for="player in playersForTeam(team.id)" :key="player.id" class="team-player-item">
               <span class="team-player-main">
@@ -460,6 +590,54 @@ function assignmentNotice(player) {
   margin: 0;
 }
 
+.balance-helper-panel {
+  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-1) 12%);
+  background: color-mix(in srgb, var(--card) 93%, #edf4ff 7%);
+  border-radius: 10px;
+  padding: 0.56rem;
+  margin: -0.18rem 0 0.72rem;
+  display: grid;
+  gap: 0.46rem;
+}
+
+.balance-helper-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.balance-helper-title {
+  margin: 0;
+  font-weight: 760;
+}
+
+.balance-helper-format-label {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+
+.balance-helper-summary {
+  margin: 0;
+}
+
+.balance-roster-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+}
+
+.balance-roster-chip {
+  border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
+  background: color-mix(in srgb, var(--card) 92%, #f2f7ff 8%);
+  border-radius: 999px;
+  padding: 0.16rem 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .quick-assign-panel {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
   background: color-mix(in srgb, var(--card) 92%, #eef4ff 8%);
@@ -575,6 +753,41 @@ function assignmentNotice(player) {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
+}
+
+.team-balance-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.34rem;
+}
+
+.team-balance-pill {
+  border-radius: 999px;
+  padding: 0.14rem 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
+  background: color-mix(in srgb, var(--card) 92%, #f2f7ff 8%);
+}
+
+.team-balance-pill.ok {
+  border-color: color-mix(in srgb, #1ea672 52%, var(--line) 48%);
+  background: color-mix(in srgb, #1ea672 14%, var(--card) 86%);
+}
+
+.team-balance-pill.missing {
+  border-color: color-mix(in srgb, #e0a100 56%, var(--line) 44%);
+  background: color-mix(in srgb, #e0a100 16%, var(--card) 84%);
+}
+
+.team-balance-pill.excess {
+  border-color: color-mix(in srgb, #d2555d 58%, var(--line) 42%);
+  background: color-mix(in srgb, #d2555d 14%, var(--card) 86%);
+}
+
+.team-balance-note {
+  margin: 0;
+  font-size: 0.84rem;
 }
 
 .team-actions {

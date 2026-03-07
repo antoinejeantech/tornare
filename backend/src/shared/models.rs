@@ -67,6 +67,39 @@ pub enum EventType {
     Tourney,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub enum EventFormat {
+    #[serde(rename = "5v5")]
+    FiveVFive,
+    #[serde(rename = "6v6")]
+    SixVSix,
+    #[serde(rename = "1v1")]
+    OneVOne,
+}
+
+impl EventFormat {
+    pub fn as_db_value(&self) -> &'static str {
+        match self {
+            EventFormat::FiveVFive => "5v5",
+            EventFormat::SixVSix => "6v6",
+            EventFormat::OneVOne => "1v1",
+        }
+    }
+}
+
+impl TryFrom<&str> for EventFormat {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "5v5" => Ok(EventFormat::FiveVFive),
+            "6v6" => Ok(EventFormat::SixVSix),
+            "1v1" => Ok(EventFormat::OneVOne),
+            other => Err(format!("Invalid event format value in database: {other}")),
+        }
+    }
+}
+
 impl EventType {
     pub fn as_db_value(&self) -> &'static str {
         match self {
@@ -134,6 +167,7 @@ pub struct Event {
     pub description: String,
     pub start_date: Option<String>,
     pub event_type: EventType,
+    pub format: EventFormat,
     pub is_owner: bool,
     pub creator_name: Option<String>,
     pub max_players: u8,
@@ -148,6 +182,7 @@ pub struct CreateEventInput {
     pub description: String,
     pub start_date: Option<String>,
     pub event_type: EventType,
+    pub format: EventFormat,
     pub max_players: u8,
 }
 
@@ -157,6 +192,7 @@ pub struct UpdateEventInput {
     pub description: String,
     pub start_date: Option<String>,
     pub event_type: EventType,
+    pub format: EventFormat,
     pub max_players: u8,
 }
 
@@ -241,13 +277,14 @@ pub struct PublicEventSignupInfo {
     pub event_id: Uuid,
     pub event_name: String,
     pub event_type: EventType,
+    pub format: EventFormat,
     pub max_players: u8,
     pub current_players: usize,
 }
 
 #[cfg(test)]
 mod tests {
-    use super::EventType;
+    use super::{EventFormat, EventType};
 
     #[test]
     fn event_type_try_from_roundtrip() {
@@ -257,5 +294,22 @@ mod tests {
             Ok(EventType::Tourney)
         ));
         assert!(EventType::try_from("OTHER").is_err());
+    }
+
+    #[test]
+    fn event_format_try_from_roundtrip() {
+        assert!(matches!(
+            EventFormat::try_from("5v5"),
+            Ok(EventFormat::FiveVFive)
+        ));
+        assert!(matches!(
+            EventFormat::try_from("6v6"),
+            Ok(EventFormat::SixVSix)
+        ));
+        assert!(matches!(
+            EventFormat::try_from("1v1"),
+            Ok(EventFormat::OneVOne)
+        ));
+        assert!(EventFormat::try_from("2v2").is_err());
     }
 }

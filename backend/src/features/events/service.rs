@@ -10,7 +10,8 @@ use crate::{
         models::{
             AddPlayerInput, AssignEventPlayerTeamInput, CreateEventInput, CreateEventMatchInput,
             CreateEventSignupRequestInput, CreateEventTeamInput, CreateMatchInput, Event,
-            EventSignupLinkResponse, EventSignupRequest, EventType, Match, MessageResponse,
+            EventFormat, EventSignupLinkResponse, EventSignupRequest, EventType, Match,
+            MessageResponse,
             PublicEventSignupInfo, ReportMatchWinnerInput, SetMatchupInput, UpdateEventInput,
             UpdateEventPlayerInput, UpdateEventTeamInput, OVERWATCH_RANKS,
         },
@@ -66,14 +67,15 @@ pub async fn create_event_for_user(
     let normalized_start_date = normalize_optional_string(&payload.start_date);
 
     sqlx::query(
-        "INSERT INTO events (id, name, description, start_date, event_type, max_players, signup_token)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+           "INSERT INTO events (id, name, description, start_date, event_type, format, max_players, signup_token)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
     )
     .bind(event_id)
     .bind(payload.name.trim())
     .bind(payload.description.trim())
     .bind(normalized_start_date)
     .bind(payload.event_type.as_db_value())
+    .bind(payload.format.as_db_value())
     .bind(i32::from(payload.max_players))
     .bind(signup_token)
     .execute(&state.pool)
@@ -108,14 +110,15 @@ pub async fn update_event_for_user(
 
     let updated = sqlx::query(
         "UPDATE events
-         SET name = $1, description = $2, start_date = $3, event_type = $4, max_players = $5
-         WHERE id = $6
+            SET name = $1, description = $2, start_date = $3, event_type = $4, format = $5, max_players = $6
+            WHERE id = $7
          RETURNING id",
     )
     .bind(payload.name.trim())
     .bind(payload.description.trim())
     .bind(normalized_start_date)
     .bind(payload.event_type.as_db_value())
+    .bind(payload.format.as_db_value())
     .bind(i32::from(payload.max_players))
     .bind(event_id)
     .fetch_optional(&state.pool)
@@ -1266,6 +1269,18 @@ fn validate_create_event_input(payload: &CreateEventInput) -> Result<(), ApiErro
         return Err(bad_request("Max players must be between 2 and 99"));
     }
 
+    match &payload.event_type {
+        EventType::Pug => {
+            if !matches!(
+                &payload.format,
+                EventFormat::FiveVFive | EventFormat::SixVSix
+            ) {
+                return Err(bad_request("PUG events support only 5v5 or 6v6 format"));
+            }
+        }
+        EventType::Tourney => {}
+    }
+
     Ok(())
 }
 
@@ -1275,6 +1290,7 @@ fn validate_update_event_input(payload: &UpdateEventInput) -> Result<(), ApiErro
         description: payload.description.clone(),
         start_date: payload.start_date.clone(),
         event_type: payload.event_type.clone(),
+        format: payload.format.clone(),
         max_players: payload.max_players,
     };
 

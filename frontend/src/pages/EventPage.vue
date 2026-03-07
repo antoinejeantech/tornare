@@ -59,8 +59,14 @@ const matchupSelections = ref({})
 const editEventName = ref('')
 const editEventDescription = ref('')
 const editEventStartDate = ref('')
+const editEventFormat = ref('5v5')
 const editEventMaxPlayers = ref(10)
 const activeSection = ref('overview')
+
+const formatOptionsByType = {
+  PUG: ['5v5', '6v6'],
+  TOURNEY: ['5v5', '6v6', '1v1']
+}
 
 const eventId = computed(() => String(route.params.id || ''))
 const canManageEvent = computed(() => Boolean(event.value?.is_owner))
@@ -107,7 +113,10 @@ const canCreateTeam = computed(() => {
 const canSaveEventMeta = computed(() => {
   const nameOk = editEventName.value.trim().length > 0
   const maxOk = Number.isInteger(editEventMaxPlayers.value) && editEventMaxPlayers.value >= 2 && editEventMaxPlayers.value <= 99
-  return nameOk && maxOk
+  const type = String(event.value?.event_type || '').toUpperCase()
+  const allowedFormats = formatOptionsByType[type] || formatOptionsByType.PUG
+  const formatOk = allowedFormats.includes(editEventFormat.value)
+  return nameOk && maxOk && formatOk
 })
 
 const eventIsFull = computed(() => {
@@ -800,6 +809,7 @@ function startEditEvent() {
   editEventName.value = event.value.name
   editEventDescription.value = event.value.description || ''
   editEventStartDate.value = event.value.start_date || ''
+  editEventFormat.value = event.value.format || '5v5'
   editEventMaxPlayers.value = Number(event.value.max_players)
   editingEventMeta.value = true
 }
@@ -826,6 +836,7 @@ async function saveEventEdit() {
       description: editEventDescription.value.trim(),
       start_date: editEventStartDate.value ? editEventStartDate.value : null,
       event_type: payloadType,
+      format: editEventFormat.value,
       max_players: editEventMaxPlayers.value,
     })
 
@@ -943,6 +954,7 @@ provide('eventCtx', proxyRefs({
           </div>
           <div class="event-meta-row">
             <span class="meta-chip">{{ event.event_type }}</span>
+            <span class="meta-chip">{{ event.format }}</span>
             <span class="meta-chip">by {{ event.creator_name || 'Unknown' }}</span>
             <span v-if="formattedEventStartDate" class="meta-chip">{{ formattedEventStartDate }}</span>
             <span class="meta-chip">{{ event.players.length }}/{{ event.max_players }} players</span>
@@ -1011,6 +1023,18 @@ provide('eventCtx', proxyRefs({
         <label>
           Start date
           <input v-model="editEventStartDate" type="datetime-local" />
+        </label>
+        <label>
+          Format
+          <select v-model="editEventFormat">
+            <option
+              v-for="format in (formatOptionsByType[String(event.event_type || '').toUpperCase()] || formatOptionsByType.PUG)"
+              :key="`edit-event-format-${format}`"
+              :value="format"
+            >
+              {{ format }}
+            </option>
+          </select>
         </label>
         <label>
           Max players

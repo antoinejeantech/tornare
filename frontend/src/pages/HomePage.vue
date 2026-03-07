@@ -79,7 +79,7 @@ function eventStartLabel(event) {
               <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
               <span class="home-latest-title">{{ event.name }}</span>
             </span>
-            <span class="muted">{{ event.event_type }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
+            <span class="muted">{{ event.event_type }} · {{ event.format || '5v5' }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
           </RouterLink>
         </li>
       </ul>

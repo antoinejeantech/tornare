@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
@@ -21,7 +21,22 @@ const newEventName = ref('')
 const newEventDescription = ref('')
 const newEventStartDate = ref('')
 const newEventType = ref('PUG')
+const newEventFormat = ref('5v5')
 const newEventMaxPlayers = ref(10)
+
+const formatOptionsByType = {
+  PUG: ['5v5', '6v6'],
+  TOURNEY: ['5v5', '6v6', '1v1']
+}
+
+const availableFormatOptions = computed(() => {
+  const type = String(newEventType.value || '').toUpperCase()
+  return formatOptionsByType[type] || formatOptionsByType.PUG
+})
+
+const isSelectedFormatValid = computed(() => {
+  return availableFormatOptions.value.includes(newEventFormat.value)
+})
 
 const canCreateEvent = computed(() => {
   if (!authStore.isAuthenticated) {
@@ -33,8 +48,15 @@ const canCreateEvent = computed(() => {
     newEventDescription.value.trim().length <= 5000 &&
     Number.isInteger(Number(newEventMaxPlayers.value)) &&
     Number(newEventMaxPlayers.value) >= 2 &&
-    Number(newEventMaxPlayers.value) <= 99
+    Number(newEventMaxPlayers.value) <= 99 &&
+    isSelectedFormatValid.value
   )
+})
+
+watch(newEventType, () => {
+  if (!isSelectedFormatValid.value) {
+    newEventFormat.value = availableFormatOptions.value[0]
+  }
 })
 
 const filteredEvents = computed(() => {
@@ -107,6 +129,7 @@ async function createEvent() {
         description: newEventDescription.value.trim(),
         start_date: newEventStartDate.value ? newEventStartDate.value : null,
         event_type: newEventType.value,
+        format: newEventFormat.value,
         max_players: Number(newEventMaxPlayers.value)
       })
     })
@@ -116,6 +139,7 @@ async function createEvent() {
     newEventDescription.value = ''
     newEventStartDate.value = ''
     newEventType.value = 'PUG'
+    newEventFormat.value = '5v5'
     newEventMaxPlayers.value = 10
     setNotice('Event created successfully')
   } catch (err) {
@@ -208,6 +232,14 @@ onMounted(loadEvents)
           </select>
         </label>
         <label>
+          Format
+          <select v-model="newEventFormat">
+            <option v-for="format in availableFormatOptions" :key="`new-event-format-${format}`" :value="format">
+              {{ format }}
+            </option>
+          </select>
+        </label>
+        <label>
           Max players
           <input v-model.number="newEventMaxPlayers" min="2" max="99" type="number" />
         </label>
@@ -235,7 +267,7 @@ onMounted(loadEvents)
               <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
               <span class="home-event-title">{{ event.name }}</span>
             </span>
-            <span class="muted">{{ event.event_type }} · by {{ event.creator_name || 'Unknown' }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
+            <span class="muted">{{ event.event_type }} · {{ event.format }} · by {{ event.creator_name || 'Unknown' }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
           </button>
           <button
             v-if="authStore.isAuthenticated"
