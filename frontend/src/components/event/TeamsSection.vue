@@ -27,7 +27,44 @@ function playersAssignableToTeam(teamId) {
     return []
   }
 
-  return ctx.event.players.filter((player) => player.team_id !== teamId)
+  return ctx.event.players
+    .filter((player) => player.team_id !== teamId)
+    .sort((a, b) => {
+      const aUnassigned = !a.team_id
+      const bUnassigned = !b.team_id
+      if (aUnassigned !== bUnassigned) {
+        return aUnassigned ? -1 : 1
+      }
+
+      return a.name.localeCompare(b.name)
+    })
+}
+
+function selectedAssignablePlayer(teamId) {
+  const selectedId = String(ctx.teamAssignmentSelections?.[teamId] || '')
+  if (!selectedId) {
+    return null
+  }
+
+  return playersAssignableToTeam(teamId).find((player) => player.id === selectedId) || null
+}
+
+function selectedAssignDisabled(teamId) {
+  const selectedPlayer = selectedAssignablePlayer(teamId)
+  if (!selectedPlayer) {
+    return true
+  }
+
+  return Boolean(ctx.savingPlayerTeams?.[selectedPlayer.id])
+}
+
+function selectedAssignBusy(teamId) {
+  const selectedPlayer = selectedAssignablePlayer(teamId)
+  if (!selectedPlayer) {
+    return false
+  }
+
+  return Boolean(ctx.savingPlayerTeams?.[selectedPlayer.id])
 }
 
 function roleIcon(role) {
@@ -166,19 +203,26 @@ function assignmentNotice(player) {
           <span v-else class="muted team-player-empty">No players assigned</span>
           <div v-if="ctx.canManageEvent" class="team-assign-grid">
             <p v-if="playersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">No available players to assign</p>
-            <button
-              v-for="player in playersAssignableToTeam(team.id)"
-              :key="`assign-${team.id}-${player.id}`"
-              class="btn-secondary team-assign-btn"
-              :disabled="Boolean(ctx.savingPlayerTeams[player.id])"
-              @click="ctx.assignPlayerToTeam(player.id, team.id)"
-            >
-              <span class="material-symbols-rounded" aria-hidden="true">
-                {{ ctx.savingPlayerTeams[player.id] ? 'hourglass_top' : 'person_add' }}
-              </span>
-              <span class="team-assign-main">{{ player.name }} · {{ player.role }} · {{ player.rank }}</span>
-              <span v-if="assignmentNotice(player)" class="team-assign-notice">{{ assignmentNotice(player) }}</span>
-            </button>
+            <div v-else class="team-assign-row">
+              <label class="sr-only" :for="`assign-player-${team.id}`">Assign player to {{ team.name }}</label>
+              <select :id="`assign-player-${team.id}`" v-model="ctx.teamAssignmentSelections[team.id]">
+                <option value="">Select player</option>
+                <option
+                  v-for="player in playersAssignableToTeam(team.id)"
+                  :key="`assign-option-${team.id}-${player.id}`"
+                  :value="player.id"
+                >
+                  {{ player.name }} · {{ player.role }} · {{ player.rank }}{{ assignmentNotice(player) ? ` (${assignmentNotice(player)})` : '' }}
+                </option>
+              </select>
+              <button
+                class="btn-secondary"
+                :disabled="selectedAssignDisabled(team.id)"
+                @click="ctx.assignSelectedPlayerToTeam(team.id)"
+              >
+                {{ selectedAssignBusy(team.id) ? 'Assigning...' : 'Assign' }}
+              </button>
+            </div>
           </div>
         </div>
         <div class="team-actions">
@@ -386,22 +430,11 @@ function assignmentNotice(player) {
   gap: 0.4rem;
 }
 
-.team-assign-btn {
-  display: inline-flex;
+.team-assign-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.4rem;
   align-items: center;
-  justify-content: flex-start;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
-.team-assign-main {
-  font-weight: 700;
-}
-
-.team-assign-notice {
-  color: var(--ink-2);
-  font-size: 0.82rem;
-  margin-left: 1.58rem;
 }
 
 @media (max-width: 900px) {
