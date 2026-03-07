@@ -145,6 +145,10 @@ function filteredPlayersAssignableToTeam(teamId) {
   })
 }
 
+function visibleTeamAssignResults(teamId) {
+  return filteredPlayersAssignableToTeam(teamId).slice(0, 10)
+}
+
 function selectedAssignablePlayer(teamId) {
   const selectedId = String(ctx.teamAssignmentSelections?.[teamId] || '')
   if (!selectedId) {
@@ -356,25 +360,28 @@ function assignmentNotice(player) {
                 @input="setAssignmentSearch(team.id, $event.target.value)"
               />
               <p class="muted team-assign-match-count">{{ filteredPlayersAssignableToTeam(team.id).length }} matches</p>
-              <label class="sr-only" :for="`assign-player-${team.id}`">Assign player to {{ team.name }}</label>
-              <select :id="`assign-player-${team.id}`" v-model="ctx.teamAssignmentSelections[team.id]">
-                <option value="">Select player</option>
-                <option
-                  v-for="player in filteredPlayersAssignableToTeam(team.id)"
-                  :key="`assign-option-${team.id}-${player.id}`"
-                  :value="player.id"
-                >
-                  {{ player.name }} · {{ player.role }} · {{ player.rank }}{{ assignmentNotice(player) ? ` (${assignmentNotice(player)})` : '' }}
-                </option>
-              </select>
-              <button
-                class="btn-secondary"
-                :disabled="selectedAssignDisabled(team.id)"
-                @click="ctx.assignSelectedPlayerToTeam(team.id)"
-              >
-                {{ selectedAssignBusy(team.id) ? 'Assigning...' : 'Assign' }}
-              </button>
+
               <p v-if="filteredPlayersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">No players match this search.</p>
+
+              <ul v-else class="team-assign-results">
+                <li v-for="player in visibleTeamAssignResults(team.id)" :key="`assign-result-${team.id}-${player.id}`">
+                  <button
+                    class="btn-secondary team-assign-result-btn"
+                    :disabled="Boolean(ctx.savingPlayerTeams[player.id])"
+                    @click="ctx.assignPlayerToTeam(player.id, team.id)"
+                  >
+                    <span class="material-symbols-rounded" aria-hidden="true">
+                      {{ ctx.savingPlayerTeams[player.id] ? 'hourglass_top' : 'person_add' }}
+                    </span>
+                    <span class="team-assign-main">{{ player.name }} · {{ player.role }} · {{ player.rank }}</span>
+                    <span v-if="assignmentNotice(player)" class="team-assign-notice">{{ assignmentNotice(player) }}</span>
+                  </button>
+                </li>
+              </ul>
+
+              <p v-if="filteredPlayersAssignableToTeam(team.id).length > 10" class="muted team-assign-limit-note">
+                Showing first 10 matches. Refine search to narrow results.
+              </p>
             </div>
           </div>
         </div>
@@ -650,12 +657,45 @@ function assignmentNotice(player) {
 
 .team-assign-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.4rem;
   align-items: center;
 }
 
 .team-assign-match-count {
+  margin: 0;
+}
+
+.team-assign-results {
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.32rem;
+}
+
+.team-assign-result-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.team-assign-main {
+  font-weight: 700;
+}
+
+.team-assign-notice {
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  margin-left: 1.58rem;
+}
+
+.team-assign-limit-note {
+  grid-column: 1 / -1;
   margin: 0;
 }
 
