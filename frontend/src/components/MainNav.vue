@@ -1,10 +1,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const storedTheme = typeof window !== 'undefined' ? window.localStorage.getItem('theme') : null
@@ -30,6 +31,10 @@ function toggleTheme() {
 
 const themeToggleLabel = computed(() => (theme.value === 'dark' ? 'Light' : 'Dark'))
 const themeIcon = computed(() => (theme.value === 'dark' ? 'light_mode' : 'dark_mode'))
+const loginRoute = computed(() => {
+  const redirect = route.name === 'auth' ? '/events' : route.fullPath
+  return { name: 'auth', query: { redirect } }
+})
 const authLabel = computed(() => authStore.user?.display_name || 'Account')
 const authInitial = computed(() => {
   const label = authLabel.value.trim()
@@ -55,7 +60,7 @@ onMounted(() => {
         <RouterLink class="top-nav-link" to="/events">Events</RouterLink>
         <RouterLink class="top-nav-link" to="/about">About</RouterLink>
         <RouterLink class="top-nav-link" to="/news">News</RouterLink>
-        <RouterLink v-if="!authStore.isAuthenticated" class="top-nav-link" to="/auth">Login</RouterLink>
+        <RouterLink v-if="!authStore.isAuthenticated" class="top-nav-link" :to="loginRoute">Login</RouterLink>
         <div v-else class="top-nav-user-menu" tabindex="0">
           <button class="top-nav-user-trigger" type="button">
             <span class="top-nav-user-avatar" aria-hidden="true">{{ authInitial }}</span>
