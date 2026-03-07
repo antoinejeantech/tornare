@@ -62,7 +62,7 @@ pub async fn login_user(state: &AppState, payload: LoginInput) -> Result<AuthRes
         return Err(bad_request("Email and password are required"));
     }
 
-    let Some((id, email, password_hash, display_name, is_active)) =
+    let Some((id, _email, password_hash, _display_name, is_active)) =
         repo::find_user_login_by_email(&state.pool, &normalized_email).await?
     else {
         return Err(unauthorized("Invalid email or password"));
@@ -78,11 +78,7 @@ pub async fn login_user(state: &AppState, payload: LoginInput) -> Result<AuthRes
 
     verify_password(&password_hash, &payload.password)?;
 
-    let user = AuthUser {
-        id,
-        email,
-        display_name,
-    };
+    let user = get_auth_user_by_id(state, id).await?;
 
     issue_auth_response(state, user, None).await
 }
@@ -139,7 +135,7 @@ pub fn maybe_authenticated_user_id(state: &AppState, headers: &HeaderMap) -> Opt
 }
 
 pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<AuthUser, ApiError> {
-    let Some((id, email, display_name, is_active)) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
+    let Some((id, email, display_name, role, battletag, rank_tank, rank_dps, rank_support, is_active)) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
         return Err(unauthorized("User not found"));
     };
 
@@ -147,10 +143,18 @@ pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<Auth
         return Err(forbidden("User account is inactive"));
     }
 
+    let has_battlenet_identity = repo::has_provider_identity(&state.pool, user_id, "battlenet").await?;
+
     Ok(AuthUser {
         id,
         email,
         display_name,
+        role,
+        battletag,
+        rank_tank,
+        rank_dps,
+        rank_support,
+        can_edit_battletag: !has_battlenet_identity,
     })
 }
 
@@ -162,6 +166,10 @@ fn validate_register_input(payload: &RegisterInput) -> Result<(), ApiError> {
 
     if payload.password.len() < 8 {
         return Err(bad_request("Password must be at least 8 characters long"));
+    }
+
+    if payload.password != payload.password_confirm {
+        return Err(bad_request("Passwords do not match"));
     }
 
     if payload.display_name.trim().is_empty() {

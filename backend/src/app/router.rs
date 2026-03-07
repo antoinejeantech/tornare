@@ -13,7 +13,7 @@ use tracing::{info_span, Level};
 
 use crate::{
     app::state::AppState,
-    features::{auth, events, matches, system},
+    features::{auth, events, matches, system, users},
 };
 
 pub fn build_app(state: AppState) -> Router {
@@ -48,6 +48,10 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/auth/me", get(auth::me))
         .route("/api/auth/refresh", post(auth::refresh))
         .route("/api/auth/logout", post(auth::logout))
+        .route(
+            "/api/users/{user_id}",
+            get(users::get_user_profile).put(users::update_user_profile),
+        )
         .route(
             "/api/events",
             get(events::list_events).post(events::create_event),

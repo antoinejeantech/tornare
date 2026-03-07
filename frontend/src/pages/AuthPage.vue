@@ -11,6 +11,7 @@ const authStore = useAuthStore()
 const mode = ref('login')
 const email = ref('')
 const password = ref('')
+const passwordConfirm = ref('')
 const displayName = ref('')
 const error = ref('')
 const submitting = ref(false)
@@ -20,7 +21,12 @@ const canSubmit = computed(() => {
   const passwordOk = password.value.length >= 8
 
   if (mode.value === 'register') {
-    return emailOk && passwordOk && displayName.value.trim().length > 0
+    return (
+      emailOk &&
+      passwordOk &&
+      password.value === passwordConfirm.value &&
+      displayName.value.trim().length > 0
+    )
   }
 
   return emailOk && passwordOk
@@ -47,6 +53,7 @@ async function submit() {
       await authStore.register({
         email: email.value.trim(),
         password: password.value,
+        password_confirm: passwordConfirm.value,
         display_name: displayName.value.trim(),
       })
     } else {
@@ -68,6 +75,9 @@ async function submit() {
 function switchMode(nextMode) {
   mode.value = nextMode
   error.value = ''
+  if (nextMode !== 'register') {
+    passwordConfirm.value = ''
+  }
 }
 </script>
 
@@ -104,6 +114,10 @@ function switchMode(nextMode) {
         <label>
           Password
           <input v-model="password" type="password" placeholder="At least 8 characters" />
+        </label>
+        <label v-if="mode === 'register'">
+          Confirm password
+          <input v-model="passwordConfirm" type="password" placeholder="Repeat your password" />
         </label>
         <button type="submit" class="btn-primary" :disabled="!canSubmit || submitting">{{ submitLabel }}</button>
       </form>

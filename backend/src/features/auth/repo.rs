@@ -87,14 +87,74 @@ pub async fn insert_default_role(pool: &PgPool, user_id: Uuid) -> Result<(), cra
 pub async fn find_user_profile_by_id(
     pool: &PgPool,
     user_id: Uuid,
-) -> Result<Option<(Uuid, String, String, bool)>, crate::shared::errors::ApiError> {
-    let row = sqlx::query("SELECT id, email, display_name, is_active FROM users WHERE id = $1")
+) -> Result<Option<(Uuid, String, String, String, Option<String>, String, String, String, bool)>, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+                "SELECT
+                        u.id,
+                        u.email,
+                        u.display_name,
+                    COALESCE(
+                        (
+                            SELECT ur.role
+                            FROM user_roles ur
+                            WHERE ur.user_id = u.id
+                            ORDER BY
+                                CASE ur.role
+                                    WHEN 'admin' THEN 0
+                                    WHEN 'moderator' THEN 1
+                                    ELSE 2
+                                END,
+                                ur.role
+                            LIMIT 1
+                        ),
+                        'user'
+                    ) AS role,
+                    ugp.handle AS battletag,
+                    COALESCE(op.rank_tank, 'Unranked') AS rank_tank,
+                    COALESCE(op.rank_dps, 'Unranked') AS rank_dps,
+                    COALESCE(op.rank_support, 'Unranked') AS rank_support,
+                        u.is_active
+                 FROM users u
+                 LEFT JOIN user_game_profiles ugp
+                     ON ugp.user_id = u.id
+                    AND ugp.game_code = 'overwatch'
+                 LEFT JOIN overwatch_profiles op
+                     ON op.user_game_profile_id = ugp.id
+                 WHERE u.id = $1",
+    )
         .bind(user_id)
         .fetch_optional(pool)
         .await
         .map_err(internal_error)?;
 
-    Ok(row.map(|r| (r.get("id"), r.get("email"), r.get("display_name"), r.get("is_active"))))
+    Ok(row.map(|r| {
+        (
+            r.get("id"),
+            r.get("email"),
+            r.get("display_name"),
+            r.get("role"),
+            r.get("battletag"),
+            r.get("rank_tank"),
+            r.get("rank_dps"),
+            r.get("rank_support"),
+            r.get("is_active"),
+        )
+    }))
+}
+
+pub async fn has_provider_identity(
+    pool: &PgPool,
+    user_id: Uuid,
+    provider: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query("SELECT id FROM auth_identities WHERE user_id = $1 AND provider = $2")
+        .bind(user_id)
+        .bind(provider)
+        .fetch_optional(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(row.is_some())
 }
 
 pub async fn find_active_session_by_hash(

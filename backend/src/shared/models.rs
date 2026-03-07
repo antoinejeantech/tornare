@@ -28,6 +28,12 @@ pub struct AuthUser {
     pub id: Uuid,
     pub email: String,
     pub display_name: String,
+    pub role: String,
+    pub battletag: Option<String>,
+    pub rank_tank: String,
+    pub rank_dps: String,
+    pub rank_support: String,
+    pub can_edit_battletag: bool,
 }
 
 #[derive(Serialize)]
@@ -41,6 +47,7 @@ pub struct AuthResponse {
 pub struct RegisterInput {
     pub email: String,
     pub password: String,
+    pub password_confirm: String,
     pub display_name: String,
 }
 
@@ -58,6 +65,18 @@ pub struct RefreshInput {
 #[derive(Deserialize)]
 pub struct LogoutInput {
     pub refresh_token: String,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateUserProfileInput {
+    pub display_name: String,
+    pub email: String,
+    pub battletag: Option<String>,
+    pub rank_tank: String,
+    pub rank_dps: String,
+    pub rank_support: String,
+    pub new_password: Option<String>,
+    pub new_password_confirm: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

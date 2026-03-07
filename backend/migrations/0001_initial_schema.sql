@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
@@ -102,4 +104,28 @@ CREATE TABLE IF NOT EXISTS event_signup_requests (
     rank TEXT NOT NULL,
     status TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_game_profiles (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    game_code TEXT NOT NULL,
+    handle TEXT,
+    provider TEXT NOT NULL DEFAULT 'manual',
+    provider_user_id TEXT,
+    is_handle_locked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, game_code)
+);
+
+CREATE TABLE IF NOT EXISTS overwatch_profiles (
+    id UUID PRIMARY KEY,
+    user_game_profile_id UUID NOT NULL REFERENCES user_game_profiles(id) ON DELETE CASCADE,
+    rank_tank TEXT NOT NULL DEFAULT 'Unranked',
+    rank_dps TEXT NOT NULL DEFAULT 'Unranked',
+    rank_support TEXT NOT NULL DEFAULT 'Unranked',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_game_profile_id)
 );
