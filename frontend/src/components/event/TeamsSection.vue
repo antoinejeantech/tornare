@@ -453,7 +453,7 @@ function assignmentNotice(player) {
                   :title="`${player.name} · ${player.rank}`"
                 />
                 <span class="team-player-role">
-                  <span class="material-symbols-rounded team-role-icon" aria-hidden="true">{{ roleIcon(player.role) }}</span>
+                  <span class="material-symbols-rounded team-role-icon" aria-hidden="true">{{ getRoleIcon(player.role) }}</span>
                   <span>{{ player.role }}</span>
                 </span>
               </span>
