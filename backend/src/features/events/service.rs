@@ -2,9 +2,8 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
-    features::permissions::require_event_owner_access,
+    features::{matches::repo as matches_repo, permissions::require_event_owner_access},
     shared::{
-        db::{i32_to_u8, i32_to_usize, i64_to_usize, load_event, load_match},
         errors::{bad_request, internal_error, not_found, ApiError},
         models::{
             AddPlayerInput, AssignEventPlayerTeamInput, CreateEventInput, CreateEventMatchInput,
@@ -13,6 +12,7 @@ use crate::{
             PublicEventSignupInfo, SetMatchupInput, UpdateEventInput, UpdateEventPlayerInput,
             UpdateEventTeamInput, OVERWATCH_RANKS,
         },
+        numeric::{i32_to_u8, i32_to_usize, i64_to_usize},
     },
 };
 
@@ -26,7 +26,7 @@ pub async fn list_events_public(
 
     let mut events = Vec::with_capacity(event_ids.len());
     for event_id in event_ids {
-        let mut event = load_event(&state.pool, event_id).await?;
+        let mut event = repo::load_event(&state.pool, event_id).await?;
         event.is_owner = match viewer_user_id {
             Some(user_id) => repo::is_event_owner(&state.pool, event_id, user_id).await?,
             None => false,
@@ -42,7 +42,7 @@ pub async fn get_event_public(
     event_id: Uuid,
     viewer_user_id: Option<Uuid>,
 ) -> Result<Event, ApiError> {
-    let mut event = load_event(&state.pool, event_id).await?;
+    let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = match viewer_user_id {
         Some(user_id) => repo::is_event_owner(&state.pool, event_id, user_id).await?,
         None => false,
@@ -87,7 +87,7 @@ pub async fn create_event_for_user(
     .await
     .map_err(internal_error)?;
 
-    let mut event = load_event(&state.pool, event_id).await?;
+    let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = true;
     Ok(event)
 }
@@ -122,7 +122,7 @@ pub async fn update_event_for_user(
         return Err(not_found("Event not found"));
     }
 
-    let mut event = load_event(&state.pool, event_id).await?;
+    let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = true;
     Ok(event)
 }
@@ -205,7 +205,7 @@ pub async fn add_event_player_for_user(
     .await
     .map_err(internal_error)?;
 
-    let mut event = load_event(&state.pool, event_id).await?;
+    let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = true;
     Ok(event)
 }
@@ -351,7 +351,7 @@ pub async fn accept_signup_request_for_user(
         return Err(bad_request("This signup request has already been reviewed"));
     }
 
-    let mut event = load_event(&state.pool, event_id).await?;
+    let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = true;
     Ok(event)
 }
@@ -430,7 +430,7 @@ pub async fn update_event_player_for_user(
         return Err(not_found("Player not found in this event"));
     }
 
-    let mut event = load_event(&state.pool, event_id).await?;
+    let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = true;
     Ok(event)
 }
@@ -463,7 +463,7 @@ pub async fn create_event_team_for_user(
         return Err(bad_request("Team name already exists in this event"));
     }
 
-    let mut event = load_event(&state.pool, event_id).await?;
+    let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = true;
     Ok(event)
 }
@@ -539,7 +539,7 @@ pub async fn update_event_team_for_user(
         return Err(not_found("Team not found in this event"));
     }
 
-    let mut event = load_event(&state.pool, event_id).await?;
+    let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = true;
     Ok(event)
 }
@@ -583,7 +583,7 @@ pub async fn assign_event_player_team_for_user(
             .map_err(internal_error)?;
     }
 
-    let mut event = load_event(&state.pool, event_id).await?;
+    let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = true;
     Ok(event)
 }
@@ -634,7 +634,7 @@ pub async fn set_matchup_for_user(
         _ => return Err(bad_request("Provide both teams or clear both")),
     }
 
-    load_match(&state.pool, match_id).await
+    matches_repo::load_match(&state.pool, match_id).await
 }
 
 fn validate_create_match_input(payload: &CreateMatchInput) -> Result<(), ApiError> {
@@ -725,7 +725,7 @@ async fn create_match_record(
         .await
         .map_err(internal_error)?;
 
-    load_match(&state.pool, match_id).await
+    matches_repo::load_match(&state.pool, match_id).await
 }
 
 fn validate_add_player_input(payload: &AddPlayerInput) -> Result<(), ApiError> {

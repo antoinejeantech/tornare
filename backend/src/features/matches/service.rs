@@ -6,7 +6,6 @@ use crate::{
         permissions::{require_event_manage_access, require_event_view_access},
     },
     shared::{
-        db::load_match,
         errors::{not_found, ApiError},
         models::{Match, MessageResponse},
     },
@@ -22,7 +21,7 @@ pub async fn list_matches_for_user(
 
     let mut matches = Vec::with_capacity(match_ids.len());
     for match_id in match_ids {
-        matches.push(load_match(&state.pool, match_id).await?);
+        matches.push(repo::load_match(&state.pool, match_id).await?);
     }
 
     Ok(matches)
@@ -38,7 +37,7 @@ pub async fn get_match_for_user(
     };
 
     require_event_view_access(state, event_id, user_id).await?;
-    load_match(&state.pool, match_id).await
+    repo::load_match(&state.pool, match_id).await
 }
 
 pub async fn delete_match_for_user(

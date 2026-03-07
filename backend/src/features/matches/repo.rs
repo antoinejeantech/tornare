@@ -1,7 +1,11 @@
 use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
-use crate::shared::errors::internal_error;
+use crate::shared::{
+    errors::{internal_error, not_found},
+    models::{Match, Player},
+    numeric::i32_to_u8,
+};
 
 pub async fn list_visible_match_ids(
     pool: &PgPool,
@@ -46,4 +50,86 @@ pub async fn delete_match_by_id(
         .map_err(internal_error)?;
 
     Ok(result.rows_affected())
+}
+
+pub async fn load_match(pool: &PgPool, match_id: Uuid) -> Result<Match, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT
+            g.id,
+            g.event_id,
+            g.team_a_id,
+            ta.name AS team_a_name,
+            g.team_b_id,
+            tb.name AS team_b_name,
+            g.title,
+            g.map,
+            g.max_players
+         FROM event_matches g
+         LEFT JOIN event_teams ta ON ta.id = g.team_a_id
+         LEFT JOIN event_teams tb ON tb.id = g.team_b_id
+         WHERE g.id = $1",
+    )
+    .bind(match_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    let Some(row) = row else {
+        return Err(not_found("Match not found"));
+    };
+
+    let db_id: Uuid = row.get("id");
+    let event_id: Uuid = row.get("event_id");
+    let players = load_event_players_for_event(pool, event_id).await?;
+
+    Ok(Match {
+        id: db_id,
+        event_id: Some(event_id),
+        team_a_id: row.get::<Option<Uuid>, _>("team_a_id"),
+        team_a_name: row.get("team_a_name"),
+        team_b_id: row.get::<Option<Uuid>, _>("team_b_id"),
+        team_b_name: row.get("team_b_name"),
+        title: row.get("title"),
+        map: row.get("map"),
+        max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,
+        players,
+    })
+}
+
+async fn load_event_players_for_event(
+    pool: &PgPool,
+    event_id: Uuid,
+) -> Result<Vec<Player>, crate::shared::errors::ApiError> {
+    let rows = sqlx::query(
+        "SELECT
+            ep.id,
+            ep.name,
+            ep.role,
+            ep.rank,
+            et.id AS team_id,
+            et.name AS team_name
+         FROM event_players ep
+         LEFT JOIN event_team_members etm ON etm.event_player_id = ep.id
+         LEFT JOIN event_teams et ON et.id = etm.event_team_id
+         WHERE ep.event_id = $1
+         ORDER BY ep.id ASC",
+    )
+    .bind(event_id)
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
+
+    let mut players = Vec::with_capacity(rows.len());
+    for row in rows {
+        players.push(Player {
+            id: row.get::<Uuid, _>("id"),
+            name: row.get("name"),
+            role: row.get("role"),
+            rank: row.get("rank"),
+            team_id: row.get::<Option<Uuid>, _>("team_id"),
+            team: row.get("team_name"),
+        });
+    }
+
+    Ok(players)
 }
