@@ -92,7 +92,7 @@ const canCreateTeam = computed(() => {
 
 const canSaveEventMeta = computed(() => {
   const nameOk = editEventName.value.trim().length > 0
-  const maxOk = Number.isInteger(editEventMaxPlayers.value) && editEventMaxPlayers.value >= 2 && editEventMaxPlayers.value <= 12
+  const maxOk = Number.isInteger(editEventMaxPlayers.value) && editEventMaxPlayers.value >= 2 && editEventMaxPlayers.value <= 99
   return nameOk && maxOk
 })
 
@@ -510,6 +510,10 @@ async function assignSelectedPlayerToTeam(teamId) {
   }
 }
 
+async function assignPlayerToTeam(playerId, teamId) {
+  await setPlayerTeam(playerId, teamId)
+}
+
 async function removePlayerFromTeam(playerId) {
   await setPlayerTeam(playerId, null)
 }
@@ -837,6 +841,7 @@ provide('eventCtx', proxyRefs({
   saveTeamEdit,
   deleteTeam,
   assignSelectedPlayerToTeam,
+  assignPlayerToTeam,
   removePlayerFromTeam,
   savePlayerEdit,
   addPlayer,
@@ -907,7 +912,7 @@ provide('eventCtx', proxyRefs({
             @click="deleteEvent"
           >
             <span class="material-symbols-rounded" aria-hidden="true">
-              {{ deletingEvent ? 'hourglass_top' : 'delete_forever' }}
+              {{ deletingEvent ? 'hourglass_top' : 'delete' }}
             </span>
             <span class="sr-only">{{ deletingEvent ? 'Deleting event' : 'Delete event' }}</span>
           </button>
@@ -928,7 +933,7 @@ provide('eventCtx', proxyRefs({
         </label>
         <label>
           Max players
-          <input v-model.number="editEventMaxPlayers" type="number" min="2" max="12" step="1" />
+          <input v-model.number="editEventMaxPlayers" type="number" min="2" max="99" step="1" />
         </label>
       </form>
       <div class="event-meta-row">
@@ -944,7 +949,7 @@ provide('eventCtx', proxyRefs({
       <div class="event-layout">
         <aside class="event-left-nav" aria-label="Event sections">
           <button class="left-nav-item" :class="{ active: activeSection === 'overview' }" @click="activeSection = 'overview'">Overview</button>
-          <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="activeSection = 'roster'">Roster</button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="activeSection = 'roster'">Players</button>
           <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="activeSection = 'teams'">Teams</button>
           <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="activeSection = 'matches'">Matches</button>
           <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'requests' }" @click="activeSection = 'requests'">Requests</button>

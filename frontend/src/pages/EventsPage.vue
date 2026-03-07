@@ -15,6 +15,7 @@ const notice = ref('')
 const loadingEvents = ref(false)
 const creatingEvent = ref(false)
 const deletingEventId = ref(null)
+const activeEventsFilter = ref('all')
 
 const newEventName = ref('')
 const newEventDescription = ref('')
@@ -32,8 +33,16 @@ const canCreateEvent = computed(() => {
     newEventDescription.value.trim().length <= 5000 &&
     Number.isInteger(Number(newEventMaxPlayers.value)) &&
     Number(newEventMaxPlayers.value) >= 2 &&
-    Number(newEventMaxPlayers.value) <= 12
+    Number(newEventMaxPlayers.value) <= 99
   )
+})
+
+const filteredEvents = computed(() => {
+  if (activeEventsFilter.value === 'mine') {
+    return events.value.filter((event) => Boolean(event.is_owner))
+  }
+
+  return events.value
 })
 
 function setError(message) {
@@ -56,6 +65,10 @@ function clearNotice() {
 function eventStartLabel(event) {
   const formatted = formatEventStartDate(event?.start_date)
   return formatted || ''
+}
+
+function setEventsFilter(filter) {
+  activeEventsFilter.value = filter
 }
 
 async function loadEvents() {
@@ -150,6 +163,25 @@ onMounted(loadEvents)
       <h1 class="page-title">Overwatch Event Manager</h1>
     </header>
 
+    <nav v-if="authStore.isAuthenticated" class="events-subnav" aria-label="Event filters">
+      <button
+        class="events-subnav-btn"
+        :class="{ active: activeEventsFilter === 'all' }"
+        :aria-pressed="activeEventsFilter === 'all'"
+        @click="setEventsFilter('all')"
+      >
+        All Events
+      </button>
+      <button
+        class="events-subnav-btn"
+        :class="{ active: activeEventsFilter === 'mine' }"
+        :aria-pressed="activeEventsFilter === 'mine'"
+        @click="setEventsFilter('mine')"
+      >
+        My Events
+      </button>
+    </nav>
+
     <p v-if="error" class="status status-error">{{ error }}</p>
     <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
@@ -177,7 +209,7 @@ onMounted(loadEvents)
         </label>
         <label>
           Max players
-          <input v-model.number="newEventMaxPlayers" min="2" max="12" type="number" />
+          <input v-model.number="newEventMaxPlayers" min="2" max="99" type="number" />
         </label>
         <button type="submit" class="btn-primary" :disabled="!canCreateEvent || creatingEvent">
           {{ creatingEvent ? 'Creating...' : 'Create event' }}
@@ -193,9 +225,11 @@ onMounted(loadEvents)
     <section class="card">
       <h2>Events</h2>
       <p v-if="loadingEvents">Loading events...</p>
-      <p v-else-if="events.length === 0" class="muted">No events yet. Create your first one above.</p>
+      <p v-else-if="filteredEvents.length === 0" class="muted">
+        {{ activeEventsFilter === 'mine' ? 'You do not own any events yet.' : 'No events yet. Create your first one above.' }}
+      </p>
       <ul v-else class="home-events-list">
-        <li v-for="event in events" :key="event.id" class="home-event-row">
+        <li v-for="event in filteredEvents" :key="event.id" class="home-event-row">
           <button class="home-event-select" @click="openEvent(event.id)">
             <span class="event-title-wrap">
               <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
@@ -222,6 +256,39 @@ onMounted(loadEvents)
 </template>
 
 <style scoped>
+.events-subnav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  width: fit-content;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
+  border-radius: 999px;
+  padding: 0.22rem;
+  background: color-mix(in srgb, var(--card) 92%, #edf5ff 8%);
+}
+
+.events-subnav-btn {
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-weight: 760;
+  letter-spacing: 0.01em;
+  padding: 0.34rem 0.72rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.events-subnav-btn:hover {
+  color: var(--ink-1);
+  background: color-mix(in srgb, var(--brand-2) 10%, var(--card) 90%);
+}
+
+.events-subnav-btn.active {
+  color: #fff;
+  background: linear-gradient(130deg, #0f4f99, var(--brand-1));
+}
+
 .home-events-list {
   list-style: none;
   margin: 0;

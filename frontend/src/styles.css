@@ -343,6 +343,7 @@ label {
 
 input,
 select,
+textarea,
 button {
   font: inherit;
   min-width: 0;
@@ -351,10 +352,16 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   background: var(--input-bg);
   border: 1px solid var(--line);
   color: var(--input-ink);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 6rem;
 }
 
 button {
@@ -378,10 +385,26 @@ button:disabled {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid color-mix(in srgb, var(--brand-2) 35%, white 65%);
   outline-offset: 1px;
   border-color: color-mix(in srgb, var(--brand-2) 65%, var(--line) 35%);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--input-ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--input-bg) inset;
+  box-shadow: 0 0 0 1000px var(--input-bg) inset;
+  transition: background-color 9999s ease-out 0s;
 }
 
 .status {

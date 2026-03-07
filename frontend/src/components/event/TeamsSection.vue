@@ -63,6 +63,14 @@ function formatTeamAverageElo(teamId) {
 
   return `Avg ELO: ${avg.toLocaleString()}`
 }
+
+function assignmentNotice(player) {
+  if (!player?.team_id || !player?.team) {
+    return ''
+  }
+
+  return `Currently in ${player.team}`
+}
 </script>
 
 <template>
@@ -136,25 +144,20 @@ function formatTeamAverageElo(teamId) {
             </li>
           </ul>
           <span v-else class="muted team-player-empty">No players assigned</span>
-          <div class="team-assign-row">
-            <select
-              v-model="ctx.teamAssignmentSelections[team.id]"
-              :disabled="!ctx.canManageEvent || playersAssignableToTeam(team.id).length === 0"
-            >
-              <option value="">Assign player to {{ team.name }}</option>
-              <option v-for="player in playersAssignableToTeam(team.id)" :key="`assign-${team.id}-${player.id}`" :value="String(player.id)">
-                {{ player.name }} · {{ player.role }} · {{ player.rank }}
-              </option>
-            </select>
+          <div v-if="ctx.canManageEvent" class="team-assign-grid">
+            <p v-if="playersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">No available players to assign</p>
             <button
-              v-if="ctx.canManageEvent"
-              class="btn-secondary icon-btn"
-              :disabled="!ctx.teamAssignmentSelections[team.id]"
-              title="Assign selected player"
-              @click="ctx.assignSelectedPlayerToTeam(team.id)"
+              v-for="player in playersAssignableToTeam(team.id)"
+              :key="`assign-${team.id}-${player.id}`"
+              class="btn-secondary team-assign-btn"
+              :disabled="Boolean(ctx.savingPlayerTeams[player.id])"
+              @click="ctx.assignPlayerToTeam(player.id, team.id)"
             >
-              <span class="material-symbols-rounded" aria-hidden="true">person_add</span>
-              <span class="sr-only">Assign selected player</span>
+              <span class="material-symbols-rounded" aria-hidden="true">
+                {{ ctx.savingPlayerTeams[player.id] ? 'hourglass_top' : 'person_add' }}
+              </span>
+              <span class="team-assign-main">{{ player.name }} · {{ player.role }} · {{ player.rank }}</span>
+              <span v-if="assignmentNotice(player)" class="team-assign-notice">{{ assignmentNotice(player) }}</span>
             </button>
           </div>
         </div>
@@ -333,10 +336,28 @@ function formatTeamAverageElo(teamId) {
   font-size: 0.9rem;
 }
 
-.team-assign-row {
+.team-assign-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 1fr;
+  gap: 0.4rem;
+}
+
+.team-assign-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
   gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.team-assign-main {
+  font-weight: 700;
+}
+
+.team-assign-notice {
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  margin-left: 1.58rem;
 }
 
 @media (max-width: 900px) {

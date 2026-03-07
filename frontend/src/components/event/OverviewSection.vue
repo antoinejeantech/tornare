@@ -20,14 +20,6 @@ const assignedCount = computed(() => {
 
 const unassignedCount = computed(() => Math.max(0, rosterCount.value - assignedCount.value))
 
-const readyMatches = computed(() => {
-  if (!ctx.event) {
-    return 0
-  }
-
-  return ctx.event.matches.filter((match) => Boolean(match.team_a_id && match.team_b_id)).length
-})
-
 const latestMatches = computed(() => {
   if (!ctx.event) {
     return []
@@ -63,8 +55,6 @@ function matchupLabel(match) {
     </h3>
     <p v-if="formattedStartDate" class="muted">{{ formattedStartDate }}</p>
     <p v-if="ctx.event.description" class="overview-description muted">{{ ctx.event.description }}</p>
-    <p class="muted">Quick snapshot of this event before you jump into roster, teams, or matches.</p>
-
     <div class="overview-kpis">
       <article class="overview-kpi">
         <p class="overview-kpi-label">Roster</p>
@@ -78,21 +68,17 @@ function matchupLabel(match) {
         <p class="overview-kpi-label">Matches</p>
         <p class="overview-kpi-value">{{ matchCount }}</p>
       </article>
-      <article class="overview-kpi">
-        <p class="overview-kpi-label">Ready Matchups</p>
-        <p class="overview-kpi-value">{{ readyMatches }}</p>
-      </article>
     </div>
 
     <div class="overview-grid">
       <article class="overview-card">
-        <h4>Roster Status</h4>
+        <h4>Players</h4>
         <p class="muted">{{ assignedCount }} assigned to teams · {{ unassignedCount }} unassigned</p>
-        <button class="btn-secondary" @click="ctx.openSection('roster')">Open roster</button>
+        <button class="btn-secondary" @click="ctx.openSection('roster')">Open players</button>
       </article>
 
       <article class="overview-card">
-        <h4>Largest Teams</h4>
+        <h4>Teams</h4>
         <p v-if="largestTeams.length === 0" class="muted">No teams yet.</p>
         <ul v-else class="overview-list">
           <li v-for="team in largestTeams" :key="team.id">
@@ -122,7 +108,7 @@ function matchupLabel(match) {
 .overview-kpis {
   display: grid;
   gap: 0.5rem;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   margin-bottom: 0.7rem;
 }
 
@@ -141,7 +127,7 @@ function matchupLabel(match) {
 }
 
 .overview-description {
-  margin: 0;
+  margin: 0 0 0.45rem;
   white-space: pre-wrap;
 }
 
