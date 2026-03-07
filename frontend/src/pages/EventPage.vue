@@ -112,10 +112,6 @@ function setNotice(message) {
   alert.success(message)
 }
 
-function resetFeedback() {
-  // Global alerts are transient and don't require manual reset.
-}
-
 function ensureOwnerAction() {
   if (canManageEvent.value) {
     return true
@@ -157,7 +153,6 @@ async function loadEvent() {
 
   loadingEvent.value = true
   try {
-    resetFeedback()
     event.value = await eventStore.fetchEvent(eventId.value)
     hydrateSelections()
     if (event.value?.is_owner) {
@@ -303,8 +298,6 @@ async function createTeam() {
 
   creatingTeam.value = true
   try {
-    resetFeedback()
-
     const updatedEvent = await eventStore.createTeam(eventId.value, newTeamName.value.trim())
 
     event.value = updatedEvent
@@ -333,8 +326,6 @@ async function saveTeamEdit(teamId) {
   }
 
   try {
-    resetFeedback()
-
     const updatedEvent = await eventStore.updateTeam(eventId.value, teamId, editTeamName.value.trim())
 
     event.value = updatedEvent
@@ -372,8 +363,6 @@ async function deleteTeam(team) {
   }
 
   try {
-    resetFeedback()
-
     await eventStore.deleteTeam(eventId.value, team.id)
 
     await loadEvent()
@@ -404,8 +393,6 @@ async function addPlayer() {
 
   addingPlayer.value = true
   try {
-    resetFeedback()
-
     const updatedEvent = await eventStore.addPlayer(eventId.value, {
       name: newPlayerName.value.trim(),
       role: newPlayerRole.value,
@@ -441,8 +428,6 @@ async function savePlayerEdit(playerId) {
   }
 
   try {
-    resetFeedback()
-
     const updatedEvent = await eventStore.updatePlayer(eventId.value, playerId, {
       name: editPlayerName.value.trim(),
       role: editPlayerRole.value,
@@ -481,8 +466,6 @@ async function setPlayerTeam(playerId, teamId) {
   }
 
   try {
-    resetFeedback()
-
     const updatedEvent = await eventStore.assignPlayerTeam(eventId.value, playerId, teamId)
 
     event.value = updatedEvent
@@ -553,8 +536,6 @@ async function removePlayer(player) {
   }
 
   try {
-    resetFeedback()
-
     await eventStore.deletePlayer(eventId.value, player.id)
 
     setNotice('Player removed from event roster')
@@ -590,8 +571,6 @@ async function saveMatchup(matchId) {
   }
 
   try {
-    resetFeedback()
-
     const updatedMatch = await matchStore.setMatchupForEvent(eventId.value, matchId, {
       team_a_id: teamAId,
       team_b_id: teamBId,
@@ -628,8 +607,6 @@ async function createMatch() {
 
   creatingMatch.value = true
   try {
-    resetFeedback()
-
     const created = await matchStore.createMatchForEvent(eventId.value, {
       title: newMatchTitle.value.trim(),
       map: newMatchMap.value.trim(),
@@ -677,8 +654,6 @@ async function deleteMatch(matchId) {
 
   deletingMatchId.value = matchId
   try {
-    resetFeedback()
-
     await matchStore.deleteMatch(matchId)
 
     if (event.value) {
@@ -712,8 +687,6 @@ async function deleteEvent() {
 
   deletingEvent.value = true
   try {
-    resetFeedback()
-
     await eventStore.deleteEvent(eventId.value)
 
     router.push({ name: 'home' })
@@ -755,8 +728,6 @@ async function saveEventEdit() {
 
   updatingEvent.value = true
   try {
-    resetFeedback()
-
     const payloadType = String(event.value.event_type).trim().toUpperCase() === 'TOURNEY' ? 'TOURNEY' : 'PUG'
 
     const updatedEvent = await eventStore.updateEvent(eventId.value, {
@@ -1073,13 +1044,6 @@ provide('eventCtx', proxyRefs({
   text-transform: uppercase;
 }
 
-.event-grid {
-  display: grid;
-  gap: 0.72rem;
-  grid-template-columns: 1fr;
-  margin-bottom: 0.8rem;
-}
-
 .event-layout {
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr);
@@ -1157,14 +1121,6 @@ provide('eventCtx', proxyRefs({
   height: 100%;
   min-height: 0;
   overflow-y: auto;
-}
-
-.roster-panel {
-  order: 1;
-}
-
-.teams-panel {
-  order: 2;
 }
 
 .event-panel h3 {
