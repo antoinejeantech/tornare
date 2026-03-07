@@ -8,9 +8,6 @@ use uuid::Uuid;
 pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
     create_core_tables(pool).await?;
     create_event_tables(pool).await?;
-    apply_event_schema_migrations(pool).await?;
-    backfill_event_signup_tokens(pool).await?;
-    backfill_event_owner_memberships(pool).await?;
 
     Ok(())
 }
@@ -47,7 +44,6 @@ async fn create_core_tables(pool: &PgPool) -> anyhow::Result<()> {
 }
 
 async fn create_event_tables(pool: &PgPool) -> anyhow::Result<()> {
-
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS user_roles (
             id UUID PRIMARY KEY,
@@ -78,9 +74,17 @@ async fn create_event_tables(pool: &PgPool) -> anyhow::Result<()> {
             name TEXT NOT NULL,
             description TEXT NOT NULL DEFAULT '',
             start_date TEXT,
+            signup_token TEXT,
             event_type TEXT NOT NULL CHECK (event_type IN ('PUG', 'TOURNEY')),
             max_players INTEGER NOT NULL
         )",
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_events_signup_token
+         ON events(signup_token)",
     )
     .execute(pool)
     .await?;
@@ -146,43 +150,6 @@ async fn create_event_tables(pool: &PgPool) -> anyhow::Result<()> {
     .execute(pool)
     .await?;
 
-    Ok(())
-}
-
-async fn apply_event_schema_migrations(pool: &PgPool) -> anyhow::Result<()> {
-    // Remove legacy DB-level max_players check constraints.
-    sqlx::query("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_max_players_check")
-        .execute(pool)
-        .await?;
-
-    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''")
-        .execute(pool)
-        .await?;
-
-    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS start_date TEXT")
-        .execute(pool)
-        .await?;
-
-    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS signup_token TEXT")
-        .execute(pool)
-        .await?;
-
-    sqlx::query(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_events_signup_token
-         ON events(signup_token)",
-    )
-    .execute(pool)
-    .await?;
-
-    sqlx::query("ALTER TABLE event_matches DROP CONSTRAINT IF EXISTS event_matches_max_players_check")
-        .execute(pool)
-        .await?;
-
-    Ok(())
-}
-
-async fn backfill_event_signup_tokens(pool: &PgPool) -> anyhow::Result<()> {
-
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS event_signup_requests (
             id UUID PRIMARY KEY,
@@ -196,70 +163,6 @@ async fn backfill_event_signup_tokens(pool: &PgPool) -> anyhow::Result<()> {
     )
     .execute(pool)
     .await?;
-
-    let event_token_rows = sqlx::query(
-        "SELECT id
-         FROM events
-         WHERE signup_token IS NULL OR signup_token = ''",
-    )
-    .fetch_all(pool)
-    .await?;
-
-    for row in event_token_rows {
-        let event_id: Uuid = row.get("id");
-        sqlx::query("UPDATE events SET signup_token = $1 WHERE id = $2")
-            .bind(Uuid::new_v4().to_string())
-            .bind(event_id)
-            .execute(pool)
-            .await?;
-    }
-
-    Ok(())
-}
-
-async fn backfill_event_owner_memberships(pool: &PgPool) -> anyhow::Result<()> {
-
-    // Legacy data backfill: ensure every event has an owner membership so creator metadata resolves.
-    let orphan_event_rows = sqlx::query(
-        "SELECT e.id
-         FROM events e
-         LEFT JOIN event_memberships m ON m.event_id = e.id AND m.role = 'owner'
-         WHERE m.id IS NULL",
-    )
-    .fetch_all(pool)
-    .await?;
-
-    if !orphan_event_rows.is_empty() {
-        let fallback_owner_row = sqlx::query(
-            "SELECT id
-             FROM users
-             WHERE is_active = TRUE
-             ORDER BY created_at ASC
-             LIMIT 1",
-        )
-        .fetch_optional(pool)
-        .await?;
-
-        if let Some(fallback_owner_row) = fallback_owner_row {
-            let fallback_owner_id: Uuid = fallback_owner_row.get("id");
-
-            for orphan_event_row in orphan_event_rows {
-                let orphan_event_id: Uuid = orphan_event_row.get("id");
-
-                sqlx::query(
-                    "INSERT INTO event_memberships (id, event_id, user_id, role)
-                     VALUES ($1, $2, $3, $4)
-                     ON CONFLICT (event_id, user_id) DO NOTHING",
-                )
-                .bind(Uuid::new_v4())
-                .bind(orphan_event_id)
-                .bind(fallback_owner_id)
-                .bind("owner")
-                .execute(pool)
-                .await?;
-            }
-        }
-    }
 
     Ok(())
 }
