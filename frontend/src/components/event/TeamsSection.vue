@@ -1,8 +1,9 @@
 <script setup>
-import { computed, inject } from 'vue'
+import { computed, inject, ref } from 'vue'
 import { getRankElo } from '../../lib/ranks'
 
 const ctx = inject('eventCtx')
+const assignmentSearchByTeam = ref({})
 
 const unassignedPlayersCount = computed(() => {
   if (!ctx.event) {
@@ -38,6 +39,24 @@ function playersAssignableToTeam(teamId) {
 
       return a.name.localeCompare(b.name)
     })
+}
+
+function assignmentSearchTerm(teamId) {
+  return String(assignmentSearchByTeam.value[teamId] || '').trim().toLowerCase()
+}
+
+function filteredPlayersAssignableToTeam(teamId) {
+  const players = playersAssignableToTeam(teamId)
+  const searchTerm = assignmentSearchTerm(teamId)
+  if (!searchTerm) {
+    return players
+  }
+
+  return players.filter((player) => {
+    return [player.name, player.role, player.rank, player.team]
+      .map((value) => String(value || '').toLowerCase())
+      .some((value) => value.includes(searchTerm))
+  })
 }
 
 function selectedAssignablePlayer(teamId) {
@@ -204,11 +223,18 @@ function assignmentNotice(player) {
           <div v-if="ctx.canManageEvent" class="team-assign-grid">
             <p v-if="playersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">No available players to assign</p>
             <div v-else class="team-assign-row">
+              <label class="sr-only" :for="`assign-search-${team.id}`">Search assignable players for {{ team.name }}</label>
+              <input
+                :id="`assign-search-${team.id}`"
+                v-model="assignmentSearchByTeam[team.id]"
+                type="search"
+                placeholder="Search player, role, rank..."
+              />
               <label class="sr-only" :for="`assign-player-${team.id}`">Assign player to {{ team.name }}</label>
               <select :id="`assign-player-${team.id}`" v-model="ctx.teamAssignmentSelections[team.id]">
                 <option value="">Select player</option>
                 <option
-                  v-for="player in playersAssignableToTeam(team.id)"
+                  v-for="player in filteredPlayersAssignableToTeam(team.id)"
                   :key="`assign-option-${team.id}-${player.id}`"
                   :value="player.id"
                 >
@@ -222,6 +248,7 @@ function assignmentNotice(player) {
               >
                 {{ selectedAssignBusy(team.id) ? 'Assigning...' : 'Assign' }}
               </button>
+              <p v-if="filteredPlayersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">No players match this search.</p>
             </div>
           </div>
         </div>
@@ -432,9 +459,20 @@ function assignmentNotice(player) {
 
 .team-assign-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   gap: 0.4rem;
   align-items: center;
+}
+
+.team-assign-row .team-player-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 1100px) {
+  .team-assign-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 900px) {
