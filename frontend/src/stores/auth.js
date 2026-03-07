@@ -70,23 +70,25 @@ export const useAuthStore = defineStore('auth', {
       return me
     },
     async refreshAccessToken() {
-      if (!this.refreshToken) {
+      const refreshToken = this.refreshToken || getStoredRefreshToken()
+      if (!refreshToken) {
         throw new Error('No refresh token')
       }
 
       const response = await apiCall('/api/auth/refresh', {
         method: 'POST',
-        body: JSON.stringify({ refresh_token: this.refreshToken }),
+        body: JSON.stringify({ refresh_token: refreshToken }),
       })
       this.setSession(response)
       return response
     },
     async logout() {
       try {
-        if (this.refreshToken) {
+        const refreshToken = this.refreshToken || getStoredRefreshToken()
+        if (refreshToken) {
           await apiCall('/api/auth/logout', {
             method: 'POST',
-            body: JSON.stringify({ refresh_token: this.refreshToken }),
+            body: JSON.stringify({ refresh_token: refreshToken }),
           })
         }
       } finally {
@@ -109,6 +111,8 @@ export const useAuthStore = defineStore('auth', {
       if (this.accessToken) {
         try {
           await this.fetchMe()
+          this.accessToken = getAccessToken()
+          this.refreshToken = getStoredRefreshToken()
         } catch {
           this.clearSession()
         }
