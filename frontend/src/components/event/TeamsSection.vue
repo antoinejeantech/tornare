@@ -137,7 +137,7 @@ function filteredPlayersAssignableToTeam(teamId) {
   const players = playersAssignableToTeam(teamId)
   const tokens = searchTokens(assignmentSearchTerm(teamId))
   if (tokens.length === 0) {
-    return players
+    return []
   }
 
   return players.filter((player) => {
@@ -147,6 +147,10 @@ function filteredPlayersAssignableToTeam(teamId) {
 
 function visibleTeamAssignResults(teamId) {
   return filteredPlayersAssignableToTeam(teamId).slice(0, 10)
+}
+
+function hasTeamAssignmentSearch(teamId) {
+  return searchTokens(assignmentSearchTerm(teamId)).length > 0
 }
 
 function selectedAssignablePlayer(teamId) {
@@ -361,27 +365,34 @@ function assignmentNotice(player) {
               />
               <p class="muted team-assign-match-count">{{ filteredPlayersAssignableToTeam(team.id).length }} matches</p>
 
-              <p v-if="filteredPlayersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">No players match this search.</p>
+              <div
+                v-if="hasTeamAssignmentSearch(team.id)"
+                class="team-assign-dropdown"
+                role="listbox"
+                :aria-label="`Search results for ${team.name}`"
+              >
+                <p v-if="filteredPlayersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">No players match this search.</p>
 
-              <ul v-else class="team-assign-results">
-                <li v-for="player in visibleTeamAssignResults(team.id)" :key="`assign-result-${team.id}-${player.id}`">
-                  <button
-                    class="btn-secondary team-assign-result-btn"
-                    :disabled="Boolean(ctx.savingPlayerTeams[player.id])"
-                    @click="ctx.assignPlayerToTeam(player.id, team.id)"
-                  >
-                    <span class="material-symbols-rounded" aria-hidden="true">
-                      {{ ctx.savingPlayerTeams[player.id] ? 'hourglass_top' : 'person_add' }}
-                    </span>
-                    <span class="team-assign-main">{{ player.name }} · {{ player.role }} · {{ player.rank }}</span>
-                    <span v-if="assignmentNotice(player)" class="team-assign-notice">{{ assignmentNotice(player) }}</span>
-                  </button>
-                </li>
-              </ul>
+                <ul v-else class="team-assign-results">
+                  <li v-for="player in visibleTeamAssignResults(team.id)" :key="`assign-result-${team.id}-${player.id}`">
+                    <button
+                      class="btn-secondary team-assign-result-btn"
+                      :disabled="Boolean(ctx.savingPlayerTeams[player.id])"
+                      @click="ctx.assignPlayerToTeam(player.id, team.id)"
+                    >
+                      <span class="material-symbols-rounded" aria-hidden="true">
+                        {{ ctx.savingPlayerTeams[player.id] ? 'hourglass_top' : 'person_add' }}
+                      </span>
+                      <span class="team-assign-main">{{ player.name }} · {{ player.role }} · {{ player.rank }}</span>
+                      <span v-if="assignmentNotice(player)" class="team-assign-notice">{{ assignmentNotice(player) }}</span>
+                    </button>
+                  </li>
+                </ul>
 
-              <p v-if="filteredPlayersAssignableToTeam(team.id).length > 10" class="muted team-assign-limit-note">
-                Showing first 10 matches. Refine search to narrow results.
-              </p>
+                <p v-if="filteredPlayersAssignableToTeam(team.id).length > 10" class="muted team-assign-limit-note">
+                  Showing first 10 matches. Refine search to narrow results.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -656,6 +667,7 @@ function assignmentNotice(player) {
 }
 
 .team-assign-row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.4rem;
@@ -666,17 +678,47 @@ function assignmentNotice(player) {
   margin: 0;
 }
 
+.team-assign-dropdown {
+  position: absolute;
+  top: calc(100% + 0.34rem);
+  left: 0;
+  right: auto;
+  z-index: 24;
+  width: max-content;
+  min-width: min(26rem, 100%);
+  max-width: min(42rem, calc(100vw - 2rem));
+  border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
+  background: color-mix(in srgb, var(--card) 96%, #eef5ff 4%);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(16, 39, 82, 0.18);
+  padding: 0.45rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
 .team-assign-results {
-  grid-column: 1 / -1;
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: 0.32rem;
+  justify-items: start;
+  max-height: 14rem;
+  overflow: auto;
+}
+
+/* Reset nested list item styles inherited from .entry-list li. */
+.team-assign-results li {
+  border: 0;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  display: block;
 }
 
 .team-assign-result-btn {
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
@@ -695,18 +737,23 @@ function assignmentNotice(player) {
 }
 
 .team-assign-limit-note {
-  grid-column: 1 / -1;
   margin: 0;
 }
 
 .team-assign-row .team-player-empty {
-  grid-column: 1 / -1;
   margin: 0;
 }
 
 @media (max-width: 1100px) {
   .team-assign-row {
     grid-template-columns: 1fr;
+  }
+
+  .team-assign-dropdown {
+    left: 0;
+    right: 0;
+    min-width: 0;
+    max-width: none;
   }
 }
 
