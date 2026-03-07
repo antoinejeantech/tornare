@@ -1,16 +1,60 @@
 <script setup>
-import { computed, inject, reactive } from 'vue'
+import { computed, inject, reactive, ref } from 'vue'
 import { getRankElo } from '../../lib/ranks'
 
 const ctx = inject('eventCtx')
 const assignmentSearchByTeam = reactive({})
+const quickAssignTeamByPlayer = reactive({})
+const quickAssignSearch = ref('')
 
-const unassignedPlayersCount = computed(() => {
-  if (!ctx.event) {
-    return 0
+function normalizeSearch(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function searchTokens(value) {
+  const normalized = normalizeSearch(value)
+  return normalized ? normalized.split(' ') : []
+}
+
+function playerSearchBlob(player) {
+  return normalizeSearch(`${player?.name || ''} ${player?.role || ''} ${player?.rank || ''} ${player?.team || ''}`)
+}
+
+function playerMatchesTokens(player, tokens) {
+  if (tokens.length === 0) {
+    return true
   }
 
-  return ctx.event.players.filter((player) => !player.team_id).length
+  const blob = playerSearchBlob(player)
+  return tokens.every((token) => blob.includes(token))
+}
+
+const unassignedPlayers = computed(() => {
+  if (!ctx.event) {
+    return []
+  }
+
+  return ctx.event.players
+    .filter((player) => !player.team_id)
+    .sort((a, b) => a.name.localeCompare(b.name))
+})
+
+const unassignedPlayersCount = computed(() => {
+  return unassignedPlayers.value.length
+})
+
+const filteredUnassignedPlayers = computed(() => {
+  const tokens = searchTokens(quickAssignSearch.value)
+  if (tokens.length === 0) {
+    return unassignedPlayers.value
+  }
+
+  return unassignedPlayers.value.filter((player) => {
+    return playerMatchesTokens(player, tokens)
+  })
 })
 
 function playersForTeam(teamId) {
@@ -42,7 +86,7 @@ function playersAssignableToTeam(teamId) {
 }
 
 function assignmentSearchTerm(teamId) {
-  return String(assignmentSearchByTeam[teamId] || '').trim().toLowerCase()
+  return normalizeSearch(assignmentSearchByTeam[teamId])
 }
 
 function assignmentSearchValue(teamId) {
@@ -53,17 +97,51 @@ function setAssignmentSearch(teamId, value) {
   assignmentSearchByTeam[teamId] = String(value || '')
 }
 
+function quickAssignSelectedTeamId(playerId) {
+  return String(quickAssignTeamByPlayer[playerId] || '')
+}
+
+function quickAssignTargetTeam(playerId) {
+  const selectedTeamId = quickAssignSelectedTeamId(playerId)
+  if (!selectedTeamId || !ctx.event) {
+    return null
+  }
+
+  return ctx.event.teams.find((team) => team.id === selectedTeamId) || null
+}
+
+function quickAssignDisabled(playerId) {
+  const targetTeam = quickAssignTargetTeam(playerId)
+  if (!targetTeam) {
+    return true
+  }
+
+  return Boolean(ctx.savingPlayerTeams?.[playerId])
+}
+
+function quickAssignBusy(playerId) {
+  return Boolean(ctx.savingPlayerTeams?.[playerId])
+}
+
+async function quickAssignPlayer(playerId) {
+  const targetTeam = quickAssignTargetTeam(playerId)
+  if (!targetTeam) {
+    return
+  }
+
+  await ctx.assignPlayerToTeam(playerId, targetTeam.id)
+  quickAssignTeamByPlayer[playerId] = ''
+}
+
 function filteredPlayersAssignableToTeam(teamId) {
   const players = playersAssignableToTeam(teamId)
-  const searchTerm = assignmentSearchTerm(teamId)
-  if (!searchTerm) {
+  const tokens = searchTokens(assignmentSearchTerm(teamId))
+  if (tokens.length === 0) {
     return players
   }
 
   return players.filter((player) => {
-    return [player.name, player.role, player.rank, player.team]
-      .map((value) => String(value || '').toLowerCase())
-      .some((value) => value.includes(searchTerm))
+    return playerMatchesTokens(player, tokens)
   })
 }
 
@@ -171,6 +249,44 @@ function assignmentNotice(player) {
       <p class="muted">Creates one team per unassigned player.</p>
     </div>
 
+    <div v-if="ctx.canManageEvent && unassignedPlayersCount > 0" class="quick-assign-panel">
+      <div class="quick-assign-header">
+        <p class="quick-assign-title">Unassigned players</p>
+        <p class="muted">{{ unassignedPlayersCount }} total</p>
+      </div>
+
+      <p v-if="ctx.event.teams.length === 0" class="muted">Create at least one team to start assigning players.</p>
+
+      <div v-else class="quick-assign-body">
+        <input
+          v-model="quickAssignSearch"
+          type="search"
+          placeholder="Search unassigned by name, role, rank..."
+        />
+        <p class="muted quick-assign-count">{{ filteredUnassignedPlayers.length }} shown</p>
+
+        <p v-if="filteredUnassignedPlayers.length === 0" class="muted">No unassigned players match this search.</p>
+
+        <ul v-else class="quick-assign-list">
+          <li v-for="player in filteredUnassignedPlayers" :key="`quick-assign-${player.id}`" class="quick-assign-item">
+            <span class="quick-assign-player">{{ player.name }} · {{ player.role }} · {{ player.rank }}</span>
+            <div class="quick-assign-controls">
+              <label class="sr-only" :for="`quick-assign-team-${player.id}`">Assign team for {{ player.name }}</label>
+              <select :id="`quick-assign-team-${player.id}`" v-model="quickAssignTeamByPlayer[player.id]">
+                <option value="">Select team</option>
+                <option v-for="team in ctx.event.teams" :key="`quick-team-option-${player.id}-${team.id}`" :value="team.id">
+                  {{ team.name }}
+                </option>
+              </select>
+              <button class="btn-secondary" :disabled="quickAssignDisabled(player.id)" @click="quickAssignPlayer(player.id)">
+                {{ quickAssignBusy(player.id) ? 'Assigning...' : 'Assign' }}
+              </button>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+
     <p v-if="ctx.event.teams.length === 0" class="muted">No teams yet. Create teams first.</p>
     <ul v-else class="entry-list">
       <li v-for="team in ctx.event.teams" :key="team.id" class="team-row">
@@ -239,6 +355,7 @@ function assignmentNotice(player) {
                 placeholder="Search player, role, rank..."
                 @input="setAssignmentSearch(team.id, $event.target.value)"
               />
+              <p class="muted team-assign-match-count">{{ filteredPlayersAssignableToTeam(team.id).length }} matches</p>
               <label class="sr-only" :for="`assign-player-${team.id}`">Assign player to {{ team.name }}</label>
               <select :id="`assign-player-${team.id}`" v-model="ctx.teamAssignmentSelections[team.id]">
                 <option value="">Select player</option>
@@ -323,6 +440,71 @@ function assignmentNotice(player) {
 
 .solo-team-action-row .muted {
   margin: 0;
+}
+
+.quick-assign-panel {
+  border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
+  background: color-mix(in srgb, var(--card) 92%, #eef4ff 8%);
+  border-radius: 10px;
+  padding: 0.6rem;
+  margin: -0.18rem 0 0.72rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.quick-assign-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.quick-assign-title {
+  margin: 0;
+  font-weight: 760;
+}
+
+.quick-assign-body {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.quick-assign-count {
+  margin: 0;
+}
+
+.quick-assign-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.quick-assign-item {
+  border: 1px solid color-mix(in srgb, var(--line) 92%, var(--brand-2) 8%);
+  background: color-mix(in srgb, var(--card) 94%, #f2f7ff 6%);
+  border-radius: 8px;
+  padding: 0.42rem 0.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.quick-assign-player {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--ink-1);
+}
+
+.quick-assign-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 180px) auto;
+  gap: 0.38rem;
+  align-items: center;
 }
 
 .inline-edit-row {
@@ -473,6 +655,10 @@ function assignmentNotice(player) {
   align-items: center;
 }
 
+.team-assign-match-count {
+  margin: 0;
+}
+
 .team-assign-row .team-player-empty {
   grid-column: 1 / -1;
   margin: 0;
@@ -488,6 +674,14 @@ function assignmentNotice(player) {
   .team-player-main {
     flex-wrap: wrap;
     gap: 0.3rem;
+  }
+
+  .quick-assign-item {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-assign-controls {
+    grid-template-columns: 1fr;
   }
 }
 </style>
