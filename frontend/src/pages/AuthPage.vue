@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import battlenetLogo from '../assets/branding/bnet-logo.png'
 
 const router = useRouter()
 const route = useRoute()
@@ -80,6 +81,17 @@ function switchMode(nextMode) {
 
       <p v-if="error" class="status status-error">{{ error }}</p>
 
+      <div class="auth-soon">
+        <button type="button" class="btn-bnet" disabled aria-disabled="true" title="Coming soon">
+          <span class="btn-bnet-brand">
+            <img class="btn-bnet-logo" :src="battlenetLogo" alt="Battle.net" />
+            <span class="btn-bnet-label">Connect with Battle.net</span>
+          </span>
+          <span class="btn-bnet-badge">Coming soon</span>
+        </button>
+        <p class="muted auth-soon-note">Social login is on the roadmap and will arrive in a future update.</p>
+      </div>
+
       <form class="grid-form" @submit.prevent="submit">
         <label v-if="mode === 'register'">
           Display name
@@ -145,5 +157,76 @@ function switchMode(nextMode) {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
+}
+
+.auth-soon {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.btn-bnet {
+  border: 1px dashed color-mix(in srgb, var(--line) 68%, #f06414 32%);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  background: linear-gradient(120deg, #fff5ed, #ffe9d7);
+  color: #5c2400;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.btn-bnet-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.btn-bnet-logo {
+  width: 1.55rem;
+  height: 1.55rem;
+  display: block;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, #0b5ed7 22%, #ffffff 78%);
+  border-radius: 999px;
+  padding: 0.2rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+}
+
+.btn-bnet-label {
+  font-weight: 780;
+  letter-spacing: 0.01em;
+}
+
+.btn-bnet-badge {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #fff;
+  background: linear-gradient(135deg, #ef5f00, #f28b2f);
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+}
+
+.auth-soon-note {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn-bnet {
+    border-color: color-mix(in srgb, var(--line) 72%, #2e9bff 28%);
+    background: linear-gradient(120deg, #1b2433, #182134);
+    color: #dbe9ff;
+  }
+
+  .btn-bnet-logo {
+    background: #0f1725;
+    border-color: color-mix(in srgb, #2e9bff 45%, #0f1725 55%);
+  }
+
 }
 </style>
