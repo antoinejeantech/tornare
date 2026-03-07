@@ -14,5 +14,4 @@ uuid = { version = "1", features = ["serde", "v4"] }
 argon2 = "0.5"
 hex = "0.4"
 jsonwebtoken = "10"
-rand_core = "0.6"
 sha2 = "0.10"
