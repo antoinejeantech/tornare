@@ -1,12 +1,15 @@
 use axum::{
     http::{
         header::{AUTHORIZATION, CONTENT_TYPE},
-        HeaderValue, Method,
+        HeaderName, HeaderValue, Method, Request,
     },
     routing::{get, post, put},
     Router,
 };
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
+use tower_http::trace::{DefaultOnRequest, DefaultOnResponse, TraceLayer};
+use tracing::{info_span, Level};
 
 use crate::{
     app::state::AppState,
@@ -14,6 +17,8 @@ use crate::{
 };
 
 pub fn build_app(state: AppState) -> Router {
+    let request_id_header = HeaderName::from_static("x-request-id");
+
     let allow_any = state.cors_allowed_origins.iter().any(|origin| origin == "*");
     let parsed_allowed_origins: Vec<HeaderValue> = state
         .cors_allowed_origins
@@ -127,5 +132,25 @@ pub fn build_app(state: AppState) -> Router {
             get(matches::get_match).delete(matches::delete_match),
         )
         .with_state(state)
+        .layer(
+            TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {
+                let request_id = request
+                    .headers()
+                    .get("x-request-id")
+                    .and_then(|value| value.to_str().ok())
+                    .unwrap_or("-");
+
+                info_span!(
+                    "http_request",
+                    method = %request.method(),
+                    uri = %request.uri(),
+                    request_id = %request_id,
+                )
+            })
+            .on_request(DefaultOnRequest::new().level(Level::INFO))
+            .on_response(DefaultOnResponse::new().level(Level::INFO)),
+        )
+        .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
+        .layer(SetRequestIdLayer::new(request_id_header, MakeRequestUuid))
         .layer(cors)
 }

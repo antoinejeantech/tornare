@@ -7,9 +7,13 @@ use app::security::RateLimiter;
 use shared::db::init_schema;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
+    init_logging();
+
     let is_production = is_production_env();
 
     let database_url = env_or_default(
@@ -35,9 +39,13 @@ async fn main() {
         .await
         .expect("failed to connect to postgres");
 
+    info!("connected to postgres");
+
     init_schema(&pool)
         .await
         .expect("failed to initialize database schema");
+
+    info!("database migrations applied");
 
     let state = AppState {
         pool,
@@ -49,9 +57,23 @@ async fn main() {
         .await
         .expect("failed to bind backend listener");
 
+    info!("backend listening on 0.0.0.0:8000");
+
     axum::serve(listener, build_app(state))
         .await
         .expect("backend server failed");
+}
+
+fn init_logging() {
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new("info,tower_http=info,axum=info,sqlx=warn")
+    });
+
+    tracing_subscriber::fmt()
+        .with_env_filter(env_filter)
+        .with_target(false)
+        .compact()
+        .init();
 }
 
 fn parse_allowed_origins(raw: &str) -> Vec<String> {
