@@ -40,6 +40,14 @@ const authInitial = computed(() => {
   const label = authLabel.value.trim()
   return label.length > 0 ? label[0].toUpperCase() : 'A'
 })
+const profileRoute = computed(() => {
+  const id = String(authStore.user?.id || '').trim()
+  if (!id) {
+    return { name: 'events' }
+  }
+
+  return { name: 'profile', params: { id } }
+})
 
 async function logout() {
   await authStore.logout()
@@ -56,11 +64,26 @@ onMounted(() => {
     <div class="top-nav-inner">
       <RouterLink class="brand-link" to="/">Tornare</RouterLink>
       <div class="top-nav-links">
-        <RouterLink class="top-nav-link" to="/">Home</RouterLink>
-        <RouterLink class="top-nav-link" to="/events">Events</RouterLink>
-        <RouterLink class="top-nav-link" to="/about">About</RouterLink>
-        <RouterLink class="top-nav-link" to="/news">News</RouterLink>
-        <RouterLink v-if="!authStore.isAuthenticated" class="top-nav-link" :to="loginRoute">Login</RouterLink>
+        <RouterLink class="top-nav-link" to="/">
+          <span class="material-symbols-rounded" aria-hidden="true">home</span>
+          <span>Home</span>
+        </RouterLink>
+        <RouterLink class="top-nav-link" to="/events">
+          <span class="material-symbols-rounded" aria-hidden="true">event</span>
+          <span>Events</span>
+        </RouterLink>
+        <RouterLink class="top-nav-link" to="/about">
+          <span class="material-symbols-rounded" aria-hidden="true">info</span>
+          <span>About</span>
+        </RouterLink>
+        <RouterLink class="top-nav-link" to="/news">
+          <span class="material-symbols-rounded" aria-hidden="true">article</span>
+          <span>News</span>
+        </RouterLink>
+        <RouterLink v-if="!authStore.isAuthenticated" class="top-nav-link" :to="loginRoute">
+          <span class="material-symbols-rounded" aria-hidden="true">login</span>
+          <span>Login</span>
+        </RouterLink>
         <div v-else class="top-nav-user-menu" tabindex="0">
           <button class="top-nav-user-trigger" type="button">
             <span class="top-nav-user-avatar" aria-hidden="true">{{ authInitial }}</span>
@@ -68,8 +91,18 @@ onMounted(() => {
             <span class="material-symbols-rounded" aria-hidden="true">expand_more</span>
           </button>
           <div class="top-nav-user-dropdown" role="menu" aria-label="User menu">
-            <RouterLink class="top-nav-user-action" to="/my-events">My Events</RouterLink>
-            <button class="top-nav-user-action" type="button" @click="logout">Logout</button>
+            <RouterLink class="top-nav-user-action" :to="profileRoute">
+              <span class="material-symbols-rounded" aria-hidden="true">person</span>
+              <span>Profile</span>
+            </RouterLink>
+            <RouterLink class="top-nav-user-action" to="/my-events">
+              <span class="material-symbols-rounded" aria-hidden="true">calendar_month</span>
+              <span>My Events</span>
+            </RouterLink>
+            <button class="top-nav-user-action" type="button" @click="logout">
+              <span class="material-symbols-rounded" aria-hidden="true">logout</span>
+              <span>Logout</span>
+            </button>
           </div>
         </div>
         <button class="top-nav-theme icon-btn" type="button" :title="`${themeToggleLabel} mode`" @click="toggleTheme">
@@ -120,6 +153,9 @@ onMounted(() => {
 }
 
 .top-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
   text-decoration: none;
   padding: 0.38rem 0.72rem;
   border-radius: 999px;
@@ -129,6 +165,10 @@ onMounted(() => {
   font-weight: 760;
   letter-spacing: 0.01em;
   transition: box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
+}
+
+.top-nav-link .material-symbols-rounded {
+  font-size: 1rem;
 }
 
 .top-nav-link:hover {
@@ -212,21 +252,30 @@ onMounted(() => {
 }
 
 .top-nav-user-action {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   width: 100%;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-1) 12%);
-  background: color-mix(in srgb, var(--card) 90%, #edf4ff 10%);
+  border: none;
+  background: transparent;
   color: var(--ink-1);
   text-align: left;
   text-decoration: none;
-  padding: 0.42rem 0.56rem;
+  padding: 0.46rem 0.56rem;
   font-weight: 700;
   cursor: pointer;
 }
 
+.top-nav-user-action + .top-nav-user-action {
+  border-top: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
+}
+
+.top-nav-user-action .material-symbols-rounded {
+  font-size: 1rem;
+}
+
 .top-nav-user-action:hover {
-  border-color: color-mix(in srgb, var(--brand-2) 46%, var(--line) 54%);
   background: color-mix(in srgb, var(--brand-2) 14%, var(--card) 86%);
 }
 
