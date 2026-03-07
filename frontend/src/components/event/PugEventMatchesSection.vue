@@ -34,7 +34,7 @@ function openMatch(matchId) {
 
 <template>
   <div>
-    <form v-if="ctx.canManageEvent" class="grid-form compact-form" @submit.prevent="ctx.createMatch">
+    <form v-if="ctx.canManageEvent" class="grid-form" @submit.prevent="ctx.createMatch">
       <label>
         Match title
         <input v-model="ctx.newMatchTitle" placeholder="Match 1" />

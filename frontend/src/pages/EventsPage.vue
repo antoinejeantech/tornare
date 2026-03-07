@@ -3,8 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
-import overwatchLogo from '../assets/branding/overwatch-logo.png'
-import { formatEventStartDate } from '../lib/dates'
+import { formatOptionsForType } from '../lib/event-format'
+import EventListItem from '../components/events/EventListItem.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -24,14 +24,8 @@ const newEventType = ref('PUG')
 const newEventFormat = ref('5v5')
 const newEventMaxPlayers = ref(10)
 
-const formatOptionsByType = {
-  PUG: ['5v5', '6v6'],
-  TOURNEY: ['5v5', '6v6', '1v1']
-}
-
 const availableFormatOptions = computed(() => {
-  const type = String(newEventType.value || '').toUpperCase()
-  return formatOptionsByType[type] || formatOptionsByType.PUG
+  return formatOptionsForType(newEventType.value)
 })
 
 const isSelectedFormatValid = computed(() => {
@@ -82,11 +76,6 @@ function setNotice(message) {
 
 function clearNotice() {
   notice.value = ''
-}
-
-function eventStartLabel(event) {
-  const formatted = formatEventStartDate(event?.start_date)
-  return formatted || ''
 }
 
 function setEventsFilter(filter) {
@@ -261,27 +250,28 @@ onMounted(loadEvents)
         {{ activeEventsFilter === 'mine' ? 'You do not own any events yet.' : 'No events yet. Create your first one above.' }}
       </p>
       <ul v-else class="home-events-list">
-        <li v-for="event in filteredEvents" :key="event.id" class="home-event-row">
-          <button class="home-event-select" @click="openEvent(event.id)">
-            <span class="event-title-wrap">
-              <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
-              <span class="home-event-title">{{ event.name }}</span>
-            </span>
-            <span class="muted">{{ event.event_type }} · {{ event.format }} · by {{ event.creator_name || 'Unknown' }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
-          </button>
-          <button
-            v-if="authStore.isAuthenticated"
-            class="btn-danger icon-btn"
-            :disabled="deletingEventId === event.id"
-            :title="deletingEventId === event.id ? 'Deleting event' : 'Delete event'"
-            @click="deleteEvent(event.id)"
-          >
-            <span class="material-symbols-rounded" aria-hidden="true">
-              {{ deletingEventId === event.id ? 'hourglass_top' : 'delete' }}
-            </span>
-            <span class="sr-only">{{ deletingEventId === event.id ? 'Deleting event' : 'Delete event' }}</span>
-          </button>
-        </li>
+        <EventListItem
+          v-for="event in filteredEvents"
+          :key="event.id"
+          :event="event"
+          :show-creator="true"
+          @select="openEvent(event.id)"
+        >
+          <template #actions>
+            <button
+              v-if="authStore.isAuthenticated"
+              class="btn-danger icon-btn"
+              :disabled="deletingEventId === event.id"
+              :title="deletingEventId === event.id ? 'Deleting event' : 'Delete event'"
+              @click="deleteEvent(event.id)"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">
+                {{ deletingEventId === event.id ? 'hourglass_top' : 'delete' }}
+              </span>
+              <span class="sr-only">{{ deletingEventId === event.id ? 'Deleting event' : 'Delete event' }}</span>
+            </button>
+          </template>
+        </EventListItem>
       </ul>
     </section>
   </main>
@@ -329,47 +319,4 @@ onMounted(loadEvents)
   gap: 0.55rem;
 }
 
-.home-event-row {
-  border: 1px solid color-mix(in srgb, var(--line) 92%, var(--brand-1) 8%);
-  background: color-mix(in srgb, var(--card) 90%, #f1f5ff 10%);
-  border-radius: 10px;
-  padding: 0.64rem 0.7rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.7rem;
-}
-
-.home-event-select {
-  all: unset;
-  display: grid;
-  gap: 0.2rem;
-  min-width: 0;
-  flex: 1;
-  cursor: pointer;
-}
-
-.home-event-select:hover .home-event-title {
-  color: var(--brand-1);
-}
-
-.home-event-title {
-  font-weight: 800;
-  color: var(--ink-1);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.event-title-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.overwatch-logo {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  flex: 0 0 auto;
-}
 </style>

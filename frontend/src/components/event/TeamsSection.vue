@@ -1,6 +1,7 @@
 <script setup>
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { getRankElo } from '../../lib/ranks'
+import { averagePlayersElo, formatAverageElo } from '../../lib/elo'
+import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
 
 const ctx = inject('eventCtx')
 const assignmentSearchByTeam = reactive({})
@@ -116,23 +117,9 @@ function playersForTeam(teamId) {
     return []
   }
 
-  const rolePriority = {
-    Tank: 0,
-    DPS: 1,
-    Support: 2,
-  }
-
-  return ctx.event.players
-    .filter((player) => player.team_id === teamId)
-    .sort((a, b) => {
-      const aPriority = rolePriority[a.role] ?? 99
-      const bPriority = rolePriority[b.role] ?? 99
-      if (aPriority !== bPriority) {
-        return aPriority - bPriority
-      }
-
-      return a.name.localeCompare(b.name)
-    })
+  return sortPlayersByRoleThenName(
+    ctx.event.players.filter((player) => player.team_id === teamId)
+  )
 }
 
 function teamRoleCounts(teamId) {
@@ -205,10 +192,6 @@ function playersAssignableToTeam(teamId) {
 
       return a.name.localeCompare(b.name)
     })
-}
-
-function assignmentSearchTerm(teamId) {
-  return normalizeSearch(assignmentSearchByTeam[teamId])
 }
 
 function assignmentSearchValue(teamId) {
@@ -289,7 +272,7 @@ async function quickAssignPlayer(playerId) {
 
 function filteredPlayersAssignableToTeam(teamId) {
   const players = playersAssignableToTeam(teamId)
-  const tokens = searchTokens(assignmentSearchTerm(teamId))
+  const tokens = searchTokens(assignmentSearchByTeam[teamId])
   if (tokens.length === 0) {
     return []
   }
@@ -304,44 +287,7 @@ function visibleTeamAssignResults(teamId) {
 }
 
 function hasTeamAssignmentSearch(teamId) {
-  return searchTokens(assignmentSearchTerm(teamId)).length > 0
-}
-
-function selectedAssignablePlayer(teamId) {
-  const selectedId = String(ctx.teamAssignmentSelections?.[teamId] || '')
-  if (!selectedId) {
-    return null
-  }
-
-  return playersAssignableToTeam(teamId).find((player) => player.id === selectedId) || null
-}
-
-function selectedAssignDisabled(teamId) {
-  const selectedPlayer = selectedAssignablePlayer(teamId)
-  if (!selectedPlayer) {
-    return true
-  }
-
-  return Boolean(ctx.savingPlayerTeams?.[selectedPlayer.id])
-}
-
-function selectedAssignBusy(teamId) {
-  const selectedPlayer = selectedAssignablePlayer(teamId)
-  if (!selectedPlayer) {
-    return false
-  }
-
-  return Boolean(ctx.savingPlayerTeams?.[selectedPlayer.id])
-}
-
-function roleIcon(role) {
-  if (role === 'Tank') {
-    return 'shield'
-  }
-  if (role === 'Support') {
-    return 'medical_services'
-  }
-  return 'swords'
+  return searchTokens(assignmentSearchByTeam[teamId]).length > 0
 }
 
 function startEditTeam(team) {
@@ -355,25 +301,11 @@ function cancelEditTeam() {
 }
 
 function averageEloForTeam(teamId) {
-  const eloValues = playersForTeam(teamId)
-    .map((player) => getRankElo(player.rank))
-    .filter((value) => typeof value === 'number')
-
-  if (eloValues.length === 0) {
-    return null
-  }
-
-  const total = eloValues.reduce((sum, value) => sum + value, 0)
-  return Math.round(total / eloValues.length)
+  return averagePlayersElo(playersForTeam(teamId))
 }
 
 function formatTeamAverageElo(teamId) {
-  const avg = averageEloForTeam(teamId)
-  if (avg === null) {
-    return 'Avg ELO: N/A'
-  }
-
-  return `Avg ELO: ${avg.toLocaleString()}`
+  return formatAverageElo(averageEloForTeam(teamId))
 }
 
 function assignmentNotice(player) {
@@ -391,7 +323,7 @@ function assignmentNotice(player) {
       <span class="material-symbols-rounded section-title-icon" aria-hidden="true">shield</span>
       <span>Teams</span>
     </h3>
-    <form v-if="ctx.canManageEvent" class="grid-form compact-form" @submit.prevent="ctx.createTeam">
+    <form v-if="ctx.canManageEvent" class="grid-form" @submit.prevent="ctx.createTeam">
       <label>
         Team name
         <input v-model="ctx.newTeamName" placeholder="Team Alpha" />

@@ -1,8 +1,10 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getRankElo, getRankIcon } from '../lib/ranks'
+import { averagePlayersElo, formatAverageElo } from '../lib/elo'
+import { sortPlayersByRoleThenName } from '../lib/roles'
 import { useMatchStore } from '../stores/match'
+import PlayerIdentity from '../components/player/PlayerIdentity.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -18,30 +20,12 @@ const matchId = computed(() => String(route.params.id || ''))
 const isEventMatch = computed(() => Boolean(match.value?.event_id))
 const hasEventMatchup = computed(() => Boolean(match.value?.team_a_id && match.value?.team_b_id))
 
-const rolePriority = {
-  Tank: 0,
-  DPS: 1,
-  Support: 2,
-}
-
-function sortTeamPlayers(players) {
-  return [...players].sort((a, b) => {
-    const aPriority = rolePriority[a.role] ?? 99
-    const bPriority = rolePriority[b.role] ?? 99
-    if (aPriority !== bPriority) {
-      return aPriority - bPriority
-    }
-
-    return a.name.localeCompare(b.name)
-  })
-}
-
 const teamAPlayers = computed(() => {
   if (!match.value?.team_a_id) {
     return []
   }
 
-  return sortTeamPlayers(
+  return sortPlayersByRoleThenName(
     match.value.players.filter((player) => player.team_id === match.value.team_a_id)
   )
 })
@@ -51,44 +35,13 @@ const teamBPlayers = computed(() => {
     return []
   }
 
-  return sortTeamPlayers(
+  return sortPlayersByRoleThenName(
     match.value.players.filter((player) => player.team_id === match.value.team_b_id)
   )
 })
 
-function averageElo(players) {
-  const eloValues = players
-    .map((player) => getRankElo(player.rank))
-    .filter((value) => typeof value === 'number')
-
-  if (eloValues.length === 0) {
-    return null
-  }
-
-  const total = eloValues.reduce((sum, value) => sum + value, 0)
-  return Math.round(total / eloValues.length)
-}
-
-const teamAAverageElo = computed(() => averageElo(teamAPlayers.value))
-const teamBAverageElo = computed(() => averageElo(teamBPlayers.value))
-
-function formatAverageElo(value) {
-  if (value === null) {
-    return 'Avg ELO: N/A'
-  }
-
-  return `Avg ELO: ${value.toLocaleString()}`
-}
-
-function roleIcon(role) {
-  if (role === 'Tank') {
-    return 'shield'
-  }
-  if (role === 'Support') {
-    return 'medical_services'
-  }
-  return 'swords'
-}
+const teamAAverageElo = computed(() => averagePlayersElo(teamAPlayers.value))
+const teamBAverageElo = computed(() => averagePlayersElo(teamBPlayers.value))
 
 function setError(message) {
   error.value = message
@@ -206,19 +159,7 @@ onMounted(loadMatch)
             <p v-if="teamAPlayers.length === 0" class="muted">No players assigned to this team.</p>
             <ul v-else class="match-players-list">
               <li v-for="player in teamAPlayers" :key="`a-${player.id}`" class="match-player-row">
-                <div class="match-player-main">
-                  <strong class="match-player-name">{{ player.name }}</strong>
-                  <div class="match-player-meta">
-                    <span class="muted role-inline">
-                      <span class="material-symbols-rounded role-inline-icon" aria-hidden="true">{{ roleIcon(player.role) }}</span>
-                      <span>{{ player.role }}</span>
-                    </span>
-                    <span class="rank-chip" :title="player.rank" :aria-label="player.rank">
-                      <img class="rank-icon" :src="getRankIcon(player.rank)" :alt="`${player.rank} rank`" />
-                      <span>{{ player.rank }}</span>
-                    </span>
-                  </div>
-                </div>
+                <PlayerIdentity :name="player.name" :role="player.role" :rank="player.rank" />
               </li>
             </ul>
           </section>
@@ -229,19 +170,7 @@ onMounted(loadMatch)
             <p v-if="teamBPlayers.length === 0" class="muted">No players assigned to this team.</p>
             <ul v-else class="match-players-list">
               <li v-for="player in teamBPlayers" :key="`b-${player.id}`" class="match-player-row">
-                <div class="match-player-main">
-                  <strong class="match-player-name">{{ player.name }}</strong>
-                  <div class="match-player-meta">
-                    <span class="muted role-inline">
-                      <span class="material-symbols-rounded role-inline-icon" aria-hidden="true">{{ roleIcon(player.role) }}</span>
-                      <span>{{ player.role }}</span>
-                    </span>
-                    <span class="rank-chip" :title="player.rank" :aria-label="player.rank">
-                      <img class="rank-icon" :src="getRankIcon(player.rank)" :alt="`${player.rank} rank`" />
-                      <span>{{ player.rank }}</span>
-                    </span>
-                  </div>
-                </div>
+                <PlayerIdentity :name="player.name" :role="player.role" :rank="player.rank" />
               </li>
             </ul>
           </section>
@@ -291,36 +220,8 @@ onMounted(loadMatch)
   gap: 0.65rem;
 }
 
-.match-player-main {
-  min-width: 0;
-  flex: 1;
-  display: grid;
-  gap: 0.28rem;
-}
-
-.match-player-name {
-  line-height: 1.2;
-}
-
-.match-player-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.34rem;
-}
-
 .match-edit-actions {
   margin-top: 0.85rem;
-}
-
-.role-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.14rem;
-}
-
-.role-inline-icon {
-  font-size: 1rem;
 }
 
 .matchup-rosters {

@@ -1,17 +1,8 @@
 <script setup>
 import { inject } from 'vue'
+import PlayerIdentity from '../player/PlayerIdentity.vue'
 
 const ctx = inject('eventCtx')
-
-function roleIcon(role) {
-  if (role === 'Tank') {
-    return 'shield'
-  }
-  if (role === 'Support') {
-    return 'medical_services'
-  }
-  return 'swords'
-}
 
 function startEditPlayer(player) {
   ctx.editingPlayerId = player.id
@@ -34,7 +25,7 @@ function cancelEditPlayer() {
       <span class="material-symbols-rounded section-title-icon" aria-hidden="true">groups</span>
       <span>Roster</span>
     </h3>
-    <form v-if="ctx.canManageEvent" class="player-form compact-form" @submit.prevent="ctx.addPlayer">
+    <form v-if="ctx.canManageEvent" class="player-form" @submit.prevent="ctx.addPlayer">
       <label>
         Player name
         <input v-model="ctx.newPlayerName" placeholder="Player123" />
@@ -76,17 +67,7 @@ function cancelEditPlayer() {
             </div>
           </template>
           <template v-else>
-            <strong class="player-name">{{ player.name }}</strong>
-            <div class="player-meta-row">
-              <span class="muted role-inline">
-                <span class="material-symbols-rounded role-inline-icon" aria-hidden="true">{{ roleIcon(player.role) }}</span>
-                <span>{{ player.role }}</span>
-              </span>
-              <span class="rank-chip" :title="player.rank" :aria-label="player.rank">
-                <img class="rank-icon" :src="ctx.getRankIcon(player.rank)" :alt="`${player.rank} rank`" />
-                <span>{{ player.rank }}</span>
-              </span>
-            </div>
+            <PlayerIdentity :name="player.name" :role="player.role" :rank="player.rank" compact />
           </template>
         </div>
         <div class="player-actions">
@@ -196,53 +177,13 @@ function cancelEditPlayer() {
 .player-main {
   min-width: 0;
   flex: 1;
-  display: grid;
-  gap: 0.28rem;
-}
-
-.player-name {
-  line-height: 1.2;
-}
-
-.player-meta-row {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.34rem;
 }
 
 .player-actions {
   display: flex;
   gap: 0.45rem;
   align-items: center;
-}
-
-.role-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.14rem;
-}
-
-.role-inline-icon {
-  font-size: 1rem;
-}
-
-.rank-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  padding: 0.12rem 0.34rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
-  background: color-mix(in srgb, var(--card) 85%, #eaf1ff 15%);
-  font-size: 0.78rem;
-  color: var(--ink-2);
-}
-
-.rank-icon {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
 }
 
 @media (max-width: 900px) {

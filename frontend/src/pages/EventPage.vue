@@ -3,6 +3,7 @@ import { computed, onMounted, provide, proxyRefs, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { formatEventStartDate } from '../lib/dates'
+import { formatOptionsForType } from '../lib/event-format'
 import { useAlert } from '../lib/alerts'
 import { useEventStore } from '../stores/event'
 import { useMatchStore } from '../stores/match'
@@ -56,7 +57,6 @@ const editPlayerRole = ref('DPS')
 const editPlayerRank = ref('Unranked')
 const editingTeamId = ref(null)
 const editTeamName = ref('')
-const teamAssignmentSelections = ref({})
 const matchupSelections = ref({})
 const editEventName = ref('')
 const editEventDescription = ref('')
@@ -64,11 +64,6 @@ const editEventStartDate = ref('')
 const editEventFormat = ref('5v5')
 const editEventMaxPlayers = ref(10)
 const activeSection = ref('overview')
-
-const formatOptionsByType = {
-  PUG: ['5v5', '6v6'],
-  TOURNEY: ['5v5', '6v6', '1v1']
-}
 
 const eventId = computed(() => String(route.params.id || ''))
 const canManageEvent = computed(() => Boolean(event.value?.is_owner))
@@ -115,8 +110,7 @@ const canCreateTeam = computed(() => {
 const canSaveEventMeta = computed(() => {
   const nameOk = editEventName.value.trim().length > 0
   const maxOk = Number.isInteger(editEventMaxPlayers.value) && editEventMaxPlayers.value >= 2 && editEventMaxPlayers.value <= 99
-  const type = String(event.value?.event_type || '').toUpperCase()
-  const allowedFormats = formatOptionsByType[type] || formatOptionsByType.PUG
+  const allowedFormats = formatOptionsForType(event.value?.event_type)
   const formatOk = allowedFormats.includes(editEventFormat.value)
   return nameOk && maxOk && formatOk
 })
@@ -147,14 +141,8 @@ function ensureOwnerAction() {
 
 function hydrateSelections() {
   if (!event.value) {
-    teamAssignmentSelections.value = {}
     matchupSelections.value = {}
     return
-  }
-
-  const nextTeamAssignments = {}
-  for (const team of event.value.teams) {
-    nextTeamAssignments[team.id] = ''
   }
 
   const nextMatchups = {}
@@ -165,7 +153,6 @@ function hydrateSelections() {
     }
   }
 
-  teamAssignmentSelections.value = nextTeamAssignments
   matchupSelections.value = nextMatchups
 }
 
@@ -552,19 +539,6 @@ async function setPlayerTeam(playerId, teamId) {
   }
 }
 
-async function assignSelectedPlayerToTeam(teamId) {
-  const selected = teamAssignmentSelections.value[teamId]
-  if (!selected) {
-    return
-  }
-
-  await setPlayerTeam(selected, teamId)
-  teamAssignmentSelections.value = {
-    ...teamAssignmentSelections.value,
-    [teamId]: ''
-  }
-}
-
 async function assignPlayerToTeam(playerId, teamId) {
   await setPlayerTeam(playerId, teamId)
 }
@@ -593,8 +567,6 @@ async function removePlayer(player) {
   }
 
   const previousEvent = event.value
-  const previousTeamSelections = { ...teamAssignmentSelections.value }
-
   if (event.value) {
     event.value = {
       ...event.value,
@@ -612,7 +584,6 @@ async function removePlayer(player) {
     setNotice('Player removed from event roster')
   } catch (err) {
     event.value = previousEvent
-    teamAssignmentSelections.value = previousTeamSelections
     setError(err instanceof Error ? err.message : 'Failed to remove player')
     await loadEvent()
   } finally {
@@ -926,7 +897,6 @@ provide('eventCtx', proxyRefs({
   editPlayerRole,
   editPlayerRank,
   editingPlayerId,
-  teamAssignmentSelections,
   matchupSelections,
   canCreateTeam,
   canCreateMatch,
@@ -950,7 +920,6 @@ provide('eventCtx', proxyRefs({
   reportMatchWinner,
   saveTeamEdit,
   deleteTeam,
-  assignSelectedPlayerToTeam,
   assignPlayerToTeam,
   removePlayerFromTeam,
   savePlayerEdit,
@@ -1058,7 +1027,7 @@ provide('eventCtx', proxyRefs({
           Format
           <select v-model="editEventFormat">
             <option
-              v-for="format in (formatOptionsByType[String(event.event_type || '').toUpperCase()] || formatOptionsByType.PUG)"
+              v-for="format in formatOptionsForType(event.event_type)"
               :key="`edit-event-format-${format}`"
               :value="format"
             >

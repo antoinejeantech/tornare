@@ -2,9 +2,8 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { apiCall } from '../lib/api'
-import overwatchLogo from '../assets/branding/overwatch-logo.png'
-import { formatEventStartDate } from '../lib/dates'
 import torbjornImage from '../assets/branding/torbjorn.webp'
+import EventListItem from '../components/events/EventListItem.vue'
 
 const events = ref([])
 const loadingEvents = ref(false)
@@ -24,11 +23,6 @@ async function loadLatestEvents() {
 }
 
 onMounted(loadLatestEvents)
-
-function eventStartLabel(event) {
-  const formatted = formatEventStartDate(event?.start_date)
-  return formatted || ''
-}
 </script>
 
 <template>
@@ -73,15 +67,13 @@ function eventStartLabel(event) {
       <p v-if="loadingEvents" class="muted">Loading events...</p>
       <p v-else-if="latestEvents.length === 0" class="muted">No events yet. Start by creating your first one in the Event Hub.</p>
       <ul v-else class="home-latest-list">
-        <li v-for="event in latestEvents" :key="event.id" class="home-latest-item">
-          <RouterLink class="home-latest-link" :to="{ name: 'event', params: { id: event.id } }">
-            <span class="home-latest-title-wrap">
-              <img class="overwatch-logo" :src="overwatchLogo" alt="Overwatch logo" />
-              <span class="home-latest-title">{{ event.name }}</span>
-            </span>
-            <span class="muted">{{ event.event_type }} · {{ event.format || '5v5' }}<template v-if="eventStartLabel(event)"> · {{ eventStartLabel(event) }}</template> · {{ event.players.length }}/{{ event.max_players }} players</span>
-          </RouterLink>
-        </li>
+        <EventListItem
+          v-for="event in latestEvents"
+          :key="event.id"
+          :event="event"
+          as="link"
+          :to="{ name: 'event', params: { id: event.id } }"
+        />
       </ul>
     </section>
 
@@ -206,43 +198,6 @@ function eventStartLabel(event) {
   padding: 0;
   display: grid;
   gap: 0.5rem;
-}
-
-.home-latest-item {
-  border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--card) 92%, #eef5ff 8%);
-}
-
-.home-latest-link {
-  text-decoration: none;
-  color: inherit;
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.58rem 0.68rem;
-}
-
-.home-latest-link:hover .home-latest-title {
-  color: var(--brand-1);
-}
-
-.home-latest-title {
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.home-latest-title-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.overwatch-logo {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
-  flex: 0 0 auto;
 }
 
 .home-banner p {
