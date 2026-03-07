@@ -109,6 +109,14 @@ pub struct Match {
     pub title: String,
     pub map: String,
     pub max_players: u8,
+    pub round: Option<i32>,
+    pub position: Option<i32>,
+    pub next_match_id: Option<Uuid>,
+    pub next_match_slot: Option<String>,
+    pub winner_team_id: Option<Uuid>,
+    pub winner_team_name: Option<String>,
+    pub is_bracket: bool,
+    pub status: String,
     pub players: Vec<Player>,
 }
 
@@ -178,6 +186,11 @@ pub struct AssignEventPlayerTeamInput {
 pub struct SetMatchupInput {
     pub team_a_id: Option<Uuid>,
     pub team_b_id: Option<Uuid>,
+}
+
+#[derive(Deserialize)]
+pub struct ReportMatchWinnerInput {
+    pub winner_team_id: Uuid,
 }
 
 #[derive(Deserialize)]

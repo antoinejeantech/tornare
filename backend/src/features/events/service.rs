@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use uuid::Uuid;
 
 use crate::{
@@ -8,13 +10,15 @@ use crate::{
         models::{
             AddPlayerInput, AssignEventPlayerTeamInput, CreateEventInput, CreateEventMatchInput,
             CreateEventSignupRequestInput, CreateEventTeamInput, CreateMatchInput, Event,
-            EventSignupLinkResponse, EventSignupRequest, Match, MessageResponse,
-            PublicEventSignupInfo, SetMatchupInput, UpdateEventInput, UpdateEventPlayerInput,
-            UpdateEventTeamInput, OVERWATCH_RANKS,
+            EventSignupLinkResponse, EventSignupRequest, EventType, Match, MessageResponse,
+            PublicEventSignupInfo, ReportMatchWinnerInput, SetMatchupInput, UpdateEventInput,
+            UpdateEventPlayerInput, UpdateEventTeamInput, OVERWATCH_RANKS,
         },
         numeric::{i32_to_u8, i32_to_usize, i64_to_usize},
     },
 };
+
+use sqlx::{Row, Transaction};
 
 use super::repo;
 
@@ -157,6 +161,16 @@ pub async fn create_event_match_for_user(
 ) -> Result<Match, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
 
+    match repo::event_type_for_event(&state.pool, event_id).await? {
+        Some(EventType::Tourney) => {
+            return Err(bad_request(
+                "Tournament matches are generated from the bracket. Manual creation is disabled.",
+            ));
+        }
+        Some(EventType::Pug) => {}
+        None => return Err(not_found("Event not found")),
+    }
+
     let Some(max_players_i32) = repo::event_max_players(&state.pool, event_id).await? else {
         return Err(not_found("Event not found"));
     };
@@ -168,6 +182,333 @@ pub async fn create_event_match_for_user(
     };
 
     create_match_record(state, create_match, event_id).await
+}
+
+pub async fn generate_tourney_bracket_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+) -> Result<Event, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    match repo::event_type_for_event(&state.pool, event_id).await? {
+        Some(EventType::Tourney) => {}
+        Some(EventType::Pug) => {
+            return Err(bad_request(
+                "Bracket generation is only available for TOURNEY events",
+            ));
+        }
+        None => return Err(not_found("Event not found")),
+    }
+
+    let team_ids = repo::list_team_ids_for_event(&state.pool, event_id).await?;
+    if team_ids.len() < 2 {
+        return Err(bad_request(
+            "At least 2 teams are required to generate a tournament bracket",
+        ));
+    }
+
+    let existing_match_count: i64 = sqlx::query("SELECT COUNT(*) AS count FROM event_matches WHERE event_id = $1")
+        .bind(event_id)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(internal_error)?
+        .get("count");
+
+    if existing_match_count > 0 {
+        return Err(bad_request(
+            "This event already has matches. Clear them before generating a bracket.",
+        ));
+    }
+
+    let Some(max_players_i32) = repo::event_max_players(&state.pool, event_id).await? else {
+        return Err(not_found("Event not found"));
+    };
+    let max_players = i32_to_u8(max_players_i32, "max_players")?;
+
+    let bracket_size = team_ids.len().next_power_of_two();
+    let rounds = bracket_rounds(bracket_size);
+
+    let mut plans: Vec<BracketMatchPlan> = Vec::new();
+    for round in 1..=rounds {
+        let matches_in_round = bracket_size >> round;
+        for position in 1..=matches_in_round {
+            plans.push(BracketMatchPlan {
+                id: Uuid::new_v4(),
+                round: round as i32,
+                position: position as i32,
+                title: format!("Round {round} Match {position}"),
+                map: "TBD".to_string(),
+                max_players,
+                team_a_id: None,
+                team_b_id: None,
+                next_match_id: None,
+                next_match_slot: None,
+                winner_team_id: None,
+                status: "OPEN".to_string(),
+            });
+        }
+    }
+
+    for idx in 0..plans.len() {
+        let round = plans[idx].round as usize;
+        let position = plans[idx].position as usize;
+        if round >= rounds {
+            continue;
+        }
+
+        let parent_round = round + 1;
+        let parent_position = (position + 1) / 2;
+        if let Some(parent) = plans
+            .iter()
+            .find(|plan| plan.round as usize == parent_round && plan.position as usize == parent_position)
+        {
+            plans[idx].next_match_id = Some(parent.id);
+            plans[idx].next_match_slot = Some(if position % 2 == 1 {
+                "A".to_string()
+            } else {
+                "B".to_string()
+            });
+        }
+    }
+
+    let mut seeded: Vec<Option<Uuid>> = team_ids.into_iter().map(Some).collect();
+    while seeded.len() < bracket_size {
+        seeded.push(None);
+    }
+
+    for plan in plans.iter_mut().filter(|plan| plan.round == 1) {
+        let position = (plan.position as usize) - 1;
+        plan.team_a_id = seeded.get(position * 2).copied().flatten();
+        plan.team_b_id = seeded.get(position * 2 + 1).copied().flatten();
+    }
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+
+        for idx in 0..plans.len() {
+            let (team_a_id, team_b_id) = (plans[idx].team_a_id, plans[idx].team_b_id);
+            if plans[idx].winner_team_id.is_none() {
+                match (team_a_id, team_b_id) {
+                    (Some(team_id), None) | (None, Some(team_id)) => {
+                        plans[idx].winner_team_id = Some(team_id);
+                        plans[idx].status = "COMPLETED".to_string();
+                        changed = true;
+                    }
+                    (Some(_), Some(_)) => {
+                        if plans[idx].status != "READY" {
+                            plans[idx].status = "READY".to_string();
+                            changed = true;
+                        }
+                    }
+                    (None, None) => {
+                        if plans[idx].status != "OPEN" {
+                            plans[idx].status = "OPEN".to_string();
+                            changed = true;
+                        }
+                    }
+                }
+            }
+
+            if let Some(winner) = plans[idx].winner_team_id {
+                let Some(next_match_id) = plans[idx].next_match_id else {
+                    continue;
+                };
+                let next_slot = plans[idx].next_match_slot.clone();
+
+                if let Some(next_idx) = plans.iter().position(|plan| plan.id == next_match_id) {
+                    match next_slot.as_deref() {
+                        Some("A") => {
+                            if plans[next_idx].team_a_id != Some(winner) {
+                                plans[next_idx].team_a_id = Some(winner);
+                                changed = true;
+                            }
+                        }
+                        Some("B") => {
+                            if plans[next_idx].team_b_id != Some(winner) {
+                                plans[next_idx].team_b_id = Some(winner);
+                                changed = true;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+    for plan in &plans {
+        sqlx::query(
+            "INSERT INTO event_matches (
+                id, event_id, team_a_id, team_b_id, title, map, max_players,
+                round, position, next_match_id, next_match_slot, winner_team_id,
+                is_bracket, status
+             ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7,
+                $8, $9, $10, $11, $12,
+                TRUE, $13
+             )",
+        )
+        .bind(plan.id)
+        .bind(event_id)
+        .bind(plan.team_a_id)
+        .bind(plan.team_b_id)
+        .bind(plan.title.as_str())
+        .bind(plan.map.as_str())
+        .bind(i32::from(plan.max_players))
+        .bind(plan.round)
+        .bind(plan.position)
+        .bind(Option::<Uuid>::None)
+        .bind(Option::<&str>::None)
+        .bind(plan.winner_team_id)
+        .bind(plan.status.as_str())
+        .execute(&mut *tx)
+        .await
+        .map_err(internal_error)?;
+    }
+
+    // Write linkage in a second pass so self-referential next_match_id FKs always point to existing rows.
+    for plan in &plans {
+        sqlx::query(
+            "UPDATE event_matches
+             SET next_match_id = $1,
+                 next_match_slot = $2
+             WHERE id = $3 AND event_id = $4",
+        )
+        .bind(plan.next_match_id)
+        .bind(plan.next_match_slot.as_deref())
+        .bind(plan.id)
+        .bind(event_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(internal_error)?;
+    }
+
+    tx.commit().await.map_err(internal_error)?;
+
+    let mut event = repo::load_event(&state.pool, event_id).await?;
+    event.is_owner = true;
+    Ok(event)
+}
+
+pub async fn report_match_winner_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+    match_id: Uuid,
+    payload: ReportMatchWinnerInput,
+) -> Result<Match, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    match repo::event_type_for_event(&state.pool, event_id).await? {
+        Some(EventType::Tourney) => {}
+        Some(EventType::Pug) => {
+            return Err(bad_request(
+                "Winner reporting through bracket progression is only available for TOURNEY events",
+            ));
+        }
+        None => return Err(not_found("Event not found")),
+    }
+
+    let mut tx = state.pool.begin().await.map_err(internal_error)?;
+    normalize_bracket_matches(&mut tx, event_id).await?;
+
+    let row = sqlx::query(
+        "SELECT
+            id,
+            team_a_id,
+            team_b_id,
+            winner_team_id,
+            is_bracket
+         FROM event_matches
+         WHERE id = $1 AND event_id = $2",
+    )
+    .bind(match_id)
+    .bind(event_id)
+        .fetch_optional(&mut *tx)
+    .await
+    .map_err(internal_error)?;
+
+    let Some(row) = row else {
+        return Err(not_found("Match not found in this event"));
+    };
+
+    if !row.get::<bool, _>("is_bracket") {
+        return Err(bad_request(
+            "Winner reporting is only supported for bracket matches",
+        ));
+    }
+
+    if row.get::<Option<Uuid>, _>("winner_team_id").is_some() {
+        return Err(bad_request("A winner is already set for this match"));
+    }
+
+    let team_a_id = row.get::<Option<Uuid>, _>("team_a_id");
+    let team_b_id = row.get::<Option<Uuid>, _>("team_b_id");
+
+    let Some(team_a_id) = team_a_id else {
+        return Err(bad_request("Matchup is incomplete"));
+    };
+    let Some(team_b_id) = team_b_id else {
+        return Err(bad_request("Matchup is incomplete"));
+    };
+
+    if payload.winner_team_id != team_a_id && payload.winner_team_id != team_b_id {
+        return Err(bad_request("Winner must be one of the two match teams"));
+    }
+
+    sqlx::query("UPDATE event_matches SET winner_team_id = $1, status = 'COMPLETED' WHERE id = $2")
+        .bind(payload.winner_team_id)
+        .bind(match_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(internal_error)?;
+
+    propagate_match_winners(&mut tx, match_id, payload.winner_team_id).await?;
+
+    tx.commit().await.map_err(internal_error)?;
+
+    matches_repo::load_match(&state.pool, match_id).await
+}
+
+async fn normalize_bracket_matches(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+) -> Result<(), ApiError> {
+    // Historical auto-advance bug: some bracket matches were marked completed with only one side filled.
+    sqlx::query(
+        "UPDATE event_matches
+         SET winner_team_id = NULL
+         WHERE event_id = $1
+           AND is_bracket = TRUE
+           AND winner_team_id IS NOT NULL
+           AND (team_a_id IS NULL OR team_b_id IS NULL)",
+    )
+    .bind(event_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    // Keep status consistent with matchup/winner state.
+    sqlx::query(
+        "UPDATE event_matches
+         SET status = CASE
+             WHEN winner_team_id IS NOT NULL THEN 'COMPLETED'
+             WHEN team_a_id IS NOT NULL AND team_b_id IS NOT NULL THEN 'READY'
+             ELSE 'OPEN'
+         END
+         WHERE event_id = $1
+           AND is_bracket = TRUE",
+    )
+    .bind(event_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
 }
 
 pub async fn add_event_player_for_user(
@@ -468,6 +809,103 @@ pub async fn create_event_team_for_user(
     Ok(event)
 }
 
+pub async fn auto_create_solo_teams_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+) -> Result<Event, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    if !repo::event_exists(&state.pool, event_id).await? {
+        return Err(not_found("Event not found"));
+    }
+
+    let has_matches: bool = sqlx::query("SELECT EXISTS(SELECT 1 FROM event_matches WHERE event_id = $1) AS has_matches")
+        .bind(event_id)
+        .fetch_one(&state.pool)
+        .await
+        .map_err(internal_error)?
+        .get("has_matches");
+
+    if has_matches {
+        return Err(bad_request(
+            "Cannot auto-create solo teams after matches already exist",
+        ));
+    }
+
+    let player_rows = sqlx::query(
+        "SELECT ep.id, ep.name
+         FROM event_players ep
+         LEFT JOIN event_team_members etm ON etm.event_id = ep.event_id AND etm.event_player_id = ep.id
+         WHERE ep.event_id = $1 AND etm.id IS NULL
+         ORDER BY ep.name ASC, ep.id ASC",
+    )
+    .bind(event_id)
+    .fetch_all(&state.pool)
+    .await
+    .map_err(internal_error)?;
+
+    if player_rows.is_empty() {
+        return Err(bad_request("No unassigned players available"));
+    }
+
+    let existing_team_names = sqlx::query("SELECT name FROM event_teams WHERE event_id = $1")
+        .bind(event_id)
+        .fetch_all(&state.pool)
+        .await
+        .map_err(internal_error)?;
+
+    let mut used_names: HashSet<String> = existing_team_names
+        .into_iter()
+        .map(|row| row.get::<String, _>("name").trim().to_lowercase())
+        .collect();
+
+    let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+    for row in player_rows {
+        let player_id: Uuid = row.get("id");
+        let player_name: String = row.get("name");
+
+        let base_name = {
+            let cleaned = player_name.trim();
+            if cleaned.is_empty() {
+                "Solo Team".to_string()
+            } else {
+                cleaned.to_string()
+            }
+        };
+
+        let team_name = unique_team_name(&base_name, &mut used_names);
+        let team_id = Uuid::new_v4();
+
+        sqlx::query("INSERT INTO event_teams (id, event_id, name) VALUES ($1, $2, $3)")
+            .bind(team_id)
+            .bind(event_id)
+            .bind(team_name)
+            .execute(&mut *tx)
+            .await
+            .map_err(internal_error)?;
+
+        sqlx::query(
+            "INSERT INTO event_team_members (id, event_id, event_team_id, event_player_id)
+             VALUES ($1, $2, $3, $4)",
+        )
+        .bind(Uuid::new_v4())
+        .bind(event_id)
+        .bind(team_id)
+        .bind(player_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(internal_error)?;
+    }
+
+    tx.commit().await.map_err(internal_error)?;
+
+    let mut event = repo::load_event(&state.pool, event_id).await?;
+    event.is_owner = true;
+    Ok(event)
+}
+
 pub async fn delete_event_team_for_user(
     state: &AppState,
     user_id: Uuid,
@@ -654,6 +1092,150 @@ fn validate_create_match_input(payload: &CreateMatchInput) -> Result<(), ApiErro
     }
 
     Ok(())
+}
+
+async fn propagate_match_winners(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    source_match_id: Uuid,
+    winner_team_id: Uuid,
+) -> Result<(), ApiError> {
+    let mut queue: Vec<(Uuid, Uuid)> = vec![(source_match_id, winner_team_id)];
+
+    while let Some((current_match_id, current_winner_team_id)) = queue.pop() {
+        let row = sqlx::query(
+            "SELECT next_match_id, next_match_slot
+             FROM event_matches
+             WHERE id = $1",
+        )
+        .bind(current_match_id)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(internal_error)?;
+
+        let Some(row) = row else {
+            continue;
+        };
+
+        let next_match_id: Option<Uuid> = row.get("next_match_id");
+        let next_match_slot: Option<String> = row.get("next_match_slot");
+
+        let Some(next_match_id) = next_match_id else {
+            continue;
+        };
+
+        match next_match_slot.as_deref() {
+            Some("A") => {
+                sqlx::query("UPDATE event_matches SET team_a_id = $1 WHERE id = $2")
+                    .bind(current_winner_team_id)
+                    .bind(next_match_id)
+                    .execute(&mut **tx)
+                    .await
+                    .map_err(internal_error)?;
+            }
+            Some("B") => {
+                sqlx::query("UPDATE event_matches SET team_b_id = $1 WHERE id = $2")
+                    .bind(current_winner_team_id)
+                    .bind(next_match_id)
+                    .execute(&mut **tx)
+                    .await
+                    .map_err(internal_error)?;
+            }
+            _ => continue,
+        }
+
+        let next_row = sqlx::query(
+            "SELECT team_a_id, team_b_id, winner_team_id
+             FROM event_matches
+             WHERE id = $1",
+        )
+        .bind(next_match_id)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(internal_error)?;
+
+        let team_a_id: Option<Uuid> = next_row.get("team_a_id");
+        let team_b_id: Option<Uuid> = next_row.get("team_b_id");
+        let winner_already_set: Option<Uuid> = next_row.get("winner_team_id");
+
+        if winner_already_set.is_some() {
+            continue;
+        }
+
+        match (team_a_id, team_b_id) {
+            (Some(_), Some(_)) => {
+                sqlx::query("UPDATE event_matches SET status = 'READY' WHERE id = $1")
+                    .bind(next_match_id)
+                    .execute(&mut **tx)
+                    .await
+                    .map_err(internal_error)?;
+            }
+            (Some(_), None) | (None, Some(_)) => {
+                // Keep waiting for the missing side; do not auto-advance winners.
+                sqlx::query("UPDATE event_matches SET status = 'OPEN' WHERE id = $1")
+                    .bind(next_match_id)
+                    .execute(&mut **tx)
+                    .await
+                    .map_err(internal_error)?;
+            }
+            (None, None) => {
+                sqlx::query("UPDATE event_matches SET status = 'OPEN' WHERE id = $1")
+                    .bind(next_match_id)
+                    .execute(&mut **tx)
+                    .await
+                    .map_err(internal_error)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn bracket_rounds(bracket_size: usize) -> usize {
+    let mut rounds = 0;
+    let mut remaining = bracket_size;
+
+    while remaining > 1 {
+        remaining /= 2;
+        rounds += 1;
+    }
+
+    rounds
+}
+
+struct BracketMatchPlan {
+    id: Uuid,
+    round: i32,
+    position: i32,
+    title: String,
+    map: String,
+    max_players: u8,
+    team_a_id: Option<Uuid>,
+    team_b_id: Option<Uuid>,
+    next_match_id: Option<Uuid>,
+    next_match_slot: Option<String>,
+    winner_team_id: Option<Uuid>,
+    status: String,
+}
+
+fn unique_team_name(base_name: &str, used_names: &mut HashSet<String>) -> String {
+    let normalized_base = if base_name.trim().is_empty() {
+        "Solo Team"
+    } else {
+        base_name.trim()
+    };
+
+    if used_names.insert(normalized_base.to_lowercase()) {
+        return normalized_base.to_string();
+    }
+
+    let mut suffix = 2usize;
+    loop {
+        let candidate = format!("{} ({suffix})", normalized_base);
+        if used_names.insert(candidate.to_lowercase()) {
+            return candidate;
+        }
+        suffix += 1;
+    }
 }
 
 fn validate_create_event_input(payload: &CreateEventInput) -> Result<(), ApiError> {

@@ -115,8 +115,48 @@ async fn create_event_tables(pool: &PgPool) -> anyhow::Result<()> {
             team_b_id UUID REFERENCES event_teams(id) ON DELETE SET NULL,
             title TEXT NOT NULL,
             map TEXT NOT NULL,
-            max_players INTEGER NOT NULL
+            max_players INTEGER NOT NULL,
+            round INTEGER,
+            position INTEGER,
+            next_match_id UUID REFERENCES event_matches(id) ON DELETE SET NULL,
+            next_match_slot TEXT CHECK (next_match_slot IN ('A', 'B')),
+            winner_team_id UUID REFERENCES event_teams(id) ON DELETE SET NULL,
+            is_bracket BOOLEAN NOT NULL DEFAULT FALSE,
+            status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'READY', 'COMPLETED'))
         )",
+    )
+    .execute(pool)
+    .await?;
+
+    // Backfill columns for pre-existing databases created before tourney bracket support.
+    sqlx::query("ALTER TABLE event_matches ADD COLUMN IF NOT EXISTS round INTEGER")
+        .execute(pool)
+        .await?;
+    sqlx::query("ALTER TABLE event_matches ADD COLUMN IF NOT EXISTS position INTEGER")
+        .execute(pool)
+        .await?;
+    sqlx::query(
+        "ALTER TABLE event_matches ADD COLUMN IF NOT EXISTS next_match_id UUID REFERENCES event_matches(id) ON DELETE SET NULL",
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "ALTER TABLE event_matches ADD COLUMN IF NOT EXISTS next_match_slot TEXT CHECK (next_match_slot IN ('A', 'B'))",
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "ALTER TABLE event_matches ADD COLUMN IF NOT EXISTS winner_team_id UUID REFERENCES event_teams(id) ON DELETE SET NULL",
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "ALTER TABLE event_matches ADD COLUMN IF NOT EXISTS is_bracket BOOLEAN NOT NULL DEFAULT FALSE",
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "ALTER TABLE event_matches ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'READY', 'COMPLETED'))",
     )
     .execute(pool)
     .await?;

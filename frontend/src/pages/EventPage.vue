@@ -29,11 +29,13 @@ const deletingMatchId = ref(null)
 const addingPlayer = ref(false)
 const deletingPlayers = ref({})
 const creatingTeam = ref(false)
+const creatingSoloTeams = ref(false)
 const deletingTeams = ref({})
 const savingPlayerTeams = ref({})
 const savingPlayerEdits = ref({})
 const savingTeamEdits = ref({})
 const savingMatchups = ref({})
+const reportingWinners = ref({})
 const loadingSignupRequests = ref(false)
 const signupRequests = ref([])
 const reviewingSignupRequests = ref({})
@@ -62,6 +64,7 @@ const activeSection = ref('overview')
 
 const eventId = computed(() => String(route.params.id || ''))
 const canManageEvent = computed(() => Boolean(event.value?.is_owner))
+const isTourneyEvent = computed(() => String(event.value?.event_type || '').toUpperCase() === 'TOURNEY')
 const formattedEventStartDate = computed(() => formatEventStartDate(event.value?.start_date))
 const signupShareUrl = computed(() => {
   if (!signupToken.value) {
@@ -308,6 +311,28 @@ async function createTeam() {
     setError(err instanceof Error ? err.message : 'Failed to create team')
   } finally {
     creatingTeam.value = false
+  }
+}
+
+async function autoCreateSoloTeams() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || creatingSoloTeams.value) {
+    return
+  }
+
+  creatingSoloTeams.value = true
+  try {
+    const updatedEvent = await eventStore.autoCreateSoloTeams(eventId.value)
+    event.value = updatedEvent
+    hydrateSelections()
+    setNotice('Created solo teams for unassigned players')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to auto-create solo teams')
+  } finally {
+    creatingSoloTeams.value = false
   }
 }
 
@@ -637,6 +662,62 @@ async function createMatch() {
   }
 }
 
+async function generateTourneyBracket() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || !isTourneyEvent.value || creatingMatch.value) {
+    return
+  }
+
+  const hasMatches = Boolean(event.value?.matches?.length)
+  if (hasMatches) {
+    setError('Bracket already exists for this event')
+    return
+  }
+
+  creatingMatch.value = true
+  try {
+    const updatedEvent = await matchStore.generateTourneyBracket(eventId.value)
+    event.value = updatedEvent
+    hydrateSelections()
+    setNotice('Tournament bracket generated')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to generate bracket')
+  } finally {
+    creatingMatch.value = false
+  }
+}
+
+async function reportMatchWinner(matchId, winnerTeamId) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || !isTourneyEvent.value || !winnerTeamId || reportingWinners.value[matchId]) {
+    return
+  }
+
+  reportingWinners.value = {
+    ...reportingWinners.value,
+    [matchId]: true,
+  }
+
+  try {
+    await matchStore.reportMatchWinner(eventId.value, matchId, winnerTeamId)
+    await loadEvent()
+    setNotice('Winner reported')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to report winner')
+  } finally {
+    reportingWinners.value = {
+      ...reportingWinners.value,
+      [matchId]: false,
+    }
+  }
+}
+
 async function deleteMatch(matchId) {
   if (!ensureOwnerAction()) {
     return
@@ -771,6 +852,7 @@ provide('eventCtx', proxyRefs({
   eventIsFull,
   loadingEvent,
   creatingTeam,
+  creatingSoloTeams,
   creatingMatch,
   deletingEvent,
   deletingMatchId,
@@ -781,6 +863,8 @@ provide('eventCtx', proxyRefs({
   savingPlayerEdits,
   savingTeamEdits,
   savingMatchups,
+  reportingWinners,
+  isTourneyEvent,
   newTeamName,
   newMatchTitle,
   newMatchMap,
@@ -806,10 +890,13 @@ provide('eventCtx', proxyRefs({
   signupShareUrl,
   openSection,
   createTeam,
+  autoCreateSoloTeams,
   createMatch,
+  generateTourneyBracket,
   deleteEvent,
   deleteMatch,
   saveMatchup,
+  reportMatchWinner,
   saveTeamEdit,
   deleteTeam,
   assignSelectedPlayerToTeam,

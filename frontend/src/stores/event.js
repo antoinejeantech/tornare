@@ -23,6 +23,11 @@ export const useEventStore = defineStore('event', {
         body: JSON.stringify({ name }),
       })
     },
+    autoCreateSoloTeams(eventId) {
+      return apiCall(`/api/events/${eventId}/teams/auto-solo`, {
+        method: 'POST',
+      })
+    },
     updateTeam(eventId, teamId, name) {
       return apiCall(`/api/events/${eventId}/teams/${teamId}`, {
         method: 'PUT',

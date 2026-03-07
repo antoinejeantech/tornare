@@ -13,8 +13,9 @@ use crate::{
         models::{
             AddPlayerInput, AssignEventPlayerTeamInput, CreateEventInput, CreateEventMatchInput,
             CreateEventSignupRequestInput, CreateEventTeamInput, Event, EventSignupLinkResponse,
-            EventSignupRequest, Match, MessageResponse, PublicEventSignupInfo, SetMatchupInput,
-            UpdateEventInput, UpdateEventPlayerInput, UpdateEventTeamInput,
+            EventSignupRequest, Match, MessageResponse, PublicEventSignupInfo,
+            ReportMatchWinnerInput, SetMatchupInput, UpdateEventInput, UpdateEventPlayerInput,
+            UpdateEventTeamInput,
         },
     },
 };
@@ -135,6 +136,17 @@ pub async fn create_event_team(
         .map(Json)
 }
 
+pub async fn auto_create_solo_teams(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Event> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::auto_create_solo_teams_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
 pub async fn delete_event_team(
     Path((event_id, team_id)): Path<(Uuid, Uuid)>,
     State(state): State<AppState>,
@@ -178,6 +190,29 @@ pub async fn set_matchup(
 ) -> ApiResult<Match> {
     let user_id = require_authenticated_user_id(&state, &headers)?;
     service::set_matchup_for_user(&state, user_id, event_id, match_id, payload)
+        .await
+        .map(Json)
+}
+
+pub async fn generate_tourney_bracket(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Event> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::generate_tourney_bracket_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
+pub async fn report_match_winner(
+    Path((event_id, match_id)): Path<(Uuid, Uuid)>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<ReportMatchWinnerInput>,
+) -> ApiResult<Match> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::report_match_winner_for_user(&state, user_id, event_id, match_id, payload)
         .await
         .map(Json)
 }

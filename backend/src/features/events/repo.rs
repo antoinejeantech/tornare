@@ -48,6 +48,27 @@ pub async fn event_max_players(
     Ok(row.map(|r| r.get("max_players")))
 }
 
+pub async fn event_type_for_event(
+    pool: &PgPool,
+    event_id: Uuid,
+) -> Result<Option<EventType>, crate::shared::errors::ApiError> {
+    let row = sqlx::query("SELECT event_type FROM events WHERE id = $1")
+        .bind(event_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(internal_error)?;
+
+    let Some(row) = row else {
+        return Ok(None);
+    };
+
+    let event_type_db: String = row.get("event_type");
+    let event_type = EventType::try_from(event_type_db.as_str())
+        .map_err(|_| bad_request("Invalid event type value in database"))?;
+
+    Ok(Some(event_type))
+}
+
 pub async fn count_event_players(
     pool: &PgPool,
     event_id: Uuid,
@@ -377,12 +398,21 @@ pub async fn load_matches_for_event(
             tb.name AS team_b_name,
             g.title,
             g.map,
-            g.max_players
+                g.max_players,
+                g.round,
+                g.position,
+                g.next_match_id,
+                g.next_match_slot,
+                g.winner_team_id,
+                tw.name AS winner_team_name,
+                g.is_bracket,
+                g.status
          FROM event_matches g
          LEFT JOIN event_teams ta ON ta.id = g.team_a_id
          LEFT JOIN event_teams tb ON tb.id = g.team_b_id
+            LEFT JOIN event_teams tw ON tw.id = g.winner_team_id
          WHERE g.event_id = $1
-         ORDER BY g.id ASC",
+            ORDER BY COALESCE(g.round, 9999), COALESCE(g.position, 9999), g.id ASC",
     )
     .bind(event_id)
     .fetch_all(pool)
@@ -403,11 +433,32 @@ pub async fn load_matches_for_event(
             title: row.get("title"),
             map: row.get("map"),
             max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,
+            round: row.get::<Option<i32>, _>("round"),
+            position: row.get::<Option<i32>, _>("position"),
+            next_match_id: row.get::<Option<Uuid>, _>("next_match_id"),
+            next_match_slot: row.get::<Option<String>, _>("next_match_slot"),
+            winner_team_id: row.get::<Option<Uuid>, _>("winner_team_id"),
+            winner_team_name: row.get("winner_team_name"),
+            is_bracket: row.get::<bool, _>("is_bracket"),
+            status: row.get::<String, _>("status"),
             players: players.clone(),
         });
     }
 
     Ok(matches)
+}
+
+pub async fn list_team_ids_for_event(
+    pool: &PgPool,
+    event_id: Uuid,
+) -> Result<Vec<Uuid>, crate::shared::errors::ApiError> {
+    let rows = sqlx::query("SELECT id FROM event_teams WHERE event_id = $1 ORDER BY id ASC")
+        .bind(event_id)
+        .fetch_all(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(rows.into_iter().map(|row| row.get("id")).collect())
 }
 
 pub async fn load_event_players_for_event(

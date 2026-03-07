@@ -63,10 +63,19 @@ pub async fn load_match(pool: &PgPool, match_id: Uuid) -> Result<Match, crate::s
             tb.name AS team_b_name,
             g.title,
             g.map,
-            g.max_players
+                g.max_players,
+                g.round,
+                g.position,
+                g.next_match_id,
+                g.next_match_slot,
+                g.winner_team_id,
+                tw.name AS winner_team_name,
+                g.is_bracket,
+                g.status
          FROM event_matches g
          LEFT JOIN event_teams ta ON ta.id = g.team_a_id
          LEFT JOIN event_teams tb ON tb.id = g.team_b_id
+            LEFT JOIN event_teams tw ON tw.id = g.winner_team_id
          WHERE g.id = $1",
     )
     .bind(match_id)
@@ -92,6 +101,14 @@ pub async fn load_match(pool: &PgPool, match_id: Uuid) -> Result<Match, crate::s
         title: row.get("title"),
         map: row.get("map"),
         max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,
+        round: row.get::<Option<i32>, _>("round"),
+        position: row.get::<Option<i32>, _>("position"),
+        next_match_id: row.get::<Option<Uuid>, _>("next_match_id"),
+        next_match_slot: row.get::<Option<String>, _>("next_match_slot"),
+        winner_team_id: row.get::<Option<Uuid>, _>("winner_team_id"),
+        winner_team_name: row.get("winner_team_name"),
+        is_bracket: row.get::<bool, _>("is_bracket"),
+        status: row.get::<String, _>("status"),
         players,
     })
 }

@@ -1,8 +1,16 @@
 <script setup>
-import { inject } from 'vue'
+import { computed, inject } from 'vue'
 import { getRankElo } from '../../lib/ranks'
 
 const ctx = inject('eventCtx')
+
+const unassignedPlayersCount = computed(() => {
+  if (!ctx.event) {
+    return 0
+  }
+
+  return ctx.event.players.filter((player) => !player.team_id).length
+})
 
 function playersForTeam(teamId) {
   if (!ctx.event) {
@@ -88,6 +96,16 @@ function assignmentNotice(player) {
         {{ ctx.creatingTeam ? 'Creating...' : 'Create team' }}
       </button>
     </form>
+    <div v-if="ctx.canManageEvent" class="solo-team-action-row">
+      <button
+        class="btn-secondary"
+        :disabled="ctx.creatingSoloTeams || unassignedPlayersCount === 0"
+        @click="ctx.autoCreateSoloTeams"
+      >
+        {{ ctx.creatingSoloTeams ? 'Creating solo teams...' : `Auto-create solo teams (${unassignedPlayersCount})` }}
+      </button>
+      <p class="muted">Creates one team per unassigned player.</p>
+    </div>
 
     <p v-if="ctx.event.teams.length === 0" class="muted">No teams yet. Create teams first.</p>
     <ul v-else class="entry-list">
@@ -213,6 +231,18 @@ function assignmentNotice(player) {
 .grid-form label {
   display: grid;
   gap: 0.28rem;
+}
+
+.solo-team-action-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin: -0.2rem 0 0.72rem;
+}
+
+.solo-team-action-row .muted {
+  margin: 0;
 }
 
 .inline-edit-row {

@@ -70,6 +70,10 @@ pub fn build_app(state: AppState) -> Router {
             post(events::create_event_team),
         )
         .route(
+            "/api/events/{event_id}/teams/auto-solo",
+            post(events::auto_create_solo_teams),
+        )
+        .route(
             "/api/events/{event_id}/teams/{team_id}",
             put(events::update_event_team).delete(events::delete_event_team),
         )
@@ -80,6 +84,14 @@ pub fn build_app(state: AppState) -> Router {
         .route(
             "/api/events/{event_id}/matches/{match_id}/matchup",
             post(events::set_matchup),
+        )
+        .route(
+            "/api/events/{event_id}/tourney/generate",
+            post(events::generate_tourney_bracket),
+        )
+        .route(
+            "/api/events/{event_id}/matches/{match_id}/winner",
+            post(events::report_match_winner),
         )
         .route(
             "/api/events/{event_id}/signup-link",
