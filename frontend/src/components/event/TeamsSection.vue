@@ -1,9 +1,9 @@
 <script setup>
-import { computed, inject, ref } from 'vue'
+import { computed, inject, reactive } from 'vue'
 import { getRankElo } from '../../lib/ranks'
 
 const ctx = inject('eventCtx')
-const assignmentSearchByTeam = ref({})
+const assignmentSearchByTeam = reactive({})
 
 const unassignedPlayersCount = computed(() => {
   if (!ctx.event) {
@@ -42,7 +42,15 @@ function playersAssignableToTeam(teamId) {
 }
 
 function assignmentSearchTerm(teamId) {
-  return String(assignmentSearchByTeam.value[teamId] || '').trim().toLowerCase()
+  return String(assignmentSearchByTeam[teamId] || '').trim().toLowerCase()
+}
+
+function assignmentSearchValue(teamId) {
+  return String(assignmentSearchByTeam[teamId] || '')
+}
+
+function setAssignmentSearch(teamId, value) {
+  assignmentSearchByTeam[teamId] = String(value || '')
 }
 
 function filteredPlayersAssignableToTeam(teamId) {
@@ -226,9 +234,10 @@ function assignmentNotice(player) {
               <label class="sr-only" :for="`assign-search-${team.id}`">Search assignable players for {{ team.name }}</label>
               <input
                 :id="`assign-search-${team.id}`"
-                v-model="assignmentSearchByTeam[team.id]"
+                :value="assignmentSearchValue(team.id)"
                 type="search"
                 placeholder="Search player, role, rank..."
+                @input="setAssignmentSearch(team.id, $event.target.value)"
               />
               <label class="sr-only" :for="`assign-player-${team.id}`">Assign player to {{ team.name }}</label>
               <select :id="`assign-player-${team.id}`" v-model="ctx.teamAssignmentSelections[team.id]">
