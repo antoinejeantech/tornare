@@ -649,8 +649,8 @@ fn validate_create_match_input(payload: &CreateMatchInput) -> Result<(), ApiErro
         return Err(bad_request("Map is required"));
     }
 
-    if !(2..=12).contains(&payload.max_players) {
-        return Err(bad_request("Max players must be between 2 and 12"));
+    if !(2..=99).contains(&payload.max_players) {
+        return Err(bad_request("Max players must be between 2 and 99"));
     }
 
     Ok(())
@@ -680,8 +680,8 @@ fn validate_create_event_input(payload: &CreateEventInput) -> Result<(), ApiErro
         }
     }
 
-    if !(2..=12).contains(&payload.max_players) {
-        return Err(bad_request("Max players must be between 2 and 12"));
+    if !(2..=99).contains(&payload.max_players) {
+        return Err(bad_request("Max players must be between 2 and 99"));
     }
 
     Ok(())

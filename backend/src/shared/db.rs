@@ -64,11 +64,16 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
             description TEXT NOT NULL DEFAULT '',
             start_date TEXT,
             event_type TEXT NOT NULL CHECK (event_type IN ('PUG', 'TOURNEY')),
-            max_players INTEGER NOT NULL CHECK (max_players BETWEEN 2 AND 12)
+            max_players INTEGER NOT NULL
         )",
     )
     .execute(pool)
     .await?;
+
+    // Remove legacy DB-level max_players check constraints.
+    sqlx::query("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_max_players_check")
+        .execute(pool)
+        .await?;
 
     sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''")
         .execute(pool)
@@ -120,11 +125,15 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
             team_b_id UUID REFERENCES event_teams(id) ON DELETE SET NULL,
             title TEXT NOT NULL,
             map TEXT NOT NULL,
-            max_players INTEGER NOT NULL CHECK (max_players BETWEEN 2 AND 12)
+            max_players INTEGER NOT NULL
         )",
     )
     .execute(pool)
     .await?;
+
+    sqlx::query("ALTER TABLE event_matches DROP CONSTRAINT IF EXISTS event_matches_max_players_check")
+        .execute(pool)
+        .await?;
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS event_team_members (
