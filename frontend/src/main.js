@@ -19,15 +19,15 @@ const pinia = createPinia()
 const router = createRouter({
 	history: createWebHistory(),
 	routes: [
-		{ path: '/', name: 'home', component: HomePage },
-		{ path: '/events', name: 'events', component: EventsPage },
-		{ path: '/about', name: 'about', component: AboutPage },
-		{ path: '/news', name: 'news', component: NewsPage },
-		{ path: '/auth', name: 'auth', component: AuthPage },
-		{ path: '/my-events', name: 'my-events', component: MyEventsPage, meta: { requiresAuth: true } },
-		{ path: '/events/:id', name: 'event', component: EventPage },
-		{ path: '/join/:token', name: 'join-event', component: JoinEventPage },
-		{ path: '/matches/:id', name: 'match', component: MatchPage, meta: { requiresAuth: true } }
+		{ path: '/', name: 'home', component: HomePage, meta: { title: 'Tornare' } },
+		{ path: '/events', name: 'events', component: EventsPage, meta: { title: 'Events | Tornare' } },
+		{ path: '/about', name: 'about', component: AboutPage, meta: { title: 'About | Tornare' } },
+		{ path: '/news', name: 'news', component: NewsPage, meta: { title: 'News | Tornare' } },
+		{ path: '/auth', name: 'auth', component: AuthPage, meta: { title: 'Sign In | Tornare' } },
+		{ path: '/my-events', name: 'my-events', component: MyEventsPage, meta: { requiresAuth: true, title: 'My Events | Tornare' } },
+		{ path: '/events/:id', name: 'event', component: EventPage, meta: { title: 'Event Setup | Tornare' } },
+		{ path: '/join/:token', name: 'join-event', component: JoinEventPage, meta: { title: 'Join Event | Tornare' } },
+		{ path: '/matches/:id', name: 'match', component: MatchPage, meta: { requiresAuth: true, title: 'Match | Tornare' } }
 	]
 })
 
@@ -44,6 +44,10 @@ router.beforeEach(async (to) => {
   }
 
   return true
+})
+
+router.afterEach((to) => {
+	document.title = typeof to.meta.title === 'string' ? to.meta.title : 'Tornare'
 })
 
 createApp(App).use(pinia).use(router).mount('#app')
