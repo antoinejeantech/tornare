@@ -75,8 +75,10 @@ function assignmentNotice(player) {
 
 <template>
   <section>
-    <h3>Teams</h3>
-    <p v-if="!ctx.canManageEvent" class="muted">Read-only teams. Only the event owner can manage teams and assignments.</p>
+    <h3 class="section-title">
+      <span class="material-symbols-rounded section-title-icon" aria-hidden="true">shield</span>
+      <span>Teams</span>
+    </h3>
     <form v-if="ctx.canManageEvent" class="grid-form compact-form" @submit.prevent="ctx.createTeam">
       <label>
         Team name
@@ -190,6 +192,18 @@ function assignmentNotice(player) {
 </template>
 
 <style scoped>
+.section-title {
+  margin: 0 0 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.section-title-icon {
+  font-size: 1.12rem;
+  line-height: 1;
+}
+
 .grid-form {
   display: grid;
   gap: 0.56rem;

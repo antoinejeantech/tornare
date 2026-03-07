@@ -11,6 +11,7 @@ import TeamsSection from '../components/event/TeamsSection.vue'
 import MatchesSection from '../components/event/MatchesSection.vue'
 import OverviewSection from '../components/event/OverviewSection.vue'
 import SignupRequestsSection from '../components/event/SignupRequestsSection.vue'
+import overwatchLogo from '../assets/branding/overwatch-logo.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -120,7 +121,7 @@ function ensureOwnerAction() {
     return true
   }
 
-  setError('Only the event owner can modify this event.')
+  setError('You do not have permission for this action.')
   return false
 }
 
@@ -867,8 +868,20 @@ provide('eventCtx', proxyRefs({
 
     <section v-else-if="event" class="card event-workspace-card">
       <div class="event-header-row">
-        <h2>{{ event.name }}</h2>
-        <p v-if="!canManageEvent" class="muted owner-note">Read-only view. Only the event owner can edit this event.</p>
+        <div class="event-title-stack">
+          <img class="event-logo" :src="overwatchLogo" alt="Overwatch" />
+          <div class="event-title-row">
+            <h2>{{ event.name }}</h2>
+          </div>
+          <div class="event-meta-row">
+            <span class="meta-chip">{{ event.event_type }}</span>
+            <span class="meta-chip">by {{ event.creator_name || 'Unknown' }}</span>
+            <span v-if="formattedEventStartDate" class="meta-chip">{{ formattedEventStartDate }}</span>
+            <span class="meta-chip">{{ event.players.length }}/{{ event.max_players }} players</span>
+            <span class="meta-chip">{{ event.teams.length }} teams</span>
+            <span class="meta-chip">{{ event.matches.length }} matches</span>
+          </div>
+        </div>
         <div class="event-header-actions">
           <button
             v-if="canManageEvent && !editingEventMeta"
@@ -936,15 +949,6 @@ provide('eventCtx', proxyRefs({
           <input v-model.number="editEventMaxPlayers" type="number" min="2" max="99" step="1" />
         </label>
       </form>
-      <div class="event-meta-row">
-        <span class="meta-chip">{{ event.event_type }}</span>
-        <span class="meta-chip">by {{ event.creator_name || 'Unknown' }}</span>
-        <span v-if="formattedEventStartDate" class="meta-chip">{{ formattedEventStartDate }}</span>
-        <span class="meta-chip">{{ event.players.length }}/{{ event.max_players }} players</span>
-        <span class="meta-chip">{{ event.teams.length }} teams</span>
-        <span class="meta-chip">{{ event.matches.length }} matches</span>
-      </div>
-      <p v-if="event.description" class="event-description muted">{{ event.description }}</p>
 
       <div class="event-layout">
         <aside class="event-left-nav" aria-label="Event sections">
@@ -978,9 +982,10 @@ provide('eventCtx', proxyRefs({
 <style scoped>
 .event-header-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
 }
 
 .event-shell {
@@ -997,6 +1002,37 @@ provide('eventCtx', proxyRefs({
 
 .event-header-row h2 {
   margin: 0;
+}
+
+.event-title-stack {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 0.42rem 0.6rem;
+  min-width: 0;
+}
+
+.event-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.event-logo {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 8px;
+  object-fit: contain;
+  background: color-mix(in srgb, var(--card) 74%, #eef4ff 26%);
+  border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-1) 28%);
+  box-shadow: 0 3px 10px rgba(17, 52, 112, 0.16);
+  padding: 0.2rem;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: stretch;
 }
 
 .event-header-actions {
@@ -1020,12 +1056,9 @@ provide('eventCtx', proxyRefs({
   display: flex;
   flex-wrap: wrap;
   gap: 0.48rem;
-  margin-bottom: 0.75rem;
-}
-
-.event-description {
-  margin: 0 0 0.75rem;
-  white-space: pre-wrap;
+  margin-bottom: 0;
+  grid-column: 2;
+  grid-row: 2;
 }
 
 .meta-chip {
@@ -1183,6 +1216,39 @@ provide('eventCtx', proxyRefs({
 
   .event-layout {
     grid-template-columns: 1fr;
+  }
+
+  .event-header-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .event-header-actions {
+    align-self: flex-end;
+  }
+
+  .event-title-stack {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 0.35rem;
+  }
+
+  .event-logo {
+    width: 3.4rem;
+    height: 3.4rem;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .event-title-row {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .event-meta-row {
+    grid-column: 1;
+    grid-row: 3;
   }
 
   .event-panel {

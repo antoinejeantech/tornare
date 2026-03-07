@@ -34,8 +34,10 @@ function openMatch(matchId) {
 
 <template>
   <section>
-    <h3>Matches and Matchups</h3>
-    <p v-if="!ctx.canManageEvent" class="muted">Read-only matches. Only the event owner can create matches or edit matchups.</p>
+    <h3 class="section-title">
+      <span class="material-symbols-rounded section-title-icon" aria-hidden="true">sports_esports</span>
+      <span>Matches and Matchups</span>
+    </h3>
     <form v-if="ctx.canManageEvent" class="grid-form compact-form" @submit.prevent="ctx.createMatch">
       <label>
         Match title
@@ -121,6 +123,18 @@ function openMatch(matchId) {
 </template>
 
 <style scoped>
+.section-title {
+  margin: 0 0 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.section-title-icon {
+  font-size: 1.12rem;
+  line-height: 1;
+}
+
 .grid-form {
   display: grid;
   gap: 0.56rem;

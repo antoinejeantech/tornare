@@ -113,7 +113,7 @@ function matchupLabel(match) {
 }
 
 .overview-title {
-  margin: 0;
+  margin: 0 0 0.3rem;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;

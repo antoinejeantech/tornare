@@ -30,8 +30,10 @@ function cancelEditPlayer() {
 
 <template>
   <section>
-    <h3>Roster</h3>
-    <p v-if="!ctx.canManageEvent" class="muted">Read-only roster. Sign in as the owner to add or edit players.</p>
+    <h3 class="section-title">
+      <span class="material-symbols-rounded section-title-icon" aria-hidden="true">groups</span>
+      <span>Roster</span>
+    </h3>
     <form v-if="ctx.canManageEvent" class="player-form compact-form" @submit.prevent="ctx.addPlayer">
       <label>
         Player name
@@ -137,6 +139,18 @@ function cancelEditPlayer() {
 </template>
 
 <style scoped>
+.section-title {
+  margin: 0 0 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.section-title-icon {
+  font-size: 1.12rem;
+  line-height: 1;
+}
+
 .player-form {
   display: grid;
   gap: 0.56rem;
