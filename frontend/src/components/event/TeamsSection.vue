@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, reactive, ref } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { getRankElo } from '../../lib/ranks'
 
 const ctx = inject('eventCtx')
@@ -218,6 +218,38 @@ function assignmentSearchValue(teamId) {
 function setAssignmentSearch(teamId, value) {
   assignmentSearchByTeam[teamId] = String(value || '')
 }
+
+function clearAllAssignmentSearches() {
+  for (const teamId of Object.keys(assignmentSearchByTeam)) {
+    assignmentSearchByTeam[teamId] = ''
+  }
+}
+
+async function selectAssignResult(teamId, playerId) {
+  await ctx.assignPlayerToTeam(playerId, teamId)
+  setAssignmentSearch(teamId, '')
+}
+
+function handleDocumentPointerDown(event) {
+  const target = event.target
+  if (!(target instanceof Element)) {
+    return
+  }
+
+  if (target.closest('.team-assign-row')) {
+    return
+  }
+
+  clearAllAssignmentSearches()
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', handleDocumentPointerDown)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', handleDocumentPointerDown)
+})
 
 function quickAssignSelectedTeamId(playerId) {
   return String(quickAssignTeamByPlayer[playerId] || '')
@@ -534,7 +566,7 @@ function assignmentNotice(player) {
                     <button
                       class="btn-secondary team-assign-result-btn"
                       :disabled="Boolean(ctx.savingPlayerTeams[player.id])"
-                      @click="ctx.assignPlayerToTeam(player.id, team.id)"
+                      @click="selectAssignResult(team.id, player.id)"
                     >
                       <span class="material-symbols-rounded" aria-hidden="true">
                         {{ ctx.savingPlayerTeams[player.id] ? 'hourglass_top' : 'person_add' }}
