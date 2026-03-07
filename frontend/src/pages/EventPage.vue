@@ -78,6 +78,16 @@ const signupShareUrl = computed(() => {
   return `${window.location.origin}/join/${signupToken.value}`
 })
 
+const pendingSignupRequestCount = computed(() => {
+  if (!Array.isArray(signupRequests.value)) {
+    return 0
+  }
+
+  return signupRequests.value.filter((request) => {
+    return String(request?.status || '').toLowerCase() === 'pending'
+  }).length
+})
+
 const canCreateMatch = computed(() => {
   return (
     Boolean(event.value) &&
@@ -1014,7 +1024,12 @@ provide('eventCtx', proxyRefs({
           <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="activeSection = 'roster'">Players</button>
           <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="activeSection = 'teams'">Teams</button>
           <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="activeSection = 'matches'">Matches</button>
-          <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'requests' }" @click="activeSection = 'requests'">Requests</button>
+          <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'requests' }" @click="activeSection = 'requests'">
+            <span>Requests</span>
+            <span v-if="pendingSignupRequestCount > 0" class="left-nav-badge" :aria-label="`${pendingSignupRequestCount} pending signup requests`">
+              {{ pendingSignupRequestCount }}
+            </span>
+          </button>
         </aside>
 
         <section class="event-panel">
@@ -1158,6 +1173,10 @@ provide('eventCtx', proxyRefs({
 
 .left-nav-item {
   width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   text-align: left;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   background: color-mix(in srgb, var(--card) 92%, #f4f8ff 8%);
@@ -1192,6 +1211,22 @@ provide('eventCtx', proxyRefs({
   color: color-mix(in srgb, var(--ink-1) 92%, white 8%);
   border-color: color-mix(in srgb, var(--brand-2) 62%, var(--line) 38%);
   box-shadow: 0 8px 18px rgba(31, 97, 183, 0.2);
+}
+
+.left-nav-badge {
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, #ff5a3d 86%, white 14%);
+  color: white;
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
 .event-panel {
