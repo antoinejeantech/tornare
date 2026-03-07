@@ -1769,7 +1769,6 @@ dependencies = [
  "axum",
  "hex",
  "jsonwebtoken",
- "rand_core",
  "serde",
  "sha2",
  "sqlx",
