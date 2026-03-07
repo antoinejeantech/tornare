@@ -6,6 +6,16 @@ use sqlx::{PgPool, Row};
 use uuid::Uuid;
 
 pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
+    create_core_tables(pool).await?;
+    create_event_tables(pool).await?;
+    apply_event_schema_migrations(pool).await?;
+    backfill_event_signup_tokens(pool).await?;
+    backfill_event_owner_memberships(pool).await?;
+
+    Ok(())
+}
+
+async fn create_core_tables(pool: &PgPool) -> anyhow::Result<()> {
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS users (
             id UUID PRIMARY KEY,
@@ -32,6 +42,11 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
     )
     .execute(pool)
     .await?;
+
+    Ok(())
+}
+
+async fn create_event_tables(pool: &PgPool) -> anyhow::Result<()> {
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS user_roles (
@@ -66,30 +81,6 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
             event_type TEXT NOT NULL CHECK (event_type IN ('PUG', 'TOURNEY')),
             max_players INTEGER NOT NULL
         )",
-    )
-    .execute(pool)
-    .await?;
-
-    // Remove legacy DB-level max_players check constraints.
-    sqlx::query("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_max_players_check")
-        .execute(pool)
-        .await?;
-
-    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''")
-        .execute(pool)
-        .await?;
-
-    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS start_date TEXT")
-        .execute(pool)
-        .await?;
-
-    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS signup_token TEXT")
-        .execute(pool)
-        .await?;
-
-    sqlx::query(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_events_signup_token
-         ON events(signup_token)",
     )
     .execute(pool)
     .await?;
@@ -131,10 +122,6 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
     .execute(pool)
     .await?;
 
-    sqlx::query("ALTER TABLE event_matches DROP CONSTRAINT IF EXISTS event_matches_max_players_check")
-        .execute(pool)
-        .await?;
-
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS event_team_members (
             id UUID PRIMARY KEY,
@@ -158,6 +145,43 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
     )
     .execute(pool)
     .await?;
+
+    Ok(())
+}
+
+async fn apply_event_schema_migrations(pool: &PgPool) -> anyhow::Result<()> {
+    // Remove legacy DB-level max_players check constraints.
+    sqlx::query("ALTER TABLE events DROP CONSTRAINT IF EXISTS events_max_players_check")
+        .execute(pool)
+        .await?;
+
+    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''")
+        .execute(pool)
+        .await?;
+
+    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS start_date TEXT")
+        .execute(pool)
+        .await?;
+
+    sqlx::query("ALTER TABLE events ADD COLUMN IF NOT EXISTS signup_token TEXT")
+        .execute(pool)
+        .await?;
+
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_events_signup_token
+         ON events(signup_token)",
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query("ALTER TABLE event_matches DROP CONSTRAINT IF EXISTS event_matches_max_players_check")
+        .execute(pool)
+        .await?;
+
+    Ok(())
+}
+
+async fn backfill_event_signup_tokens(pool: &PgPool) -> anyhow::Result<()> {
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS event_signup_requests (
@@ -189,6 +213,11 @@ pub async fn init_schema(pool: &PgPool) -> anyhow::Result<()> {
             .execute(pool)
             .await?;
     }
+
+    Ok(())
+}
+
+async fn backfill_event_owner_memberships(pool: &PgPool) -> anyhow::Result<()> {
 
     // Legacy data backfill: ensure every event has an owner membership so creator metadata resolves.
     let orphan_event_rows = sqlx::query(
