@@ -63,6 +63,7 @@ const editEventDescription = ref('')
 const editEventStartDate = ref('')
 const editEventFormat = ref('5v5')
 const editEventMaxPlayers = ref(10)
+const validSections = ['overview', 'roster', 'teams', 'matches', 'requests']
 const activeSection = ref('overview')
 
 const eventId = computed(() => String(route.params.id || ''))
@@ -853,14 +854,68 @@ function navigateToHome() {
   router.push({ name: 'home' })
 }
 
+function normalizeSection(section) {
+  const candidate = String(section || '').trim().toLowerCase()
+  if (!validSections.includes(candidate)) {
+    return 'overview'
+  }
+
+  if (candidate === 'requests' && !canManageEvent.value) {
+    return 'overview'
+  }
+
+  return candidate
+}
+
 function openSection(section) {
-  activeSection.value = section
+  const nextSection = normalizeSection(section)
+  const currentSection = normalizeSection(route.query.section)
+  if (nextSection === currentSection) {
+    activeSection.value = nextSection
+    return
+  }
+
+  router.push({
+    name: 'event',
+    params: { id: eventId.value },
+    query: {
+      ...route.query,
+      section: nextSection,
+    },
+  })
 }
 
 watch(
   () => route.params.id,
   () => {
     loadEvent()
+  }
+)
+
+watch(
+  () => route.query.section,
+  (section) => {
+    activeSection.value = normalizeSection(section)
+  },
+  { immediate: true }
+)
+
+watch(
+  canManageEvent,
+  () => {
+    const normalizedSection = normalizeSection(route.query.section)
+    activeSection.value = normalizedSection
+
+    if (String(route.query.section || '') !== normalizedSection) {
+      router.replace({
+        name: 'event',
+        params: { id: eventId.value },
+        query: {
+          ...route.query,
+          section: normalizedSection,
+        },
+      })
+    }
   }
 )
 
@@ -1043,11 +1098,11 @@ provide('eventCtx', proxyRefs({
 
       <div class="event-layout">
         <aside class="event-left-nav" aria-label="Event sections">
-          <button class="left-nav-item" :class="{ active: activeSection === 'overview' }" @click="activeSection = 'overview'">Overview</button>
-          <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="activeSection = 'roster'">Players</button>
-          <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="activeSection = 'teams'">Teams</button>
-          <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="activeSection = 'matches'">Matches</button>
-          <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'requests' }" @click="activeSection = 'requests'">
+          <button class="left-nav-item" :class="{ active: activeSection === 'overview' }" @click="openSection('overview')">Overview</button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="openSection('roster')">Players</button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="openSection('teams')">Teams</button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="openSection('matches')">Matches</button>
+          <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'requests' }" @click="openSection('requests')">
             <span>Requests</span>
             <span v-if="pendingSignupRequestCount > 0" class="left-nav-badge" :aria-label="`${pendingSignupRequestCount} pending signup requests`">
               {{ pendingSignupRequestCount }}
