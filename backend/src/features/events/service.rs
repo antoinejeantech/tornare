@@ -2,20 +2,23 @@ use std::collections::HashSet;
 
 use uuid::Uuid;
 
+mod bracket;
+mod team_balance;
+mod validation;
+
 use crate::{
     app::state::AppState,
     features::{
         events::models::{
             AddPlayerInput, AssignEventPlayerTeamInput, AutoBalanceTeamsResponse,
             CreateEventInput, CreateEventMatchInput, CreateEventSignupRequestInput,
-            CreateEventTeamInput, CreateMatchInput, Event, EventFormat,
-            EventSignupLinkResponse, EventSignupRequest, EventType, Match, Player,
+            CreateEventTeamInput, CreateMatchInput, Event, EventSignupLinkResponse,
+            EventSignupRequest, EventType, Match,
             PublicEventSignupInfo, ReportMatchWinnerInput, SetMatchupInput,
             UpdateEventInput, UpdateEventPlayerInput, UpdateEventTeamInput,
         },
         matches::repo as matches_repo,
         permissions::require_event_owner_access,
-        users::models::OVERWATCH_RANKS,
     },
     shared::{
         errors::{bad_request, internal_error, not_found, ApiError},
@@ -24,9 +27,22 @@ use crate::{
     },
 };
 
-use sqlx::{Row, Transaction};
+use sqlx::Row;
 
 use super::repo;
+use bracket::{
+    bracket_rounds, normalize_bracket_matches, propagate_match_winners, BracketMatchPlan,
+};
+use team_balance::{
+    average_team_elo_from_players, format_team_size, pug_role_targets_for_format,
+    rank_elo_for_balance, role_overflow_penalty, unique_team_name, BalancePlayer,
+    BalanceTeamState,
+};
+use validation::{
+    normalize_optional_string, validate_add_player_input, validate_create_event_input,
+    validate_create_match_input, validate_event_player_update_input, validate_event_team_name,
+    validate_signup_request_input, validate_update_event_input,
+};
 
 pub async fn list_events_public(
     state: &AppState,
@@ -98,9 +114,8 @@ pub async fn create_event_for_user(
     .await
     .map_err(internal_error)?;
 
-    let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = true;
-    Ok(event)
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
 }
 
 pub async fn update_event_for_user(
@@ -134,9 +149,8 @@ pub async fn update_event_for_user(
         return Err(not_found("Event not found"));
     }
 
-    let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = true;
-    Ok(event)
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
 }
 
 pub async fn delete_event_for_user(
@@ -179,9 +193,7 @@ pub async fn create_event_match_for_user(
         None => return Err(not_found("Event not found")),
     }
 
-    let Some(max_players_i32) = repo::event_max_players(&state.pool, event_id).await? else {
-        return Err(not_found("Event not found"));
-    };
+    let max_players_i32 = event_max_players_i32_or_not_found(state, event_id).await?;
 
     let create_match = CreateMatchInput {
         title: payload.title,
@@ -229,9 +241,7 @@ pub async fn generate_tourney_bracket_for_user(
         ));
     }
 
-    let Some(max_players_i32) = repo::event_max_players(&state.pool, event_id).await? else {
-        return Err(not_found("Event not found"));
-    };
+    let max_players_i32 = event_max_players_i32_or_not_found(state, event_id).await?;
     let max_players = i32_to_u8(max_players_i32, "max_players")?;
 
     let bracket_size = team_ids.len().next_power_of_two();
@@ -397,9 +407,8 @@ pub async fn generate_tourney_bracket_for_user(
 
     tx.commit().await.map_err(internal_error)?;
 
-    let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = true;
-    Ok(event)
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
 }
 
 pub async fn report_match_winner_for_user(
@@ -482,43 +491,6 @@ pub async fn report_match_winner_for_user(
     matches_repo::load_match(&state.pool, match_id).await
 }
 
-async fn normalize_bracket_matches(
-    tx: &mut Transaction<'_, sqlx::Postgres>,
-    event_id: Uuid,
-) -> Result<(), ApiError> {
-    // Historical auto-advance bug: some bracket matches were marked completed with only one side filled.
-    sqlx::query(
-        "UPDATE event_matches
-         SET winner_team_id = NULL
-         WHERE event_id = $1
-           AND is_bracket = TRUE
-           AND winner_team_id IS NOT NULL
-           AND (team_a_id IS NULL OR team_b_id IS NULL)",
-    )
-    .bind(event_id)
-    .execute(&mut **tx)
-    .await
-    .map_err(internal_error)?;
-
-    // Keep status consistent with matchup/winner state.
-    sqlx::query(
-        "UPDATE event_matches
-         SET status = CASE
-             WHEN winner_team_id IS NOT NULL THEN 'COMPLETED'
-             WHEN team_a_id IS NOT NULL AND team_b_id IS NOT NULL THEN 'READY'
-             ELSE 'OPEN'
-         END
-         WHERE event_id = $1
-           AND is_bracket = TRUE",
-    )
-    .bind(event_id)
-    .execute(&mut **tx)
-    .await
-    .map_err(internal_error)?;
-
-    Ok(())
-}
-
 pub async fn add_event_player_for_user(
     state: &AppState,
     user_id: Uuid,
@@ -528,19 +500,7 @@ pub async fn add_event_player_for_user(
     require_event_owner_access(state, event_id, user_id).await?;
     validate_add_player_input(&payload)?;
 
-    let Some(max_players_i32) = repo::event_max_players(&state.pool, event_id).await? else {
-        return Err(not_found("Event not found"));
-    };
-
-    let max_players = i32_to_usize(max_players_i32, "max_players")?;
-    let current_count = i64_to_usize(
-        repo::count_event_players(&state.pool, event_id).await?,
-        "player count",
-    )?;
-
-    if current_count >= max_players {
-        return Err(bad_request("Event roster is already full"));
-    }
+    ensure_event_has_capacity_for_new_player(state, event_id).await?;
 
     sqlx::query(
         "INSERT INTO event_players (id, event_id, name, role, rank) VALUES ($1, $2, $3, $4, $5)",
@@ -554,9 +514,8 @@ pub async fn add_event_player_for_user(
     .await
     .map_err(internal_error)?;
 
-    let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = true;
-    Ok(event)
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
 }
 
 pub async fn get_event_signup_link_for_user(
@@ -646,9 +605,7 @@ pub async fn list_signup_requests_for_user(
 ) -> Result<Vec<EventSignupRequest>, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
 
-    if !repo::event_exists(&state.pool, event_id).await? {
-        return Err(not_found("Event not found"));
-    }
+    ensure_event_exists(state, event_id).await?;
 
     repo::list_signup_requests_for_event(&state.pool, event_id).await
 }
@@ -669,18 +626,7 @@ pub async fn accept_signup_request_for_user(
         return Err(bad_request("This signup request has already been reviewed"));
     }
 
-    let Some(max_players_i32) = repo::event_max_players(&state.pool, event_id).await? else {
-        return Err(not_found("Event not found"));
-    };
-
-    let max_players = i32_to_usize(max_players_i32, "max_players")?;
-    let current_count = i64_to_usize(
-        repo::count_event_players(&state.pool, event_id).await?,
-        "player count",
-    )?;
-    if current_count >= max_players {
-        return Err(bad_request("Event roster is already full"));
-    }
+    ensure_event_has_capacity_for_new_player(state, event_id).await?;
 
     sqlx::query(
         "INSERT INTO event_players (id, event_id, name, role, rank) VALUES ($1, $2, $3, $4, $5)",
@@ -700,9 +646,8 @@ pub async fn accept_signup_request_for_user(
         return Err(bad_request("This signup request has already been reviewed"));
     }
 
-    let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = true;
-    Ok(event)
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
 }
 
 pub async fn decline_signup_request_for_user(
@@ -732,9 +677,7 @@ pub async fn delete_event_player_for_user(
 ) -> Result<MessageResponse, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
 
-    if !repo::event_exists(&state.pool, event_id).await? {
-        return Err(not_found("Event not found"));
-    }
+    ensure_event_exists(state, event_id).await?;
 
     let deleted =
         sqlx::query("DELETE FROM event_players WHERE id = $1 AND event_id = $2 RETURNING id")
@@ -779,9 +722,8 @@ pub async fn update_event_player_for_user(
         return Err(not_found("Player not found in this event"));
     }
 
-    let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = true;
-    Ok(event)
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
 }
 
 pub async fn create_event_team_for_user(
@@ -797,9 +739,7 @@ pub async fn create_event_team_for_user(
         return Err(bad_request("Team name is required"));
     }
 
-    if !repo::event_exists(&state.pool, event_id).await? {
-        return Err(not_found("Event not found"));
-    }
+    ensure_event_exists(state, event_id).await?;
 
     let inserted = sqlx::query("INSERT INTO event_teams (id, event_id, name) VALUES ($1, $2, $3)")
         .bind(Uuid::new_v4())
@@ -812,9 +752,8 @@ pub async fn create_event_team_for_user(
         return Err(bad_request("Team name already exists in this event"));
     }
 
-    let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = true;
-    Ok(event)
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
 }
 
 pub async fn auto_create_solo_teams_for_user(
@@ -824,9 +763,7 @@ pub async fn auto_create_solo_teams_for_user(
 ) -> Result<Event, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
 
-    if !repo::event_exists(&state.pool, event_id).await? {
-        return Err(not_found("Event not found"));
-    }
+    ensure_event_exists(state, event_id).await?;
 
     let has_matches: bool = sqlx::query("SELECT EXISTS(SELECT 1 FROM event_matches WHERE event_id = $1) AS has_matches")
         .bind(event_id)
@@ -909,9 +846,8 @@ pub async fn auto_create_solo_teams_for_user(
 
     tx.commit().await.map_err(internal_error)?;
 
-    let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = true;
-    Ok(event)
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
 }
 
 pub async fn auto_balance_teams_for_user(
@@ -963,12 +899,7 @@ pub async fn auto_balance_teams_for_user(
     let mut team_states: Vec<BalanceTeamState> = event
         .teams
         .iter()
-        .map(|team| BalanceTeamState {
-            id: team.id,
-            player_ids: Vec::with_capacity(team_size),
-            elo_sum: 0,
-            role_counts: RoleCounts::default(),
-        })
+        .map(|team| BalanceTeamState::new(team.id, team_size))
         .collect();
 
     for player in selected_players {
@@ -1007,9 +938,7 @@ pub async fn auto_balance_teams_for_user(
         };
 
         let target_team = &mut team_states[team_index];
-        target_team.player_ids.push(player.id);
-        target_team.elo_sum += player.elo;
-        target_team.role_counts.add(&player.role);
+        target_team.add_player(&player);
     }
 
     let mut tx = state.pool.begin().await.map_err(internal_error)?;
@@ -1038,8 +967,7 @@ pub async fn auto_balance_teams_for_user(
 
     tx.commit().await.map_err(internal_error)?;
 
-    let mut updated_event = repo::load_event(&state.pool, event_id).await?;
-    updated_event.is_owner = true;
+    let updated_event = as_owner_event(repo::load_event(&state.pool, event_id).await?);
 
     let mut team_summaries = Vec::new();
     let mut min_avg = f64::MAX;
@@ -1086,9 +1014,7 @@ pub async fn delete_event_team_for_user(
 ) -> Result<MessageResponse, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
 
-    if !repo::event_exists(&state.pool, event_id).await? {
-        return Err(not_found("Event not found"));
-    }
+    ensure_event_exists(state, event_id).await?;
 
     let deleted =
         sqlx::query("DELETE FROM event_teams WHERE id = $1 AND event_id = $2 RETURNING id")
@@ -1149,9 +1075,8 @@ pub async fn update_event_team_for_user(
         return Err(not_found("Team not found in this event"));
     }
 
-    let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = true;
-    Ok(event)
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
 }
 
 pub async fn assign_event_player_team_for_user(
@@ -1193,9 +1118,8 @@ pub async fn assign_event_player_team_for_user(
             .map_err(internal_error)?;
     }
 
-    let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = true;
-    Ok(event)
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
 }
 
 pub async fn set_matchup_for_user(
@@ -1247,359 +1171,39 @@ pub async fn set_matchup_for_user(
     matches_repo::load_match(&state.pool, match_id).await
 }
 
-fn validate_create_match_input(payload: &CreateMatchInput) -> Result<(), ApiError> {
-    let title = payload.title.trim();
-    let map = payload.map.trim();
-
-    if title.is_empty() {
-        return Err(bad_request("Match title is required"));
-    }
-
-    if map.is_empty() {
-        return Err(bad_request("Map is required"));
-    }
-
-    if !(2..=99).contains(&payload.max_players) {
-        return Err(bad_request("Max players must be between 2 and 99"));
+async fn ensure_event_exists(state: &AppState, event_id: Uuid) -> Result<(), ApiError> {
+    if !repo::event_exists(&state.pool, event_id).await? {
+        return Err(not_found("Event not found"));
     }
 
     Ok(())
 }
 
-async fn propagate_match_winners(
-    tx: &mut Transaction<'_, sqlx::Postgres>,
-    source_match_id: Uuid,
-    winner_team_id: Uuid,
+async fn event_max_players_i32_or_not_found(
+    state: &AppState,
+    event_id: Uuid,
+) -> Result<i32, ApiError> {
+    repo::event_max_players(&state.pool, event_id)
+        .await?
+        .ok_or_else(|| not_found("Event not found"))
+}
+
+async fn ensure_event_has_capacity_for_new_player(
+    state: &AppState,
+    event_id: Uuid,
 ) -> Result<(), ApiError> {
-    let mut queue: Vec<(Uuid, Uuid)> = vec![(source_match_id, winner_team_id)];
+    let max_players =
+        i32_to_usize(event_max_players_i32_or_not_found(state, event_id).await?, "max_players")?;
+    let current_count = i64_to_usize(
+        repo::count_event_players(&state.pool, event_id).await?,
+        "player count",
+    )?;
 
-    while let Some((current_match_id, current_winner_team_id)) = queue.pop() {
-        let row = sqlx::query(
-            "SELECT next_match_id, next_match_slot
-             FROM event_matches
-             WHERE id = $1",
-        )
-        .bind(current_match_id)
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(internal_error)?;
-
-        let Some(row) = row else {
-            continue;
-        };
-
-        let next_match_id: Option<Uuid> = row.get("next_match_id");
-        let next_match_slot: Option<String> = row.get("next_match_slot");
-
-        let Some(next_match_id) = next_match_id else {
-            continue;
-        };
-
-        match next_match_slot.as_deref() {
-            Some("A") => {
-                sqlx::query("UPDATE event_matches SET team_a_id = $1 WHERE id = $2")
-                    .bind(current_winner_team_id)
-                    .bind(next_match_id)
-                    .execute(&mut **tx)
-                    .await
-                    .map_err(internal_error)?;
-            }
-            Some("B") => {
-                sqlx::query("UPDATE event_matches SET team_b_id = $1 WHERE id = $2")
-                    .bind(current_winner_team_id)
-                    .bind(next_match_id)
-                    .execute(&mut **tx)
-                    .await
-                    .map_err(internal_error)?;
-            }
-            _ => continue,
-        }
-
-        let next_row = sqlx::query(
-            "SELECT team_a_id, team_b_id, winner_team_id
-             FROM event_matches
-             WHERE id = $1",
-        )
-        .bind(next_match_id)
-        .fetch_one(&mut **tx)
-        .await
-        .map_err(internal_error)?;
-
-        let team_a_id: Option<Uuid> = next_row.get("team_a_id");
-        let team_b_id: Option<Uuid> = next_row.get("team_b_id");
-        let winner_already_set: Option<Uuid> = next_row.get("winner_team_id");
-
-        if winner_already_set.is_some() {
-            continue;
-        }
-
-        match (team_a_id, team_b_id) {
-            (Some(_), Some(_)) => {
-                sqlx::query("UPDATE event_matches SET status = 'READY' WHERE id = $1")
-                    .bind(next_match_id)
-                    .execute(&mut **tx)
-                    .await
-                    .map_err(internal_error)?;
-            }
-            (Some(_), None) | (None, Some(_)) => {
-                // Keep waiting for the missing side; do not auto-advance winners.
-                sqlx::query("UPDATE event_matches SET status = 'OPEN' WHERE id = $1")
-                    .bind(next_match_id)
-                    .execute(&mut **tx)
-                    .await
-                    .map_err(internal_error)?;
-            }
-            (None, None) => {
-                sqlx::query("UPDATE event_matches SET status = 'OPEN' WHERE id = $1")
-                    .bind(next_match_id)
-                    .execute(&mut **tx)
-                    .await
-                    .map_err(internal_error)?;
-            }
-        }
+    if current_count >= max_players {
+        return Err(bad_request("Event roster is already full"));
     }
 
     Ok(())
-}
-
-fn bracket_rounds(bracket_size: usize) -> usize {
-    let mut rounds = 0;
-    let mut remaining = bracket_size;
-
-    while remaining > 1 {
-        remaining /= 2;
-        rounds += 1;
-    }
-
-    rounds
-}
-
-struct BracketMatchPlan {
-    id: Uuid,
-    round: i32,
-    position: i32,
-    title: String,
-    map: String,
-    max_players: u8,
-    team_a_id: Option<Uuid>,
-    team_b_id: Option<Uuid>,
-    next_match_id: Option<Uuid>,
-    next_match_slot: Option<String>,
-    winner_team_id: Option<Uuid>,
-    status: String,
-}
-
-#[derive(Clone)]
-struct BalancePlayer {
-    id: Uuid,
-    role: String,
-    elo: i32,
-}
-
-#[derive(Default, Clone, Copy)]
-struct RoleCounts {
-    tank: usize,
-    dps: usize,
-    support: usize,
-}
-
-impl RoleCounts {
-    fn add(&mut self, role: &str) {
-        match role {
-            "Tank" => self.tank += 1,
-            "DPS" => self.dps += 1,
-            "Support" => self.support += 1,
-            _ => {}
-        }
-    }
-
-    fn get(&self, role: &str) -> usize {
-        match role {
-            "Tank" => self.tank,
-            "DPS" => self.dps,
-            "Support" => self.support,
-            _ => 0,
-        }
-    }
-}
-
-#[derive(Clone)]
-struct BalanceTeamState {
-    id: Uuid,
-    player_ids: Vec<Uuid>,
-    elo_sum: i32,
-    role_counts: RoleCounts,
-}
-
-#[derive(Clone, Copy)]
-struct PugRoleTargets {
-    tank: usize,
-    dps: usize,
-    support: usize,
-}
-
-impl PugRoleTargets {
-    fn get(&self, role: &str) -> usize {
-        match role {
-            "Tank" => self.tank,
-            "DPS" => self.dps,
-            "Support" => self.support,
-            _ => usize::MAX,
-        }
-    }
-}
-
-fn format_team_size(format: &EventFormat) -> usize {
-    match format {
-        EventFormat::OneVOne => 1,
-        EventFormat::SixVSix => 6,
-        EventFormat::FiveVFive => 5,
-    }
-}
-
-fn pug_role_targets_for_format(format: &EventFormat) -> Option<PugRoleTargets> {
-    match format {
-        EventFormat::FiveVFive => Some(PugRoleTargets {
-            tank: 1,
-            dps: 2,
-            support: 2,
-        }),
-        EventFormat::SixVSix => Some(PugRoleTargets {
-            tank: 2,
-            dps: 2,
-            support: 2,
-        }),
-        EventFormat::OneVOne => None,
-    }
-}
-
-fn role_overflow_penalty(team: &BalanceTeamState, role: &str, targets: PugRoleTargets) -> f64 {
-    let current = team.role_counts.get(role);
-    let target = targets.get(role);
-    if target == usize::MAX {
-        return 500.0;
-    }
-
-    if current + 1 <= target {
-        return 0.0;
-    }
-
-    ((current + 1 - target) as f64) * 400.0
-}
-
-fn rank_elo_for_balance(rank: &str) -> i32 {
-    match rank {
-        "Bronze" => 1000,
-        "Silver" => 1500,
-        "Gold" => 2000,
-        "Platinum" => 2500,
-        "Diamond" => 3000,
-        "Master" => 3500,
-        "Grandmaster" => 4000,
-        "Champion" => 4500,
-        // Frontend exposes Unranked as null ELO; use Gold midpoint for balancing.
-        _ => 2000,
-    }
-}
-
-fn average_team_elo_from_players(players: &[&Player]) -> Option<f64> {
-    let mut total = 0i32;
-    let mut count = 0usize;
-
-    for player in players {
-        total += rank_elo_for_balance(&player.rank);
-        count += 1;
-    }
-
-    if count == 0 {
-        return None;
-    }
-
-    Some(total as f64 / count as f64)
-}
-
-fn unique_team_name(base_name: &str, used_names: &mut HashSet<String>) -> String {
-    let normalized_base = if base_name.trim().is_empty() {
-        "Solo Team"
-    } else {
-        base_name.trim()
-    };
-
-    if used_names.insert(normalized_base.to_lowercase()) {
-        return normalized_base.to_string();
-    }
-
-    let mut suffix = 2usize;
-    loop {
-        let candidate = format!("{} ({suffix})", normalized_base);
-        if used_names.insert(candidate.to_lowercase()) {
-            return candidate;
-        }
-        suffix += 1;
-    }
-}
-
-fn validate_create_event_input(payload: &CreateEventInput) -> Result<(), ApiError> {
-    let name = payload.name.trim();
-    let description = payload.description.trim();
-
-    if name.is_empty() {
-        return Err(bad_request("Event name is required"));
-    }
-
-    if name.len() > 120 {
-        return Err(bad_request("Event name must be 120 characters or fewer"));
-    }
-
-    if description.len() > 5000 {
-        return Err(bad_request(
-            "Event description must be 5000 characters or fewer",
-        ));
-    }
-
-    if let Some(start_date) = normalize_optional_string(&payload.start_date) {
-        if start_date.len() > 40 {
-            return Err(bad_request("Event start date is too long"));
-        }
-    }
-
-    if !(2..=99).contains(&payload.max_players) {
-        return Err(bad_request("Max players must be between 2 and 99"));
-    }
-
-    match &payload.event_type {
-        EventType::Pug => {
-            if !matches!(
-                &payload.format,
-                EventFormat::FiveVFive | EventFormat::SixVSix
-            ) {
-                return Err(bad_request("PUG events support only 5v5 or 6v6 format"));
-            }
-        }
-        EventType::Tourney => {}
-    }
-
-    Ok(())
-}
-
-fn validate_update_event_input(payload: &UpdateEventInput) -> Result<(), ApiError> {
-    let create_shape = CreateEventInput {
-        name: payload.name.clone(),
-        description: payload.description.clone(),
-        start_date: payload.start_date.clone(),
-        event_type: payload.event_type.clone(),
-        format: payload.format.clone(),
-        max_players: payload.max_players,
-    };
-
-    validate_create_event_input(&create_shape)
-}
-
-fn normalize_optional_string(value: &Option<String>) -> Option<String> {
-    value
-        .as_ref()
-        .map(|text| text.trim().to_string())
-        .filter(|text| !text.is_empty())
 }
 
 async fn create_match_record(
@@ -1624,62 +1228,7 @@ async fn create_match_record(
     matches_repo::load_match(&state.pool, match_id).await
 }
 
-fn validate_add_player_input(payload: &AddPlayerInput) -> Result<(), ApiError> {
-    let name = payload.name.trim();
-    let role = payload.role.trim();
-    let rank = payload.rank.trim();
-
-    if name.is_empty() {
-        return Err(bad_request("Player name is required"));
-    }
-
-    if name.len() > 60 {
-        return Err(bad_request("Player name must be 60 characters or fewer"));
-    }
-
-    if role.is_empty() {
-        return Err(bad_request("Player role is required"));
-    }
-
-    if !matches!(role, "Tank" | "DPS" | "Support") {
-        return Err(bad_request("Role must be Tank, DPS, or Support"));
-    }
-
-    if rank.is_empty() {
-        return Err(bad_request("Player rank is required"));
-    }
-
-    if !OVERWATCH_RANKS.contains(&rank) {
-        return Err(bad_request("Invalid player rank"));
-    }
-
-    Ok(())
-}
-
-fn validate_event_player_update_input(payload: &UpdateEventPlayerInput) -> Result<(), ApiError> {
-    let add_player_shape = AddPlayerInput {
-        name: payload.name.clone(),
-        role: payload.role.clone(),
-        rank: payload.rank.clone(),
-    };
-
-    validate_add_player_input(&add_player_shape)
-}
-
-fn validate_event_team_name(name: &str) -> Result<(), ApiError> {
-    if name.trim().is_empty() {
-        return Err(bad_request("Team name is required"));
-    }
-
-    Ok(())
-}
-
-fn validate_signup_request_input(payload: &CreateEventSignupRequestInput) -> Result<(), ApiError> {
-    let add_player_shape = AddPlayerInput {
-        name: payload.name.clone(),
-        role: payload.role.clone(),
-        rank: payload.rank.clone(),
-    };
-
-    validate_add_player_input(&add_player_shape)
+fn as_owner_event(mut event: Event) -> Event {
+    event.is_owner = true;
+    event
 }
