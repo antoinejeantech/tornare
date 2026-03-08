@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::shared::errors::{bad_request, internal_error, not_found};
 use crate::shared::numeric::i32_to_u8;
 
-use crate::shared::models::{
+use crate::features::events::models::{
     Event, EventFormat, EventSignupRequest, EventTeam, EventType, Match, Player,
     PublicEventSignupInfo,
 };

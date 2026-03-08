@@ -7,10 +7,12 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
-    features::auth::require_authenticated_user_id,
+    features::{
+        auth::{models::AuthUser, require_authenticated_user_id},
+        users::models::UpdateUserProfileInput,
+    },
     shared::{
         errors::ApiResult,
-        models::{AuthUser, UpdateUserProfileInput},
     },
 };
 

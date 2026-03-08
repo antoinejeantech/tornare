@@ -4,17 +4,22 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
-    features::{matches::repo as matches_repo, permissions::require_event_owner_access},
+    features::{
+        events::models::{
+            AddPlayerInput, AssignEventPlayerTeamInput, AutoBalanceTeamsResponse,
+            CreateEventInput, CreateEventMatchInput, CreateEventSignupRequestInput,
+            CreateEventTeamInput, CreateMatchInput, Event, EventFormat,
+            EventSignupLinkResponse, EventSignupRequest, EventType, Match, Player,
+            PublicEventSignupInfo, ReportMatchWinnerInput, SetMatchupInput,
+            UpdateEventInput, UpdateEventPlayerInput, UpdateEventTeamInput,
+        },
+        matches::repo as matches_repo,
+        permissions::require_event_owner_access,
+        users::models::OVERWATCH_RANKS,
+    },
     shared::{
         errors::{bad_request, internal_error, not_found, ApiError},
-        models::{
-            AddPlayerInput, AssignEventPlayerTeamInput, CreateEventInput, CreateEventMatchInput,
-            CreateEventSignupRequestInput, CreateEventTeamInput, CreateMatchInput, Event,
-            AutoBalanceTeamsResponse, EventFormat, EventSignupLinkResponse, EventSignupRequest,
-            EventType, Match, MessageResponse,
-            PublicEventSignupInfo, ReportMatchWinnerInput, SetMatchupInput, UpdateEventInput,
-            UpdateEventPlayerInput, UpdateEventTeamInput, OVERWATCH_RANKS,
-        },
+        models::MessageResponse,
         numeric::{i32_to_u8, i32_to_usize, i64_to_usize},
     },
 };
@@ -1444,29 +1449,27 @@ impl PugRoleTargets {
     }
 }
 
-fn format_team_size(format: &crate::shared::models::EventFormat) -> usize {
+fn format_team_size(format: &EventFormat) -> usize {
     match format {
-        crate::shared::models::EventFormat::OneVOne => 1,
-        crate::shared::models::EventFormat::SixVSix => 6,
-        crate::shared::models::EventFormat::FiveVFive => 5,
+        EventFormat::OneVOne => 1,
+        EventFormat::SixVSix => 6,
+        EventFormat::FiveVFive => 5,
     }
 }
 
-fn pug_role_targets_for_format(
-    format: &crate::shared::models::EventFormat,
-) -> Option<PugRoleTargets> {
+fn pug_role_targets_for_format(format: &EventFormat) -> Option<PugRoleTargets> {
     match format {
-        crate::shared::models::EventFormat::FiveVFive => Some(PugRoleTargets {
+        EventFormat::FiveVFive => Some(PugRoleTargets {
             tank: 1,
             dps: 2,
             support: 2,
         }),
-        crate::shared::models::EventFormat::SixVSix => Some(PugRoleTargets {
+        EventFormat::SixVSix => Some(PugRoleTargets {
             tank: 2,
             dps: 2,
             support: 2,
         }),
-        crate::shared::models::EventFormat::OneVOne => None,
+        EventFormat::OneVOne => None,
     }
 }
 
@@ -1499,7 +1502,7 @@ fn rank_elo_for_balance(rank: &str) -> i32 {
     }
 }
 
-fn average_team_elo_from_players(players: &[&crate::shared::models::Player]) -> Option<f64> {
+fn average_team_elo_from_players(players: &[&Player]) -> Option<f64> {
     let mut total = 0i32;
     let mut count = 0usize;
 

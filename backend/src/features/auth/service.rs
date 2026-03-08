@@ -12,9 +12,9 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
+    features::auth::models::{AuthResponse, AuthUser, LoginInput, RegisterInput},
     shared::{
         errors::{bad_request, forbidden, unauthorized, ApiError},
-        models::{AuthResponse, AuthUser, LoginInput, RegisterInput},
     },
 };
 

@@ -3,11 +3,12 @@ use uuid::Uuid;
 use crate::{
     app::state::AppState,
     features::{
+        events::models::Match,
         permissions::{require_event_manage_access, require_event_view_access},
     },
     shared::{
         errors::{not_found, ApiError},
-        models::{Match, MessageResponse},
+        models::MessageResponse,
     },
 };
 

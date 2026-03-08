@@ -2,9 +2,12 @@ use axum::{extract::State, http::HeaderMap, Json};
 
 use crate::{
     app::{security::enforce_rate_limit, state::AppState},
+    features::auth::models::{
+        AuthResponse, AuthUser, LoginInput, LogoutInput, RefreshInput, RegisterInput,
+    },
     shared::{
         errors::ApiResult,
-        models::{AuthResponse, AuthUser, LoginInput, LogoutInput, MessageResponse, RefreshInput, RegisterInput},
+        models::MessageResponse,
     },
 };
 

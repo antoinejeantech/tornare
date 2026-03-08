@@ -3,9 +3,9 @@ use uuid::Uuid;
 
 use crate::shared::{
     errors::{internal_error, not_found},
-    models::{Match, Player},
     numeric::i32_to_u8,
 };
+use crate::features::events::models::{Match, Player};
 
 pub async fn list_visible_match_ids(
     pool: &PgPool,

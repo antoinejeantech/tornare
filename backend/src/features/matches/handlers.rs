@@ -8,9 +8,10 @@ use uuid::Uuid;
 use crate::{
     app::state::AppState,
     features::auth::require_authenticated_user_id,
+    features::events::models::Match,
     shared::{
         errors::ApiResult,
-        models::{Match, MessageResponse},
+        models::MessageResponse,
     },
 };
 

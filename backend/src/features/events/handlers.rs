@@ -7,18 +7,17 @@ use uuid::Uuid;
 
 use crate::{
     app::{security::enforce_rate_limit, state::AppState},
-    features::auth::{maybe_authenticated_user_id, require_authenticated_user_id},
-    shared::{
-        errors::ApiResult,
-        models::{
+    features::{
+        auth::{maybe_authenticated_user_id, require_authenticated_user_id},
+        events::models::{
             AddPlayerInput, AssignEventPlayerTeamInput, AutoBalanceTeamsResponse,
             CreateEventInput, CreateEventMatchInput, CreateEventSignupRequestInput,
             CreateEventTeamInput, Event, EventSignupLinkResponse, EventSignupRequest, Match,
-            MessageResponse, PublicEventSignupInfo,
-            ReportMatchWinnerInput, SetMatchupInput, UpdateEventInput, UpdateEventPlayerInput,
-            UpdateEventTeamInput,
+            PublicEventSignupInfo, ReportMatchWinnerInput, SetMatchupInput, UpdateEventInput,
+            UpdateEventPlayerInput, UpdateEventTeamInput,
         },
     },
+    shared::{errors::ApiResult, models::MessageResponse},
 };
 
 use super::service;

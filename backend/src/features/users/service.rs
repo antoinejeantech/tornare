@@ -6,9 +6,12 @@ use argon2::{
 
 use crate::{
     app::state::AppState,
+    features::{
+        auth::models::AuthUser,
+        users::models::{UpdateUserProfileInput, OVERWATCH_RANKS},
+    },
     shared::{
         errors::{bad_request, forbidden, not_found, ApiError},
-        models::{AuthUser, UpdateUserProfileInput},
     },
 };
 
@@ -134,7 +137,7 @@ fn normalize_email(email: &str) -> String {
 }
 
 fn validate_rank(role: &str, rank: &str) -> Result<(), ApiError> {
-    if crate::shared::models::OVERWATCH_RANKS.contains(&rank) {
+    if OVERWATCH_RANKS.contains(&rank) {
         return Ok(());
     }
 
