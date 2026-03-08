@@ -352,6 +352,7 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
       <button
         v-if="ctx.canManageEvent"
         class="btn-primary"
+        type="button"
         :disabled="ctx.creatingMatch || ctx.event.matches.length > 0"
         @click="ctx.generateTourneyBracket"
       >
@@ -410,6 +411,7 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
                 <button
                   v-if="canReportWinner(match, match.team_a_id)"
                   class="btn-secondary bracket-win-btn"
+                  type="button"
                   :disabled="Boolean(ctx.reportingWinners[match.id])"
                   @click="ctx.reportMatchWinner(match.id, match.team_a_id)"
                 >Win</button>
@@ -419,6 +421,7 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
                 <button
                   v-if="canReportWinner(match, match.team_b_id)"
                   class="btn-secondary bracket-win-btn"
+                  type="button"
                   :disabled="Boolean(ctx.reportingWinners[match.id])"
                   @click="ctx.reportMatchWinner(match.id, match.team_b_id)"
                 >Win</button>

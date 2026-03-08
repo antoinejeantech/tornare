@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, provide, proxyRefs, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, provide, proxyRefs, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { formatEventStartDate } from '../lib/dates'
@@ -722,9 +722,28 @@ async function reportMatchWinner(matchId, winnerTeamId) {
     [matchId]: true,
   }
 
+  const savedWindowY = typeof window !== 'undefined' ? window.scrollY : 0
+  const savedWindowX = typeof window !== 'undefined' ? window.scrollX : 0
+  const savedBracketScrollLeft = typeof document !== 'undefined'
+    ? document.querySelector('.tourney-bracket-wrap')?.scrollLeft ?? 0
+    : 0
+
   try {
     await matchStore.reportMatchWinner(eventId.value, matchId, winnerTeamId)
     await loadEvent()
+    await nextTick()
+
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: savedWindowY, left: savedWindowX })
+    }
+
+    if (typeof document !== 'undefined') {
+      const bracketWrap = document.querySelector('.tourney-bracket-wrap')
+      if (bracketWrap) {
+        bracketWrap.scrollLeft = savedBracketScrollLeft
+      }
+    }
+
     setNotice('Winner reported')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to report winner')
