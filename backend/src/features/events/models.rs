@@ -223,10 +223,13 @@ pub struct AutoBalanceTeamsResponse {
 pub struct PublicEventSignupInfo {
     pub event_id: Uuid,
     pub event_name: String,
+    pub event_description: String,
+    pub start_date: Option<String>,
     pub event_type: EventType,
     pub format: EventFormat,
     pub max_players: u8,
     pub current_players: usize,
+    pub current_signup_requests: usize,
 }
 
 #[cfg(test)]

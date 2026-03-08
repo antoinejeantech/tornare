@@ -18,6 +18,8 @@ use crate::{
 use super::{as_owner_event, ensure_event_exists, ensure_event_has_capacity_for_new_player, repo};
 use super::validation::validate_signup_request_input;
 
+pub const MAX_SIGNUP_REQUESTS_PER_EVENT: usize = 99;
+
 pub async fn get_event_signup_link_for_user(
     state: &AppState,
     user_id: Uuid,
@@ -75,6 +77,10 @@ pub async fn create_public_signup_request(
 
     if info.current_players >= usize::from(info.max_players) {
         return Err(bad_request("Event roster is already full"));
+    }
+
+    if info.current_signup_requests >= MAX_SIGNUP_REQUESTS_PER_EVENT {
+        return Err(bad_request("Signup request limit reached for this event"));
     }
 
     let clean_name = payload.name.trim();

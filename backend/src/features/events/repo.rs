@@ -564,14 +564,24 @@ pub async fn event_signup_info_by_token(
         "SELECT
                 e.id,
                 e.name,
+            e.description,
+            e.start_date,
                 e.event_type,
-                     e.format,
+                e.format,
                 e.max_players,
-                COUNT(ep.id) AS current_players
+                (
+                    SELECT COUNT(*)
+                    FROM event_players ep
+                    WHERE ep.event_id = e.id
+                ) AS current_players,
+                (
+                    SELECT COUNT(*)
+                    FROM event_signup_requests sr
+                    WHERE sr.event_id = e.id
+                      AND sr.status = 'pending'
+                ) AS current_signup_requests
              FROM events e
-             LEFT JOIN event_players ep ON ep.event_id = e.id
-             WHERE e.signup_token = $1
-                 GROUP BY e.id, e.name, e.event_type, e.format, e.max_players",
+             WHERE e.signup_token = $1",
     )
     .bind(signup_token)
     .fetch_optional(pool)
@@ -593,16 +603,23 @@ pub async fn event_signup_info_by_token(
     let current_players = usize::try_from(current_players_i64)
         .map_err(|_| bad_request("Invalid current players value in database"))?;
 
+    let current_signup_requests_i64: i64 = row.get("current_signup_requests");
+    let current_signup_requests = usize::try_from(current_signup_requests_i64)
+        .map_err(|_| bad_request("Invalid current signup requests value in database"))?;
+
     let max_players = u8::try_from(row.get::<i32, _>("max_players"))
         .map_err(|_| bad_request("Invalid max players value in database"))?;
 
     Ok(Some(PublicEventSignupInfo {
         event_id: row.get("id"),
         event_name: row.get("name"),
+        event_description: row.get("description"),
+        start_date: row.get("start_date"),
         event_type,
         format,
         max_players,
         current_players,
+        current_signup_requests,
     }))
 }
 
