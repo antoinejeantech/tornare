@@ -27,6 +27,65 @@ function bracketRoundsCount(size) {
   return Math.max(1, rounds)
 }
 
+function mainBracketSize(teamCount) {
+  const nextPow2 = nextPowerOfTwo(teamCount)
+  if (teamCount === nextPow2) {
+    return nextPow2
+  }
+  return nextPow2 / 2
+}
+
+function knockoutLabel(matchesInRound) {
+  if (matchesInRound <= 1) {
+    return 'Final'
+  }
+  if (matchesInRound === 2) {
+    return 'Semifinals'
+  }
+  if (matchesInRound === 4) {
+    return 'Quarterfinals'
+  }
+  return `Round of ${matchesInRound * 2}`
+}
+
+function buildPreviewRounds(teamCount) {
+  const safeCount = Math.max(2, teamCount)
+  const mainSize = mainBracketSize(safeCount)
+  const playInCount = safeCount - mainSize
+  const mainRoundStart = playInCount > 0 ? 2 : 1
+  const mainRounds = bracketRoundsCount(mainSize)
+  const rounds = []
+
+  if (playInCount > 0) {
+    rounds.push({
+      round: 1,
+      label: 'Play-In',
+      slots: playInCount,
+    })
+  }
+
+  for (let idx = 0; idx < mainRounds; idx += 1) {
+    const round = mainRoundStart + idx
+    const slots = Math.max(1, mainSize >> (idx + 1))
+    rounds.push({
+      round,
+      label: knockoutLabel(slots),
+      slots,
+    })
+  }
+
+  return rounds
+}
+
+function roundLabelFromMatches(round, cards) {
+  const hasPlayInTitles = cards.some((card) => String(card.title || '').toLowerCase().startsWith('play-in'))
+  if (hasPlayInTitles || round === 1 && cards.length > 0 && cards.every((card) => String(card.title || '').toLowerCase().startsWith('play-in'))) {
+    return 'Play-In'
+  }
+
+  return knockoutLabel(cards.length)
+}
+
 function displayTeamName(match, slot) {
   if (slot === 'A') {
     return match.team_a_name || 'TBD'
@@ -59,50 +118,74 @@ const bracketRounds = computed(() => {
   const matches = Array.isArray(ctx.event?.matches) ? ctx.event.matches : []
   const roundMatches = matches.filter((match) => Number.isInteger(match.round) && Number.isInteger(match.position))
 
-  const seededTeamCount = Math.max(2, nextPowerOfTwo(Math.max(2, ctx.event?.teams?.length || 0)))
-  const fallbackRounds = bracketRoundsCount(seededTeamCount)
+  // Use real generated structure when bracket exists; otherwise show a play-in aware preview.
+  if (roundMatches.length > 0) {
+    const uniqueRounds = [...new Set(roundMatches.map((match) => Number(match.round)))].sort((a, b) => a - b)
 
-  const maxRoundFromMatches = roundMatches.reduce((max, match) => Math.max(max, Number(match.round || 0)), 0)
-  const totalRounds = Math.max(fallbackRounds, maxRoundFromMatches)
-  const rounds = []
+    return uniqueRounds.map((round) => {
+      const roundExisting = roundMatches.filter((match) => Number(match.round) === round)
+      const maxExistingPos = roundExisting.reduce((max, match) => Math.max(max, Number(match.position || 0)), 0)
+      const slots = Math.max(1, maxExistingPos)
 
-  for (let round = 1; round <= totalRounds; round += 1) {
-    const fallbackSlots = Math.max(1, seededTeamCount >> round)
-    const roundExisting = roundMatches.filter((match) => Number(match.round) === round)
-    const maxExistingPos = roundExisting.reduce((max, match) => Math.max(max, Number(match.position || 0)), 0)
-    const slots = Math.max(fallbackSlots, maxExistingPos)
-
-    const cards = []
-    for (let position = 1; position <= slots; position += 1) {
-      const found = roundExisting.find((match) => Number(match.position) === position)
-      if (found) {
-        cards.push(found)
-      } else {
-        cards.push({
-          id: `placeholder-${round}-${position}`,
-          title: `Round ${round} Match ${position}`,
-          round,
-          position,
-          team_a_id: null,
-          team_b_id: null,
-          team_a_name: null,
-          team_b_name: null,
-          winner_team_id: null,
-          winner_team_name: null,
-          status: 'OPEN',
-          isPlaceholder: true,
-        })
+      const cards = []
+      for (let position = 1; position <= slots; position += 1) {
+        const found = roundExisting.find((match) => Number(match.position) === position)
+        if (found) {
+          cards.push(found)
+        } else {
+          cards.push({
+            id: `placeholder-${round}-${position}`,
+            title: `Round ${round} Match ${position}`,
+            round,
+            position,
+            team_a_id: null,
+            team_b_id: null,
+            team_a_name: null,
+            team_b_name: null,
+            winner_team_id: null,
+            winner_team_name: null,
+            status: 'OPEN',
+            isPlaceholder: true,
+          })
+        }
       }
-    }
 
-    rounds.push({
-      id: `round-${round}`,
-      label: round === totalRounds ? 'Final' : `Round ${round}`,
-      cards,
+      return {
+        id: `round-${round}`,
+        label: roundLabelFromMatches(round, cards),
+        cards,
+      }
     })
   }
 
-  return rounds
+  const preview = buildPreviewRounds(ctx.event?.teams?.length || 0)
+  return preview.map((entry) => {
+    const cards = []
+    for (let position = 1; position <= entry.slots; position += 1) {
+      cards.push({
+        id: `placeholder-${entry.round}-${position}`,
+        title: entry.round === 1 && entry.label === 'Play-In'
+          ? `Play-In Match ${position}`
+          : `Round ${entry.round} Match ${position}`,
+        round: entry.round,
+        position,
+        team_a_id: null,
+        team_b_id: null,
+        team_a_name: null,
+        team_b_name: null,
+        winner_team_id: null,
+        winner_team_name: null,
+        status: 'OPEN',
+        isPlaceholder: true,
+      })
+    }
+
+    return {
+      id: `round-${entry.round}`,
+      label: entry.label,
+      cards,
+    }
+  })
 })
 </script>
 
@@ -118,7 +201,7 @@ const bracketRounds = computed(() => {
         {{ ctx.creatingMatch ? 'Generating...' : 'Generate Bracket' }}
       </button>
       <p class="muted">
-        {{ ctx.event.matches.length > 0 ? 'Bracket generated. Report winners to advance teams.' : 'Bracket preview is shown below. Generate when teams are ready.' }}
+        {{ ctx.event.matches.length > 0 ? 'Bracket generated. Report winners to advance teams.' : 'Bracket preview is shown below (play-ins are added automatically when team count is not a power of two).' }}
       </p>
     </div>
 
