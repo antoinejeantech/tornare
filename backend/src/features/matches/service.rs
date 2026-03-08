@@ -136,18 +136,30 @@ pub async fn generate_tourney_bracket_for_user(
     let max_players_i32 = event_max_players_i32_or_not_found(state, event_id).await?;
     let max_players = i32_to_u8(max_players_i32, "max_players")?;
 
-    let bracket_size = team_ids.len().next_power_of_two();
-    let rounds = bracket_rounds(bracket_size);
+    let team_count = team_ids.len();
+    let next_pow2 = team_count.next_power_of_two();
+    let main_size = if team_count == next_pow2 {
+        next_pow2
+    } else {
+        next_pow2 / 2
+    };
+    let play_in_count = team_count - main_size;
+    let direct_count = team_count - (play_in_count * 2);
+
+    let main_rounds = bracket_rounds(main_size);
+    let main_round_start = if play_in_count > 0 { 2 } else { 1 };
 
     let mut plans: Vec<BracketMatchPlan> = Vec::new();
-    for round in 1..=rounds {
-        let matches_in_round = bracket_size >> round;
+    for main_round_idx in 0..main_rounds {
+        let round_number = main_round_start + main_round_idx;
+        let matches_in_round = main_size >> (main_round_idx + 1);
+
         for position in 1..=matches_in_round {
             plans.push(BracketMatchPlan {
                 id: Uuid::new_v4(),
-                round: round as i32,
+                round: round_number as i32,
                 position: position as i32,
-                title: format!("Round {round} Match {position}"),
+                title: format!("Round {round_number} Match {position}"),
                 map: "TBD".to_string(),
                 max_players,
                 team_a_id: None,
@@ -160,10 +172,11 @@ pub async fn generate_tourney_bracket_for_user(
         }
     }
 
+    // Link the main bracket rounds.
     for idx in 0..plans.len() {
         let round = plans[idx].round as usize;
         let position = plans[idx].position as usize;
-        if round >= rounds {
+        if round >= (main_round_start + main_rounds - 1) {
             continue;
         }
 
@@ -181,71 +194,86 @@ pub async fn generate_tourney_bracket_for_user(
         }
     }
 
-    let mut seeded: Vec<Option<Uuid>> = team_ids.into_iter().map(Some).collect();
-    while seeded.len() < bracket_size {
-        seeded.push(None);
-    }
+    // Build play-in matches only when needed.
+    let mut play_in_matches: Vec<BracketMatchPlan> = Vec::new();
+    if play_in_count > 0 {
+        for idx in 0..play_in_count {
+            let team_a_id = team_ids.get(direct_count + (idx * 2)).copied();
+            let team_b_id = team_ids.get(direct_count + (idx * 2) + 1).copied();
 
-    for plan in plans.iter_mut().filter(|plan| plan.round == 1) {
-        let position = (plan.position as usize) - 1;
-        plan.team_a_id = seeded.get(position * 2).copied().flatten();
-        plan.team_b_id = seeded.get(position * 2 + 1).copied().flatten();
-    }
-
-    let mut changed = true;
-    while changed {
-        changed = false;
-
-        for idx in 0..plans.len() {
-            let (team_a_id, team_b_id) = (plans[idx].team_a_id, plans[idx].team_b_id);
-            if plans[idx].winner_team_id.is_none() {
-                match (team_a_id, team_b_id) {
-                    (Some(team_id), None) | (None, Some(team_id)) => {
-                        plans[idx].winner_team_id = Some(team_id);
-                        plans[idx].status = "COMPLETED".to_string();
-                        changed = true;
-                    }
-                    (Some(_), Some(_)) => {
-                        if plans[idx].status != "READY" {
-                            plans[idx].status = "READY".to_string();
-                            changed = true;
-                        }
-                    }
-                    (None, None) => {
-                        if plans[idx].status != "OPEN" {
-                            plans[idx].status = "OPEN".to_string();
-                            changed = true;
-                        }
-                    }
-                }
-            }
-
-            if let Some(winner) = plans[idx].winner_team_id {
-                let Some(next_match_id) = plans[idx].next_match_id else {
-                    continue;
-                };
-                let next_slot = plans[idx].next_match_slot.clone();
-
-                if let Some(next_idx) = plans.iter().position(|plan| plan.id == next_match_id) {
-                    match next_slot.as_deref() {
-                        Some("A") => {
-                            if plans[next_idx].team_a_id != Some(winner) {
-                                plans[next_idx].team_a_id = Some(winner);
-                                changed = true;
-                            }
-                        }
-                        Some("B") => {
-                            if plans[next_idx].team_b_id != Some(winner) {
-                                plans[next_idx].team_b_id = Some(winner);
-                                changed = true;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
+            play_in_matches.push(BracketMatchPlan {
+                id: Uuid::new_v4(),
+                round: 1,
+                position: (idx + 1) as i32,
+                title: format!("Play-In Match {}", idx + 1),
+                map: "TBD".to_string(),
+                max_players,
+                team_a_id,
+                team_b_id,
+                next_match_id: None,
+                next_match_slot: None,
+                winner_team_id: None,
+                status: if team_a_id.is_some() && team_b_id.is_some() {
+                    "READY".to_string()
+                } else {
+                    "OPEN".to_string()
+                },
+            });
         }
     }
+
+    enum FirstRoundSlot {
+        Direct(Uuid),
+        PlayIn(usize),
+    }
+
+    // Fill main round-1 slots with direct teams first, then play-in winners.
+    let mut slots: Vec<FirstRoundSlot> = Vec::with_capacity(main_size);
+    for team_id in team_ids.iter().take(direct_count) {
+        slots.push(FirstRoundSlot::Direct(*team_id));
+    }
+    for idx in 0..play_in_count {
+        slots.push(FirstRoundSlot::PlayIn(idx));
+    }
+
+    for plan in plans
+        .iter_mut()
+        .filter(|plan| plan.round as usize == main_round_start)
+    {
+        let position = (plan.position as usize) - 1;
+        let slot_a = slots.get(position * 2);
+        let slot_b = slots.get(position * 2 + 1);
+
+        match slot_a {
+            Some(FirstRoundSlot::Direct(team_id)) => plan.team_a_id = Some(*team_id),
+            Some(FirstRoundSlot::PlayIn(play_in_idx)) => {
+                if let Some(play_in) = play_in_matches.get_mut(*play_in_idx) {
+                    play_in.next_match_id = Some(plan.id);
+                    play_in.next_match_slot = Some("A".to_string());
+                }
+            }
+            None => {}
+        }
+
+        match slot_b {
+            Some(FirstRoundSlot::Direct(team_id)) => plan.team_b_id = Some(*team_id),
+            Some(FirstRoundSlot::PlayIn(play_in_idx)) => {
+                if let Some(play_in) = play_in_matches.get_mut(*play_in_idx) {
+                    play_in.next_match_id = Some(plan.id);
+                    play_in.next_match_slot = Some("B".to_string());
+                }
+            }
+            None => {}
+        }
+
+        plan.status = if plan.team_a_id.is_some() && plan.team_b_id.is_some() {
+            "READY".to_string()
+        } else {
+            "OPEN".to_string()
+        };
+    }
+
+    plans.extend(play_in_matches);
 
     let mut tx = state.pool.begin().await.map_err(internal_error)?;
 
