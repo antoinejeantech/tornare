@@ -104,17 +104,17 @@ function canReportWinner(match, teamId) {
 }
 
 function roundListStyle(roundIndex) {
-  const cardHeight = 132
-  const baseGap = 8
+  const cardHeight = 148
+  const baseGap = 16
   const rounds = bracketRounds.value
   const cardsCount = rounds[roundIndex]?.cards?.length || 1
   const maxCards = maxRoundCards.value
   const columnHeight = (maxCards * cardHeight) + ((maxCards - 1) * baseGap)
 
-  let gap = baseGap
-  if (cardsCount > 1) {
-    gap = (columnHeight - (cardsCount * cardHeight)) / (cardsCount - 1)
-  }
+  // Distribute card centers evenly in the column and use symmetric top/bottom padding.
+  const centerStep = columnHeight / Math.max(1, cardsCount)
+  const gap = Math.max(0, centerStep - cardHeight)
+  const edgePadding = Math.max(0, (centerStep - cardHeight) / 2)
 
   const previousCardsCount = rounds[roundIndex - 1]?.cards?.length || cardsCount
   const childCenterStep = roundIndex > 0
@@ -122,6 +122,7 @@ function roundListStyle(roundIndex) {
     : 0
   return {
     '--round-gap': `${gap}px`,
+    '--round-pad': `${edgePadding}px`,
     '--child-center-step': `${childCenterStep}px`,
   }
 }
@@ -223,22 +224,125 @@ const linkageInfo = computed(() => {
   return { hasParent, hasNext }
 })
 
+const hasGeneratedMatches = computed(() => {
+  return Array.isArray(ctx.event?.matches) && ctx.event.matches.length > 0
+})
+
+const previewLinkageInfo = computed(() => {
+  const hasParent = new Set()
+  const hasNext = new Set()
+
+  const teamCount = Math.max(2, ctx.event?.teams?.length || 0)
+  const mainSize = mainBracketSize(teamCount)
+  const playInCount = teamCount - mainSize
+  const mainRoundStart = playInCount > 0 ? 2 : 1
+  const mainRounds = bracketRoundsCount(mainSize)
+
+  const placeholderId = (round, position) => `placeholder-${round}-${position}`
+
+  // Main bracket internal links (quarterfinals -> semifinals -> final, etc.)
+  for (let idx = 0; idx < mainRounds - 1; idx += 1) {
+    const round = mainRoundStart + idx
+    const matchesInRound = Math.max(1, mainSize >> (idx + 1))
+
+    for (let position = 1; position <= matchesInRound; position += 1) {
+      const currentId = placeholderId(round, position)
+      const parentRound = round + 1
+      const parentPosition = Math.floor((position + 1) / 2)
+      const parentId = placeholderId(parentRound, parentPosition)
+
+      hasNext.add(currentId)
+      hasParent.add(parentId)
+    }
+  }
+
+  // Play-in links are wired exactly like backend: direct slots first, then play-in slots.
+  if (playInCount > 0) {
+    const directCount = teamCount - (playInCount * 2)
+    const firstRoundMatches = Math.max(1, mainSize / 2)
+    const slots = []
+
+    for (let idx = 0; idx < directCount; idx += 1) {
+      slots.push({ type: 'direct' })
+    }
+    for (let idx = 0; idx < playInCount; idx += 1) {
+      slots.push({ type: 'playin', playInIdx: idx })
+    }
+
+    for (let position = 1; position <= firstRoundMatches; position += 1) {
+      const slotA = slots[(position - 1) * 2]
+      const slotB = slots[(position - 1) * 2 + 1]
+      const parentId = placeholderId(mainRoundStart, position)
+
+      if (slotA?.type === 'playin') {
+        const playInId = placeholderId(1, slotA.playInIdx + 1)
+        hasNext.add(playInId)
+        hasParent.add(parentId)
+      }
+      if (slotB?.type === 'playin') {
+        const playInId = placeholderId(1, slotB.playInIdx + 1)
+        hasNext.add(playInId)
+        hasParent.add(parentId)
+      }
+    }
+  }
+
+  return { hasParent, hasNext }
+})
+
 function hasParentLink(match) {
-  return linkageInfo.value.hasParent.has(String(match.id))
+  const id = String(match.id)
+  if (hasGeneratedMatches.value) {
+    return linkageInfo.value.hasParent.has(id)
+  }
+  return previewLinkageInfo.value.hasParent.has(id)
 }
 
 function hasNextLink(match) {
-  return linkageInfo.value.hasNext.has(String(match.id))
+  const id = String(match.id)
+  if (hasGeneratedMatches.value) {
+    return linkageInfo.value.hasNext.has(id)
+  }
+  return previewLinkageInfo.value.hasNext.has(id)
 }
 
-function roundCenterStep(cardsCount, cardHeight = 132, baseGap = 8) {
+function showOutgoingLink(match, round, roundIndex) {
+  if (!hasNextLink(match)) {
+    return false
+  }
+
+  const nextRound = bracketRounds.value[roundIndex + 1]
+  if (!nextRound) {
+    return false
+  }
+
+  return hasRegularTransition(nextRound.cards.length, round.cards.length)
+}
+
+function showParentFork(match, round, roundIndex) {
+  if (!hasParentLink(match) || roundIndex <= 0) {
+    return false
+  }
+
+  const previousRound = bracketRounds.value[roundIndex - 1]
+  if (!previousRound) {
+    return false
+  }
+
+  return hasRegularTransition(round.cards.length, previousRound.cards.length)
+}
+
+function hasRegularTransition(parentCount, childCount) {
+  return childCount === parentCount * 2
+}
+
+function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
   const maxCards = maxRoundCards.value
   const columnHeight = (maxCards * cardHeight) + ((maxCards - 1) * baseGap)
-  if (cardsCount <= 1) {
-    return cardHeight
-  }
-  const gap = (columnHeight - (cardsCount * cardHeight)) / (cardsCount - 1)
-  return cardHeight + gap
+  const safeCards = Math.max(1, cardsCount)
+
+  // Keep connector geometry in sync with roundListStyle center distribution.
+  return columnHeight / safeCards
 }
 </script>
 
@@ -282,11 +386,11 @@ function roundCenterStep(cardsCount, cardHeight = 132, baseGap = 8) {
               }"
             >
               <span
-                v-if="hasNextLink(match)"
+                v-if="showOutgoingLink(match, round, roundIndex)"
                 class="child-outgoing-link"
                 aria-hidden="true"
               ></span>
-              <span v-if="hasParentLink(match)" class="parent-incoming-link" aria-hidden="true">
+              <span v-if="showParentFork(match, round, roundIndex)" class="parent-incoming-link" aria-hidden="true">
                 <span class="fork-segment fork-spine"></span>
                 <span class="fork-segment fork-arm-top"></span>
                 <span class="fork-segment fork-arm-bottom"></span>
@@ -345,8 +449,8 @@ function roundCenterStep(cardsCount, cardHeight = 132, baseGap = 8) {
 }
 
 .tourney-bracket {
-  --card-min-height: 132px;
-  --base-round-gap: 0.52rem;
+  --card-min-height: 148px;
+  --base-round-gap: 0.8rem;
   --col-gap: 16px;
   --column-height: calc(
     (var(--max-round-cards) * var(--card-min-height)) +
@@ -361,7 +465,7 @@ function roundCenterStep(cardsCount, cardHeight = 132, baseGap = 8) {
 
 .bracket-round {
   display: grid;
-  gap: 0.52rem;
+  gap: 0.68rem;
 }
 
 .bracket-round-title {
@@ -375,8 +479,10 @@ function roundCenterStep(cardsCount, cardHeight = 132, baseGap = 8) {
 .bracket-round-list {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: var(--round-gap, 0.52rem);
+  justify-content: flex-start;
+  gap: var(--round-gap, 0.8rem);
+  padding-top: var(--round-pad, 0px);
+  padding-bottom: var(--round-pad, 0px);
   min-height: var(--column-height);
   position: relative;
 }
@@ -391,9 +497,9 @@ function roundCenterStep(cardsCount, cardHeight = 132, baseGap = 8) {
   border: 1px solid color-mix(in srgb, var(--line) 85%, var(--brand-2) 15%);
   background: color-mix(in srgb, var(--card) 90%, #f2f6ff 10%);
   border-radius: 10px;
-  padding: 0.46rem 0.5rem;
+  padding: 0.62rem 0.58rem;
   display: grid;
-  gap: 0.32rem;
+  gap: 0.42rem;
   box-shadow: 0 1px 5px rgba(15, 39, 84, 0.08);
 }
 
@@ -487,7 +593,7 @@ function roundCenterStep(cardsCount, cardHeight = 132, baseGap = 8) {
   gap: 0.42rem;
   border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-2) 12%);
   border-radius: 8px;
-  padding: 0.28rem 0.36rem;
+  padding: 0.34rem 0.4rem;
   background: color-mix(in srgb, var(--card) 92%, #ebf2ff 8%);
 }
 
@@ -508,24 +614,23 @@ function roundCenterStep(cardsCount, cardHeight = 132, baseGap = 8) {
 }
 
 .bracket-status {
-  margin: 0.12rem 0 0;
+  margin: 0.22rem 0 0;
   font-size: 0.78rem;
+  line-height: 1.3;
 }
 
 .bracket-round.round-first .bracket-match {
-  gap: 0.22rem;
-  padding-top: 0.4rem;
-  padding-bottom: 0.4rem;
+  gap: 0.4rem;
 }
 
 .bracket-round.round-first .bracket-team-row {
-  padding: 0.2rem 0.34rem;
+  padding: 0.3rem 0.38rem;
 }
 
 .bracket-round.round-first .bracket-status {
-  margin-top: 0;
+  margin-top: 0.18rem;
   font-size: 0.74rem;
-  line-height: 1.1;
+  line-height: 1.25;
 }
 
 @media (max-width: 900px) {
