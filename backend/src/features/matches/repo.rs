@@ -229,6 +229,24 @@ pub async fn get_bracket_match_state_in_tx(
     }))
 }
 
+pub async fn list_bracket_match_ids_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+) -> Result<Vec<Uuid>, crate::shared::errors::ApiError> {
+    let rows = sqlx::query(
+        "SELECT id
+         FROM event_matches
+         WHERE event_id = $1 AND is_bracket = TRUE
+         ORDER BY round ASC NULLS LAST, position ASC NULLS LAST, id ASC",
+    )
+    .bind(event_id)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(rows.into_iter().map(|row| row.get("id")).collect())
+}
+
 pub async fn set_match_winner_completed_in_tx(
     tx: &mut Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,

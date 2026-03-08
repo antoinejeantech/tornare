@@ -307,6 +307,7 @@ pub async fn report_match_winner_for_user(
 
     let mut tx = state.pool.begin().await.map_err(internal_error)?;
     normalize_bracket_matches(&mut tx, event_id).await?;
+    auto_advance_bye_matches(&mut tx, event_id).await?;
 
     let Some(match_state) = repo::get_bracket_match_state_in_tx(&mut tx, event_id, match_id).await? else {
         return Err(not_found("Match not found in this event"));
@@ -469,6 +470,45 @@ async fn normalize_bracket_matches(
     event_id: Uuid,
 ) -> Result<(), ApiError> {
     repo::normalize_bracket_matches_in_tx(tx, event_id).await
+}
+
+async fn auto_advance_bye_matches(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+) -> Result<(), ApiError> {
+    loop {
+        let match_ids = repo::list_bracket_match_ids_in_tx(tx, event_id).await?;
+        let mut advanced_any = false;
+
+        for match_id in match_ids {
+            let Some(match_state) = repo::get_bracket_match_state_in_tx(tx, event_id, match_id).await? else {
+                continue;
+            };
+
+            if !match_state.is_bracket || match_state.winner_team_id.is_some() {
+                continue;
+            }
+
+            let bye_winner = match (match_state.team_a_id, match_state.team_b_id) {
+                (Some(team_id), None) | (None, Some(team_id)) => Some(team_id),
+                _ => None,
+            };
+
+            let Some(bye_winner) = bye_winner else {
+                continue;
+            };
+
+            repo::set_match_winner_completed_in_tx(tx, match_id, bye_winner).await?;
+            propagate_match_winners(tx, match_id, bye_winner).await?;
+            advanced_any = true;
+        }
+
+        if !advanced_any {
+            break;
+        }
+    }
+
+    Ok(())
 }
 
 async fn propagate_match_winners(
