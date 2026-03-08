@@ -1,32 +1,13 @@
 use crate::{
     features::{
         events::models::{
-            AddPlayerInput, CreateEventInput, CreateEventSignupRequestInput, CreateMatchInput,
-            EventFormat, EventType, UpdateEventInput, UpdateEventPlayerInput,
+            AddPlayerInput, CreateEventInput, CreateEventSignupRequestInput, EventFormat,
+            EventType, UpdateEventInput, UpdateEventPlayerInput,
         },
         users::models::OVERWATCH_RANKS,
     },
     shared::errors::{bad_request, ApiError},
 };
-
-pub(super) fn validate_create_match_input(payload: &CreateMatchInput) -> Result<(), ApiError> {
-    let title = payload.title.trim();
-    let map = payload.map.trim();
-
-    if title.is_empty() {
-        return Err(bad_request("Match title is required"));
-    }
-
-    if map.is_empty() {
-        return Err(bad_request("Map is required"));
-    }
-
-    if !(2..=99).contains(&payload.max_players) {
-        return Err(bad_request("Max players must be between 2 and 99"));
-    }
-
-    Ok(())
-}
 
 pub(super) fn validate_create_event_input(payload: &CreateEventInput) -> Result<(), ApiError> {
     let name = payload.name.trim();

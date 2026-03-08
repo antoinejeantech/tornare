@@ -1,4 +1,4 @@
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Row, Transaction};
 use uuid::Uuid;
 
 use crate::shared::errors::{bad_request, internal_error, not_found};
@@ -34,6 +34,98 @@ pub async fn event_exists(
         .await
         .map_err(internal_error)?;
     Ok(row.is_some())
+}
+
+pub async fn insert_event(
+    pool: &PgPool,
+    event_id: Uuid,
+    name: &str,
+    description: &str,
+    start_date: Option<String>,
+    event_type: &str,
+    format: &str,
+    max_players: i32,
+    signup_token: &str,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO events (id, name, description, start_date, event_type, format, max_players, signup_token)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+    )
+    .bind(event_id)
+    .bind(name)
+    .bind(description)
+    .bind(start_date)
+    .bind(event_type)
+    .bind(format)
+    .bind(max_players)
+    .bind(signup_token)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn insert_event_owner_membership(
+    pool: &PgPool,
+    event_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO event_memberships (id, event_id, user_id, role) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(event_id)
+    .bind(user_id)
+    .bind("owner")
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn update_event_details(
+    pool: &PgPool,
+    event_id: Uuid,
+    name: &str,
+    description: &str,
+    start_date: Option<String>,
+    event_type: &str,
+    format: &str,
+    max_players: i32,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let updated = sqlx::query(
+        "UPDATE events
+         SET name = $1, description = $2, start_date = $3, event_type = $4, format = $5, max_players = $6
+         WHERE id = $7
+         RETURNING id",
+    )
+    .bind(name)
+    .bind(description)
+    .bind(start_date)
+    .bind(event_type)
+    .bind(format)
+    .bind(max_players)
+    .bind(event_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(updated.is_some())
+}
+
+pub async fn delete_event_by_id(
+    pool: &PgPool,
+    event_id: Uuid,
+) -> Result<u64, crate::shared::errors::ApiError> {
+    let result = sqlx::query("DELETE FROM events WHERE id = $1")
+        .bind(event_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(result.rows_affected())
 }
 
 pub async fn event_max_players(
@@ -83,6 +175,105 @@ pub async fn count_event_players(
     Ok(row.get("count"))
 }
 
+pub async fn insert_event_player(
+    pool: &PgPool,
+    event_id: Uuid,
+    name: &str,
+    role: &str,
+    rank: &str,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO event_players (id, event_id, name, role, rank) VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(event_id)
+    .bind(name)
+    .bind(role)
+    .bind(rank)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn delete_event_player_by_id(
+    pool: &PgPool,
+    event_id: Uuid,
+    player_id: Uuid,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let deleted =
+        sqlx::query("DELETE FROM event_players WHERE id = $1 AND event_id = $2 RETURNING id")
+            .bind(player_id)
+            .bind(event_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(internal_error)?;
+
+    Ok(deleted.is_some())
+}
+
+pub async fn update_event_player_by_id(
+    pool: &PgPool,
+    event_id: Uuid,
+    player_id: Uuid,
+    name: &str,
+    role: &str,
+    rank: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let updated = sqlx::query(
+        "UPDATE event_players SET name = $1, role = $2, rank = $3 WHERE id = $4 AND event_id = $5 RETURNING id",
+    )
+    .bind(name)
+    .bind(role)
+    .bind(rank)
+    .bind(player_id)
+    .bind(event_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(updated.is_some())
+}
+
+pub async fn upsert_event_player_team_membership(
+    pool: &PgPool,
+    event_id: Uuid,
+    team_id: Uuid,
+    player_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO event_team_members (id, event_id, event_team_id, event_player_id)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (event_id, event_player_id)
+         DO UPDATE SET event_team_id = EXCLUDED.event_team_id",
+    )
+    .bind(Uuid::new_v4())
+    .bind(event_id)
+    .bind(team_id)
+    .bind(player_id)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn delete_event_player_team_membership(
+    pool: &PgPool,
+    event_id: Uuid,
+    player_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("DELETE FROM event_team_members WHERE event_id = $1 AND event_player_id = $2")
+        .bind(event_id)
+        .bind(player_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(())
+}
+
 pub async fn event_player_exists(
     pool: &PgPool,
     event_id: Uuid,
@@ -111,6 +302,92 @@ pub async fn event_team_exists(
     Ok(row.is_some())
 }
 
+pub async fn insert_event_team(
+    pool: &PgPool,
+    event_id: Uuid,
+    team_name: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let inserted = sqlx::query("INSERT INTO event_teams (id, event_id, name) VALUES ($1, $2, $3)")
+        .bind(Uuid::new_v4())
+        .bind(event_id)
+        .bind(team_name)
+        .execute(pool)
+        .await;
+
+    Ok(inserted.is_ok())
+}
+
+pub async fn delete_event_team_by_id(
+    pool: &PgPool,
+    event_id: Uuid,
+    team_id: Uuid,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let deleted =
+        sqlx::query("DELETE FROM event_teams WHERE id = $1 AND event_id = $2 RETURNING id")
+            .bind(team_id)
+            .bind(event_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(internal_error)?;
+
+    Ok(deleted.is_some())
+}
+
+pub async fn clear_team_from_event_matches(
+    pool: &PgPool,
+    event_id: Uuid,
+    team_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("UPDATE event_matches SET team_a_id = NULL WHERE event_id = $1 AND team_a_id = $2")
+        .bind(event_id)
+        .bind(team_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+
+    sqlx::query("UPDATE event_matches SET team_b_id = NULL WHERE event_id = $1 AND team_b_id = $2")
+        .bind(event_id)
+        .bind(team_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn update_event_team_name_by_id(
+    pool: &PgPool,
+    event_id: Uuid,
+    team_id: Uuid,
+    team_name: &str,
+) -> Result<TeamNameUpdateOutcome, crate::shared::errors::ApiError> {
+    let updated = sqlx::query(
+        "UPDATE event_teams SET name = $1 WHERE id = $2 AND event_id = $3 RETURNING id",
+    )
+    .bind(team_name)
+    .bind(team_id)
+    .bind(event_id)
+    .fetch_optional(pool)
+    .await;
+
+    match updated {
+        Ok(value) => {
+            if value.is_some() {
+                Ok(TeamNameUpdateOutcome::Updated)
+            } else {
+                Ok(TeamNameUpdateOutcome::NotFound)
+            }
+        }
+        Err(_) => Ok(TeamNameUpdateOutcome::DuplicateName),
+    }
+}
+
+pub enum TeamNameUpdateOutcome {
+    Updated,
+    NotFound,
+    DuplicateName,
+}
+
 pub async fn event_match_exists(
     pool: &PgPool,
     event_id: Uuid,
@@ -123,6 +400,113 @@ pub async fn event_match_exists(
         .await
         .map_err(internal_error)?;
     Ok(row.is_some())
+}
+
+pub async fn event_has_matches(
+    pool: &PgPool,
+    event_id: Uuid,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query("SELECT EXISTS(SELECT 1 FROM event_matches WHERE event_id = $1) AS has_matches")
+        .bind(event_id)
+        .fetch_one(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(row.get("has_matches"))
+}
+
+pub struct UnassignedEventPlayer {
+    pub id: Uuid,
+    pub name: String,
+}
+
+pub async fn list_unassigned_event_players(
+    pool: &PgPool,
+    event_id: Uuid,
+) -> Result<Vec<UnassignedEventPlayer>, crate::shared::errors::ApiError> {
+    let rows = sqlx::query(
+        "SELECT ep.id, ep.name
+         FROM event_players ep
+         LEFT JOIN event_team_members etm ON etm.event_id = ep.event_id AND etm.event_player_id = ep.id
+         WHERE ep.event_id = $1 AND etm.id IS NULL
+         ORDER BY ep.name ASC, ep.id ASC",
+    )
+    .bind(event_id)
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| UnassignedEventPlayer {
+            id: row.get("id"),
+            name: row.get("name"),
+        })
+        .collect())
+}
+
+pub async fn list_event_team_names(
+    pool: &PgPool,
+    event_id: Uuid,
+) -> Result<Vec<String>, crate::shared::errors::ApiError> {
+    let rows = sqlx::query("SELECT name FROM event_teams WHERE event_id = $1")
+        .bind(event_id)
+        .fetch_all(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(rows.into_iter().map(|row| row.get("name")).collect())
+}
+
+pub async fn insert_event_team_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    team_id: Uuid,
+    team_name: &str,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("INSERT INTO event_teams (id, event_id, name) VALUES ($1, $2, $3)")
+        .bind(team_id)
+        .bind(event_id)
+        .bind(team_name)
+        .execute(&mut **tx)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn insert_event_team_membership_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    team_id: Uuid,
+    player_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO event_team_members (id, event_id, event_team_id, event_player_id)
+         VALUES ($1, $2, $3, $4)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(event_id)
+    .bind(team_id)
+    .bind(player_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn clear_event_team_memberships_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("DELETE FROM event_team_members WHERE event_id = $1")
+        .bind(event_id)
+        .execute(&mut **tx)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(())
 }
 
 pub async fn is_event_owner(
