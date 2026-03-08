@@ -11,7 +11,6 @@ import EventPage from './pages/EventPage.vue'
 import AboutPage from './pages/AboutPage.vue'
 import NewsPage from './pages/NewsPage.vue'
 import AuthPage from './pages/AuthPage.vue'
-import MyEventsPage from './pages/MyEventsPage.vue'
 import JoinEventPage from './pages/JoinEventPage.vue'
 import ProfilePage from './pages/ProfilePage.vue'
 
@@ -25,7 +24,6 @@ const router = createRouter({
 		{ path: '/about', name: 'about', component: AboutPage, meta: { title: 'About | Tornare' } },
 		{ path: '/news', name: 'news', component: NewsPage, meta: { title: 'News | Tornare' } },
 		{ path: '/auth', name: 'auth', component: AuthPage, meta: { title: 'Sign In | Tornare' } },
-		{ path: '/my-events', name: 'my-events', component: MyEventsPage, meta: { requiresAuth: true, title: 'My Events | Tornare' } },
 		{ path: '/events/:id', name: 'event', component: EventPage, meta: { title: 'Event Setup | Tornare' } },
 		{ path: '/join/:token', name: 'join-event', component: JoinEventPage, meta: { title: 'Join Event | Tornare' } },
 		{ path: '/profiles/:id', name: 'profile', component: ProfilePage, meta: { title: 'Profile | Tornare' } },

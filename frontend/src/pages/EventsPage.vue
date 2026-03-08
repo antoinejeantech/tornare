@@ -16,6 +16,7 @@ const notice = ref('')
 const loadingEvents = ref(false)
 const creatingEvent = ref(false)
 const deletingEventId = ref(null)
+const activeOwnerFilter = ref('all')
 const activeTypeFilter = ref('all')
 const eventSearchQuery = ref('')
 const activeSort = ref('soonest')
@@ -61,6 +62,10 @@ watch(newEventType, () => {
 
 const filteredEvents = computed(() => {
   let next = events.value
+
+  if (activeOwnerFilter.value === 'mine') {
+    next = next.filter((event) => Boolean(event?.is_owner))
+  }
 
   if (activeTypeFilter.value !== 'all') {
     next = next.filter((event) => String(event.event_type || '').toUpperCase() === activeTypeFilter.value)
@@ -156,7 +161,12 @@ const featuredEvent = computed(() => {
 })
 
 const hasActiveFilters = computed(() => {
-  return activeTypeFilter.value !== 'all' || normalizedSearchQuery.value.length > 0 || activeSort.value !== 'soonest'
+  return (
+    activeOwnerFilter.value !== 'all' ||
+    activeTypeFilter.value !== 'all' ||
+    normalizedSearchQuery.value.length > 0 ||
+    activeSort.value !== 'soonest'
+  )
 })
 
 function setError(message) {
@@ -180,7 +190,12 @@ function setTypeFilter(filter) {
   activeTypeFilter.value = filter
 }
 
+function setOwnerFilter(filter) {
+  activeOwnerFilter.value = filter
+}
+
 function clearFilters() {
+  activeOwnerFilter.value = 'all'
   activeTypeFilter.value = 'all'
   eventSearchQuery.value = ''
   activeSort.value = 'soonest'
@@ -384,7 +399,7 @@ onBeforeUnmount(() => {
       <h1 class="page-title">Find Your Next Overwatch Event</h1>
     </header>
 
-    <section class="card events-toolbar">
+    <section class="card events-toolbar reveal-block reveal-1">
       <div class="events-toolbar-top">
         <div class="events-toolbar-title-wrap">
           <h2>Events</h2>
@@ -400,11 +415,6 @@ onBeforeUnmount(() => {
           <span>Create event</span>
         </button>
       </div>
-
-      <p v-if="authStore.isAuthenticated" class="muted events-my-link-row">
-        Looking for your own registrations and invites?
-        <RouterLink class="events-my-link" to="/my-events">My events</RouterLink>
-      </p>
 
       <section class="events-stats-grid" aria-label="Event highlights">
         <article class="events-stat-card">
@@ -430,6 +440,25 @@ onBeforeUnmount(() => {
           <span class="material-symbols-rounded" aria-hidden="true">search</span>
           <input v-model="eventSearchQuery" type="search" placeholder="Search by name, description, creator" />
         </label>
+
+        <div v-if="authStore.isAuthenticated" class="events-subnav" aria-label="Event ownership filter">
+          <button
+            class="events-subnav-btn"
+            :class="{ active: activeOwnerFilter === 'all' }"
+            :aria-pressed="activeOwnerFilter === 'all'"
+            @click="setOwnerFilter('all')"
+          >
+            All events
+          </button>
+          <button
+            class="events-subnav-btn"
+            :class="{ active: activeOwnerFilter === 'mine' }"
+            :aria-pressed="activeOwnerFilter === 'mine'"
+            @click="setOwnerFilter('mine')"
+          >
+            My events
+          </button>
+        </div>
 
         <div class="events-subnav" aria-label="Event type filter">
           <button
@@ -482,7 +511,7 @@ onBeforeUnmount(() => {
     <p v-if="error" class="status status-error">{{ error }}</p>
     <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
-    <section v-if="featuredEvent" class="card featured-event-card">
+    <section v-if="featuredEvent" class="card featured-event-card reveal-block reveal-2">
       <div class="featured-event-head">
         <span class="featured-badge">Featured Tonight</span>
         <span class="event-status-chip" :class="eventStatusClass(featuredEvent)">{{ getEventStatus(featuredEvent) }}</span>
@@ -496,7 +525,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="card">
+    <section class="card reveal-block reveal-3">
       <p v-if="loadingEvents">Loading events...</p>
       <div v-else-if="sortedEvents.length === 0" class="events-empty-state">
         <h2>No events match your filters</h2>
@@ -619,6 +648,12 @@ onBeforeUnmount(() => {
 .events-shell {
   max-width: 1820px;
   width: min(96vw, 1820px);
+  display: grid;
+  gap: 0.88rem;
+}
+
+.events-shell :is(h2, h3) {
+  letter-spacing: -0.01em;
 }
 
 .events-toolbar {
@@ -652,21 +687,6 @@ onBeforeUnmount(() => {
 
 .events-create-btn .material-symbols-rounded {
   font-size: 1rem;
-}
-
-.events-my-link-row {
-  margin: -0.25rem 0 0;
-}
-
-.events-my-link {
-  margin-left: 0.35rem;
-  font-weight: 700;
-  text-decoration: none;
-  color: var(--brand-1);
-}
-
-.events-my-link:hover {
-  text-decoration: underline;
 }
 
 .events-filter-row {
@@ -882,7 +902,24 @@ onBeforeUnmount(() => {
 .events-list-row {
   opacity: 0;
   transform: translateY(8px);
-  animation: list-rise 260ms ease-out forwards;
+  animation: list-rise 300ms ease-out forwards;
+}
+
+.reveal-block {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: reveal-rise 380ms ease-out forwards;
+}
+
+.reveal-1 { animation-delay: 60ms; }
+.reveal-2 { animation-delay: 120ms; }
+.reveal-3 { animation-delay: 180ms; }
+
+@keyframes reveal-rise {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes list-rise {

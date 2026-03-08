@@ -95,10 +95,6 @@ onMounted(() => {
               <span class="material-symbols-rounded" aria-hidden="true">person</span>
               <span>Profile</span>
             </RouterLink>
-            <RouterLink class="top-nav-user-action" to="/my-events">
-              <span class="material-symbols-rounded" aria-hidden="true">calendar_month</span>
-              <span>My Events</span>
-            </RouterLink>
             <button class="top-nav-user-action" type="button" @click="logout">
               <span class="material-symbols-rounded" aria-hidden="true">logout</span>
               <span>Logout</span>
