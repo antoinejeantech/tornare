@@ -526,6 +526,13 @@ async fn auto_advance_bye_matches(
                 continue;
             };
 
+            // Only auto-advance true byes. If the missing slot still has a pending feeder
+            // match, this side should wait for that feeder winner.
+            let missing_slot = if match_state.team_a_id.is_none() { "A" } else { "B" };
+            if repo::has_pending_feeder_for_slot_in_tx(tx, event_id, match_id, missing_slot).await? {
+                continue;
+            }
+
             repo::set_match_winner_completed_in_tx(tx, match_id, bye_winner).await?;
             propagate_match_winners(tx, match_id, bye_winner).await?;
             advanced_any = true;

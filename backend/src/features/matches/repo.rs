@@ -247,6 +247,33 @@ pub async fn list_bracket_match_ids_in_tx(
     Ok(rows.into_iter().map(|row| row.get("id")).collect())
 }
 
+pub async fn has_pending_feeder_for_slot_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    next_match_id: Uuid,
+    next_match_slot: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT EXISTS (
+            SELECT 1
+            FROM event_matches feeder
+            WHERE feeder.event_id = $1
+              AND feeder.is_bracket = TRUE
+              AND feeder.next_match_id = $2
+              AND feeder.next_match_slot = $3
+              AND feeder.winner_team_id IS NULL
+        ) AS has_pending",
+    )
+    .bind(event_id)
+    .bind(next_match_id)
+    .bind(next_match_slot)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.get("has_pending"))
+}
+
 pub async fn set_match_winner_completed_in_tx(
     tx: &mut Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
