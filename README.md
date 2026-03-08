@@ -43,6 +43,7 @@ Frontend variables (`frontend/.env`):
 
 ```bash
 make help
+make bootstrap
 make up
 make db-up
 make db-logs
@@ -55,6 +56,9 @@ make check
 make test
 make node-shell
 make node-install
+make node-build
+make status
+make restart
 make down
 ```
 
@@ -62,9 +66,11 @@ make down
 
 - Build + run backend only: `make backend`
 - Start frontend only: `make frontend`
+- Create missing env files from examples: `make bootstrap`
 - Run Rust app in dev container: `make run`
 - Compile checks: `make check`
 - Run backend tests: `make test`
+- Build frontend in node-dev container: `make node-build`
 
 ## Backend endpoints
 
