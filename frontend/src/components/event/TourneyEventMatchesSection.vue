@@ -106,8 +106,20 @@ function canReportWinner(match, teamId) {
 function roundListStyle(roundIndex) {
   const cardHeight = 132
   const baseGap = 8
-  const gap = ((2 ** roundIndex) * (cardHeight + baseGap)) - cardHeight
-  const childCenterStep = roundIndex > 0 ? ((2 ** (roundIndex - 1)) * (cardHeight + baseGap)) : 0
+  const rounds = bracketRounds.value
+  const cardsCount = rounds[roundIndex]?.cards?.length || 1
+  const maxCards = maxRoundCards.value
+  const columnHeight = (maxCards * cardHeight) + ((maxCards - 1) * baseGap)
+
+  let gap = baseGap
+  if (cardsCount > 1) {
+    gap = (columnHeight - (cardsCount * cardHeight)) / (cardsCount - 1)
+  }
+
+  const previousCardsCount = rounds[roundIndex - 1]?.cards?.length || cardsCount
+  const childCenterStep = roundIndex > 0
+    ? roundCenterStep(previousCardsCount, cardHeight, baseGap)
+    : 0
   return {
     '--round-gap': `${gap}px`,
     '--child-center-step': `${childCenterStep}px`,
@@ -187,6 +199,47 @@ const bracketRounds = computed(() => {
     }
   })
 })
+
+const maxRoundCards = computed(() => {
+  if (!bracketRounds.value.length) {
+    return 1
+  }
+  return Math.max(1, ...bracketRounds.value.map((round) => round.cards.length))
+})
+
+const linkageInfo = computed(() => {
+  const matches = Array.isArray(ctx.event?.matches) ? ctx.event.matches : []
+  const hasParent = new Set()
+  const hasNext = new Set()
+
+  for (const match of matches) {
+    const id = String(match.id)
+    if (match.next_match_id) {
+      hasNext.add(id)
+      hasParent.add(String(match.next_match_id))
+    }
+  }
+
+  return { hasParent, hasNext }
+})
+
+function hasParentLink(match) {
+  return linkageInfo.value.hasParent.has(String(match.id))
+}
+
+function hasNextLink(match) {
+  return linkageInfo.value.hasNext.has(String(match.id))
+}
+
+function roundCenterStep(cardsCount, cardHeight = 132, baseGap = 8) {
+  const maxCards = maxRoundCards.value
+  const columnHeight = (maxCards * cardHeight) + ((maxCards - 1) * baseGap)
+  if (cardsCount <= 1) {
+    return cardHeight
+  }
+  const gap = (columnHeight - (cardsCount * cardHeight)) / (cardsCount - 1)
+  return cardHeight + gap
+}
 </script>
 
 <template>
@@ -208,7 +261,7 @@ const bracketRounds = computed(() => {
     <div class="tourney-bracket-wrap">
       <div
         class="tourney-bracket"
-        :style="{ '--rounds': bracketRounds.length, '--first-round-cards': bracketRounds[0]?.cards?.length || 1 }"
+        :style="{ '--rounds': bracketRounds.length, '--max-round-cards': maxRoundCards }"
       >
         <section
           v-for="(round, roundIndex) in bracketRounds"
@@ -229,11 +282,11 @@ const bracketRounds = computed(() => {
               }"
             >
               <span
-                v-if="roundIndex < bracketRounds.length - 1"
+                v-if="hasNextLink(match)"
                 class="child-outgoing-link"
                 aria-hidden="true"
               ></span>
-              <span v-if="roundIndex > 0" class="parent-incoming-link" aria-hidden="true">
+              <span v-if="hasParentLink(match)" class="parent-incoming-link" aria-hidden="true">
                 <span class="fork-segment fork-spine"></span>
                 <span class="fork-segment fork-arm-top"></span>
                 <span class="fork-segment fork-arm-bottom"></span>
@@ -296,8 +349,8 @@ const bracketRounds = computed(() => {
   --base-round-gap: 0.52rem;
   --col-gap: 16px;
   --column-height: calc(
-    (var(--first-round-cards) * var(--card-min-height)) +
-    ((var(--first-round-cards) - 1) * var(--base-round-gap))
+    (var(--max-round-cards) * var(--card-min-height)) +
+    ((var(--max-round-cards) - 1) * var(--base-round-gap))
   );
   display: grid;
   grid-template-columns: repeat(var(--rounds), minmax(220px, 1fr));
