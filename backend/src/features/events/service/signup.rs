@@ -53,11 +53,43 @@ pub async fn rotate_event_signup_link_for_user(
     })
 }
 
+pub async fn set_event_public_signup_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+    enabled: bool,
+) -> Result<Event, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+    let current_event = repo::load_event(&state.pool, event_id).await?;
+    let should_rotate_token = current_event.public_signup_enabled && !enabled;
+    let signup_token = if should_rotate_token {
+        Some(Uuid::new_v4().to_string())
+    } else {
+        None
+    };
+
+    let updated = repo::set_public_signup_enabled_for_event(
+        &state.pool,
+        event_id,
+        enabled,
+        signup_token.as_deref(),
+    )
+    .await?;
+
+    if !updated {
+        return Err(not_found("Event not found"));
+    }
+
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
+}
+
 pub async fn get_public_signup_info(
     state: &AppState,
     signup_token: &str,
 ) -> Result<PublicEventSignupInfo, ApiError> {
-    let Some(info) = repo::event_signup_info_by_token(&state.pool, signup_token).await? else {
+    let token = signup_token.trim();
+    let Some(info) = repo::event_signup_info_by_token(&state.pool, token).await? else {
         return Err(not_found("Signup link not found"));
     };
 
@@ -71,13 +103,10 @@ pub async fn create_public_signup_request(
 ) -> Result<MessageResponse, ApiError> {
     validate_signup_request_input(&payload)?;
 
-    let Some(info) = repo::event_signup_info_by_token(&state.pool, signup_token).await? else {
+    let token = signup_token.trim();
+    let Some(info) = repo::event_signup_info_by_token(&state.pool, token).await? else {
         return Err(not_found("Signup link not found"));
     };
-
-    if info.current_players >= usize::from(info.max_players) {
-        return Err(bad_request("Event roster is already full"));
-    }
 
     if info.current_signup_requests >= MAX_SIGNUP_REQUESTS_PER_EVENT {
         return Err(bad_request("Signup request limit reached for this event"));

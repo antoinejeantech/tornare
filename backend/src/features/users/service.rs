@@ -12,6 +12,7 @@ use crate::{
     },
     shared::{
         errors::{bad_request, forbidden, not_found, ApiError},
+        validation::normalize_username,
     },
 };
 
@@ -142,25 +143,6 @@ pub async fn update_user_profile_for_user(
 
 fn normalize_email(email: &str) -> String {
     email.trim().to_lowercase()
-}
-
-fn normalize_username(username: &str) -> Result<String, ApiError> {
-    let normalized = username.trim().to_lowercase();
-
-    if normalized.len() < 3 || normalized.len() > 24 {
-        return Err(bad_request("Username must be 3-24 characters long"));
-    }
-
-    if !normalized
-        .chars()
-        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
-    {
-        return Err(bad_request(
-            "Username can only use lowercase letters, numbers, and underscores",
-        ));
-    }
-
-    Ok(normalized)
 }
 
 fn validate_rank(role: &str, rank: &str) -> Result<(), ApiError> {

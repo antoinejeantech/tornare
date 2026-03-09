@@ -34,6 +34,7 @@ pub async fn create_event_for_user(
         normalized_start_date,
         payload.event_type.as_db_value(),
         payload.format.as_db_value(),
+        payload.public_signup_enabled,
         i32::from(payload.max_players),
         &signup_token,
     )

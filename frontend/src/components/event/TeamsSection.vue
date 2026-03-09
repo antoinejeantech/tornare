@@ -434,8 +434,8 @@ function assignmentNotice(player) {
           </div>
           <span v-else class="entry-title">{{ team.name }}</span>
           <div class="team-meta-row muted">
-            <span>{{ team.player_ids.length }} players</span>
-            <span>{{ formatTeamAverageElo(team.id) }}</span>
+            <span class="team-meta-count">{{ team.player_ids.length }} players</span>
+            <span class="team-meta-elo">{{ formatTeamAverageElo(team.id) }}</span>
           </div>
           <div v-if="ctx.canManageEvent && !ctx.isTourneyEvent" class="team-balance-row">
             <span class="team-balance-pill" :class="roleStatusClass(team.id, 'Tank')">Tank {{ teamRoleCounts(team.id).Tank }}/{{ pugRoleTargets.Tank }}</span>
@@ -447,13 +447,13 @@ function assignmentNotice(player) {
           <ul v-if="playersForTeam(team.id).length > 0" class="team-player-list">
             <li v-for="player in playersForTeam(team.id)" :key="player.id" class="team-player-item">
               <span class="team-player-main">
-                <span class="team-player-name">{{ player.name }}</span>
                 <img
                   class="team-player-rank-icon"
                   :src="ctx.getRankIcon(player.rank)"
                   :alt="`${player.rank} rank`"
                   :title="`${player.name} · ${player.rank}`"
                 />
+                <span class="team-player-name">{{ player.name }}</span>
                 <span class="team-player-role">
                   <span class="material-symbols-rounded team-role-icon" aria-hidden="true">{{ getRoleIcon(player.role) }}</span>
                   <span>{{ player.role }}</span>
@@ -772,10 +772,20 @@ function assignmentNotice(player) {
 }
 
 .team-meta-row {
-  display: inline-flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.6rem;
+}
+
+.team-meta-count {
+  min-width: 0;
+}
+
+.team-meta-elo {
+  font-family: "Space Mono", ui-monospace, monospace;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .team-balance-row {
@@ -824,27 +834,39 @@ function assignmentNotice(player) {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.36rem;
+  gap: 0.42rem;
 }
 
 .team-player-item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.52rem;
-  padding: 0.48rem 0.58rem;
+  gap: 0.58rem;
+  padding: 0.56rem 0.62rem;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  background: color-mix(in srgb, var(--card) 92%, #19253a 8%);
+  border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
+  background: color-mix(in srgb, var(--card) 90%, #18253d 10%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.team-player-item:nth-child(even) {
+  background: color-mix(in srgb, var(--card) 94%, #213250 6%);
+}
+
+.team-player-item:hover {
+  border-color: color-mix(in srgb, var(--brand-2) 40%, var(--line) 60%);
 }
 
 .team-player-main {
   min-width: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.44rem;
+  gap: 0.5rem;
   flex: 1;
   padding-block: 0.14rem;
+  border-right: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-2) 18%);
+  padding-right: 0.5rem;
 }
 
 .team-player-name {
@@ -858,6 +880,8 @@ function assignmentNotice(player) {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
+  justify-self: end;
+  min-width: 92px;
   font-size: 0.95rem;
   line-height: 1;
   color: var(--ink-2);
@@ -1001,8 +1025,16 @@ function assignmentNotice(player) {
   }
 
   .team-player-main {
-    flex-wrap: wrap;
-    gap: 0.3rem;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 0.3rem 0.5rem;
+    border-right: 0;
+    padding-right: 0;
+  }
+
+  .team-player-role {
+    grid-column: 2;
+    justify-self: start;
+    min-width: 0;
   }
 
   .quick-assign-item {

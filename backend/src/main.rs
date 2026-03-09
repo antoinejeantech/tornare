@@ -24,6 +24,7 @@ async fn main() {
     let jwt_secret = env_or_default("JWT_SECRET", "dev-only-change-me", is_production);
     let cors_raw = env_or_default("CORS_ALLOWED_ORIGINS", "http://localhost:5173", is_production);
     let cors_allowed_origins = parse_allowed_origins(&cors_raw);
+    let public_signup_enabled = env_bool_or_default("PUBLIC_SIGNUP_ENABLED", false);
 
     if is_production && jwt_secret == "dev-only-change-me" {
         panic!("JWT_SECRET must be set to a strong value in production");
@@ -52,6 +53,7 @@ async fn main() {
         jwt_secret,
         cors_allowed_origins,
         rate_limiter: RateLimiter::new(),
+        public_signup_enabled,
     };
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")
         .await
@@ -89,6 +91,16 @@ fn env_or_default(key: &str, fallback: &str, require_value: bool) -> String {
         Ok(value) if !value.trim().is_empty() => value,
         _ if require_value => panic!("{key} must be set in production"),
         _ => fallback.to_string(),
+    }
+}
+
+fn env_bool_or_default(key: &str, fallback: bool) -> bool {
+    match env::var(key) {
+        Ok(value) => {
+            let normalized = value.trim().to_lowercase();
+            matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
+        }
+        Err(_) => fallback,
     }
 }
 

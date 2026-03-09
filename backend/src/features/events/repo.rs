@@ -44,12 +44,13 @@ pub async fn insert_event(
     start_date: Option<String>,
     event_type: &str,
     format: &str,
+    public_signup_enabled: bool,
     max_players: i32,
     signup_token: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO events (id, name, description, start_date, event_type, format, max_players, signup_token)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+        "INSERT INTO events (id, name, description, start_date, event_type, format, public_signup_enabled, max_players, signup_token)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     )
     .bind(event_id)
     .bind(name)
@@ -57,6 +58,7 @@ pub async fn insert_event(
     .bind(start_date)
     .bind(event_type)
     .bind(format)
+    .bind(public_signup_enabled)
     .bind(max_players)
     .bind(signup_token)
     .execute(pool)
@@ -592,7 +594,7 @@ pub async fn event_signup_info_by_token(
                       AND sr.status = 'pending'
                 ) AS current_signup_requests
              FROM events e
-             WHERE e.signup_token = $1",
+                         WHERE e.signup_token = $1",
     )
     .bind(signup_token)
     .fetch_optional(pool)
@@ -632,6 +634,29 @@ pub async fn event_signup_info_by_token(
         current_players,
         current_signup_requests,
     }))
+}
+
+pub async fn set_public_signup_enabled_for_event(
+    pool: &PgPool,
+    event_id: Uuid,
+    enabled: bool,
+    signup_token: Option<&str>,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let updated = sqlx::query(
+        "UPDATE events
+         SET public_signup_enabled = $1,
+             signup_token = COALESCE($2, signup_token)
+         WHERE id = $3
+         RETURNING id",
+    )
+    .bind(enabled)
+    .bind(signup_token)
+    .bind(event_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(updated.is_some())
 }
 
 pub async fn create_signup_request(
@@ -763,6 +788,8 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
             e.start_date,
             e.event_type,
             e.format,
+            e.signup_token,
+            e.public_signup_enabled,
             e.max_players,
             m.user_id AS creator_id,
             u.display_name AS creator_name
@@ -801,6 +828,15 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         is_owner: false,
         creator_id: row.get("creator_id"),
         creator_name: row.get("creator_name"),
+        public_signup_enabled: row.get("public_signup_enabled"),
+        public_signup_token: {
+            let is_public: bool = row.get("public_signup_enabled");
+            if is_public {
+                row.get("signup_token")
+            } else {
+                None
+            }
+        },
         max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,
         players,
         teams,

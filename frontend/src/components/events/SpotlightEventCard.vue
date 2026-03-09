@@ -27,6 +27,20 @@ const eventLink = computed(() => {
   return { name: 'event', params: { id: props.event.id } }
 })
 
+const publicJoinRoute = computed(() => {
+  const isPublic = Boolean(props.event?.public_signup_enabled)
+  if (!isPublic) {
+    return null
+  }
+
+  const token = String(props.event?.public_signup_token || '').trim()
+  if (!token) {
+    return eventLink.value
+  }
+
+  return { name: 'join-event', params: { token } }
+})
+
 const metaText = computed(() => {
   const startText = formatEventStartDate(props.event?.start_date)
   const parts = [
@@ -60,9 +74,11 @@ function getPlayerCount(event) {
       <span class="spotlight-badge">{{ badgeLabel }}</span>
     </div>
 
-    <h2 class="spotlight-title">{{ event.name }}</h2>
+    <h2 class="spotlight-title">
+      <RouterLink class="spotlight-title-link" :to="eventLink">{{ event.name }}</RouterLink>
+    </h2>
     <p class="muted spotlight-meta">{{ metaText }}</p>
-    <RouterLink class="btn-primary spotlight-cta" :to="eventLink">Register Now</RouterLink>
+    <RouterLink v-if="event?.public_signup_enabled" class="btn-primary spotlight-cta" :to="publicJoinRoute || eventLink">Sign up now</RouterLink>
 
     <img class="spotlight-art" :src="artSrc || tracerImage" :alt="artAlt || 'Tracer spotlight art'" />
   </section>
@@ -109,6 +125,15 @@ function getPlayerCount(event) {
   margin: 0;
   position: relative;
   z-index: 2;
+}
+
+.spotlight-title-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.spotlight-title-link:hover {
+  text-decoration: underline;
 }
 
 .spotlight-cta {

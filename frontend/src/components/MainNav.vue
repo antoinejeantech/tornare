@@ -9,6 +9,8 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
+const themeMode = ref('dark')
+const THEME_STORAGE_KEY = 'tornare_theme'
 
 const loginRoute = computed(() => {
   const redirect = route.name === 'auth' ? '/events' : route.fullPath
@@ -38,12 +40,52 @@ function closeMobileMenu() {
   mobileMenuOpen.value = false
 }
 
+function applyTheme(mode) {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  themeMode.value = mode === 'light' ? 'light' : 'dark'
+  document.body.classList.toggle('theme-light', themeMode.value === 'light')
+}
+
+function toggleTheme() {
+  const next = themeMode.value === 'light' ? 'dark' : 'light'
+  applyTheme(next)
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(THEME_STORAGE_KEY, next)
+  }
+}
+
+function themeIcon() {
+  return themeMode.value === 'light' ? 'dark_mode' : 'light_mode'
+}
+
+function themeLabel() {
+  return themeMode.value === 'light' ? 'Dark mode' : 'Light mode'
+}
+
 watch(() => route.fullPath, () => {
   closeMobileMenu()
 })
 
 onMounted(() => {
   authStore.initialize()
+
+  if (typeof window !== 'undefined') {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+    if (stored === 'light' || stored === 'dark') {
+      applyTheme(stored)
+      return
+    }
+
+    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+    applyTheme(prefersLight ? 'light' : 'dark')
+    return
+  }
+
+  applyTheme('dark')
 })
 </script>
 
@@ -82,6 +124,10 @@ onMounted(() => {
           <span class="material-symbols-rounded" aria-hidden="true">article</span>
           <span>News</span>
         </RouterLink>
+        <button v-if="!authStore.isAuthenticated" class="top-nav-link top-nav-theme-toggle" type="button" :title="themeLabel()" @click="toggleTheme">
+          <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon() }}</span>
+          <span>{{ themeLabel() }}</span>
+        </button>
         <div class="top-nav-fake-search" aria-hidden="true">
           <span class="material-symbols-rounded" aria-hidden="true">search</span>
           <span>Search</span>
@@ -90,21 +136,27 @@ onMounted(() => {
           <span class="material-symbols-rounded" aria-hidden="true">login</span>
           <span>Login</span>
         </RouterLink>
-        <div v-else class="top-nav-user-menu desktop-only" tabindex="0">
-          <button class="top-nav-user-trigger" type="button">
-            <span>{{ authLabel }}</span>
-            <span class="material-symbols-rounded" aria-hidden="true">expand_more</span>
-          </button>
-          <div class="top-nav-user-dropdown" role="menu" aria-label="User menu">
-            <RouterLink class="top-nav-user-action" :to="profileRoute">
-              <span class="material-symbols-rounded" aria-hidden="true">person</span>
-              <span>Profile</span>
-            </RouterLink>
-            <button class="top-nav-user-action" type="button" @click="logout">
-              <span class="material-symbols-rounded" aria-hidden="true">logout</span>
-              <span>Logout</span>
+        <div v-else class="top-nav-user-controls desktop-only">
+          <div class="top-nav-user-menu" tabindex="0">
+            <button class="top-nav-user-trigger" type="button">
+              <span>{{ authLabel }}</span>
+              <span class="material-symbols-rounded" aria-hidden="true">expand_more</span>
             </button>
+            <div class="top-nav-user-dropdown" role="menu" aria-label="User menu">
+              <RouterLink class="top-nav-user-action" :to="profileRoute">
+                <span class="material-symbols-rounded" aria-hidden="true">person</span>
+                <span>Profile</span>
+              </RouterLink>
+              <button class="top-nav-user-action" type="button" @click="logout">
+                <span class="material-symbols-rounded" aria-hidden="true">logout</span>
+                <span>Logout</span>
+              </button>
+            </div>
           </div>
+          <button class="top-nav-link top-nav-theme-toggle top-nav-theme-toggle-compact" type="button" :title="themeLabel()" @click="toggleTheme">
+            <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon() }}</span>
+            <span class="sr-only">{{ themeLabel() }}</span>
+          </button>
         </div>
 
         <div v-if="authStore.isAuthenticated" class="top-nav-mobile-user mobile-only">
@@ -112,6 +164,10 @@ onMounted(() => {
             <span class="material-symbols-rounded" aria-hidden="true">person</span>
             <span>Profile</span>
           </RouterLink>
+          <button class="top-nav-link top-nav-theme-toggle" type="button" :title="themeLabel()" @click="toggleTheme">
+            <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon() }}</span>
+            <span>{{ themeLabel() }}</span>
+          </button>
           <button class="top-nav-link top-nav-mobile-logout" type="button" @click="logout">
             <span class="material-symbols-rounded" aria-hidden="true">logout</span>
             <span>Logout</span>
@@ -203,6 +259,20 @@ onMounted(() => {
   transition: box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
 }
 
+.top-nav-theme-toggle {
+  cursor: pointer;
+}
+
+.top-nav-theme-toggle-compact {
+  min-width: 2.25rem;
+  padding: 0.38rem 0.52rem;
+  justify-content: center;
+}
+
+.top-nav-theme-toggle-compact .material-symbols-rounded {
+  margin: 0;
+}
+
 .top-nav-link .material-symbols-rounded {
   font-size: 1rem;
   color: color-mix(in srgb, var(--ink-muted) 88%, var(--ink-1) 12%);
@@ -258,6 +328,12 @@ onMounted(() => {
   position: relative;
   display: inline-flex;
   align-items: center;
+}
+
+.top-nav-user-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
 }
 
 .mobile-only {

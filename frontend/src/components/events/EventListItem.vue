@@ -287,8 +287,12 @@ const statusClass = computed(() => {
 }
 
 .event-details-btn {
-  border: 1px solid color-mix(in srgb, #0b1019 62%, var(--line) 38%);
-  background: linear-gradient(180deg, #090d14 0%, #0c121d 100%);
+  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-2) 18%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--card) 96%, var(--bg-1) 4%) 0%,
+    color-mix(in srgb, var(--card) 90%, var(--bg-1) 10%) 100%
+  );
   color: var(--ink-1);
   border-radius: 8px;
   text-decoration: none;
@@ -300,8 +304,8 @@ const statusClass = computed(() => {
 }
 
 .event-details-btn:hover {
-  border-color: color-mix(in srgb, var(--brand-1) 36%, #0b1019 64%);
-  color: color-mix(in srgb, var(--brand-1) 72%, #fff 28%);
+  border-color: color-mix(in srgb, var(--brand-1) 46%, var(--line) 54%);
+  color: color-mix(in srgb, var(--brand-1) 72%, var(--ink-1) 28%);
 }
 
 @media (max-width: 920px) {

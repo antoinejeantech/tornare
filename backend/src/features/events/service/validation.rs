@@ -56,6 +56,7 @@ pub(super) fn validate_update_event_input(payload: &UpdateEventInput) -> Result<
         start_date: payload.start_date.clone(),
         event_type: payload.event_type.clone(),
         format: payload.format.clone(),
+        public_signup_enabled: false,
         max_players: payload.max_players,
     };
 
