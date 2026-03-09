@@ -258,6 +258,14 @@ const hasGeneratedMatches = computed(() => {
   return Array.isArray(ctx.event?.matches) && ctx.event.matches.length > 0
 })
 
+const teamCount = computed(() => {
+  return Array.isArray(ctx.event?.teams) ? ctx.event.teams.length : 0
+})
+
+const hasEnoughTeamsForBracket = computed(() => {
+  return teamCount.value >= 2
+})
+
 const hasPlayedMatches = computed(() => {
   return Array.isArray(ctx.event?.matches) && ctx.event.matches.some((match) => Boolean(match.winner_team_id))
 })
@@ -442,7 +450,7 @@ watch(editingMatchups, () => {
         v-if="ctx.canManageEvent"
         class="btn-primary"
         type="button"
-        :disabled="ctx.creatingMatch || hasPlayedMatches"
+        :disabled="ctx.creatingMatch || ctx.clearingBracket || hasPlayedMatches || !hasEnoughTeamsForBracket"
         @click="ctx.generateTourneyBracket('random')"
       >
         {{ ctx.creatingMatch ? 'Generating...' : 'Generate Random Bracket' }}
@@ -451,17 +459,30 @@ watch(editingMatchups, () => {
         v-if="ctx.canManageEvent"
         class="btn-secondary"
         type="button"
-        :disabled="ctx.creatingMatch || hasPlayedMatches"
+        :disabled="ctx.creatingMatch || ctx.clearingBracket || hasPlayedMatches || !hasEnoughTeamsForBracket"
         @click="ctx.generateTourneyBracket('empty')"
       >
         {{ ctx.creatingMatch ? 'Generating...' : 'Generate Empty Bracket' }}
       </button>
+      <button
+        v-if="ctx.canManageEvent"
+        class="btn-danger"
+        type="button"
+        :disabled="ctx.creatingMatch || ctx.clearingBracket || hasPlayedMatches || !hasGeneratedMatches"
+        @click="ctx.clearTourneyBracket"
+      >
+        {{ ctx.clearingBracket ? 'Clearing...' : 'Delete Bracket' }}
+      </button>
       <p class="muted">
-        {{ hasPlayedMatches ? 'At least one match result is set, so bracket regeneration is disabled.' : (ctx.event.matches.length > 0 ? 'No match has been played yet. You can regenerate the bracket in random or empty mode.' : 'Choose random generation for auto-seeded matchups, or empty generation to assign matchups manually.') }}
+        {{ hasPlayedMatches ? 'At least one match result is set, so bracket regeneration and deletion are disabled.' : (!hasEnoughTeamsForBracket ? 'Create at least 2 teams to generate a tournament bracket.' : (ctx.event.matches.length > 0 ? 'No match has been played yet. You can regenerate in random/empty mode or delete the generated bracket.' : 'Choose random generation for auto-seeded matchups, or empty generation to assign matchups manually.')) }}
       </p>
     </div>
 
-    <div class="tourney-bracket-wrap">
+    <p v-if="!hasGeneratedMatches && teamCount === 0" class="muted bracket-empty-message">
+      No teams created yet. Create teams first to preview or generate the tournament bracket.
+    </p>
+
+    <div v-else class="tourney-bracket-wrap">
       <div
         ref="bracketWrapEl"
         class="tourney-bracket"
@@ -605,6 +626,10 @@ watch(editingMatchups, () => {
 .tourney-bracket-wrap {
   overflow-x: auto;
   padding-bottom: 0.2rem;
+}
+
+.bracket-empty-message {
+  margin: 0.2rem 0 0;
 }
 
 .tourney-bracket {
