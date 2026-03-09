@@ -38,6 +38,7 @@ const savingPlayerEdits = ref({})
 const savingTeamEdits = ref({})
 const savingMatchups = ref({})
 const reportingWinners = ref({})
+const cancellingWinners = ref({})
 const loadingSignupRequests = ref(false)
 const signupRequests = ref([])
 const reviewingSignupRequests = ref({})
@@ -688,7 +689,7 @@ async function createMatch() {
   }
 }
 
-async function generateTourneyBracket() {
+async function generateTourneyBracket(mode = 'random') {
   if (!ensureOwnerAction()) {
     return
   }
@@ -697,18 +698,18 @@ async function generateTourneyBracket() {
     return
   }
 
-  const hasMatches = Boolean(event.value?.matches?.length)
-  if (hasMatches) {
-    setError('Bracket already exists for this event')
+  const hasPlayedMatches = Boolean(event.value?.matches?.some((match) => Boolean(match.winner_team_id)))
+  if (hasPlayedMatches) {
+    setError('Cannot regenerate bracket after matches have been played')
     return
   }
 
   creatingMatch.value = true
   try {
-    const updatedEvent = await matchStore.generateTourneyBracket(eventId.value)
+    const updatedEvent = await matchStore.generateTourneyBracket(eventId.value, mode)
     event.value = updatedEvent
     hydrateSelections()
-    setNotice('Tournament bracket generated')
+    setNotice(mode === 'empty' ? 'Empty tournament bracket generated' : 'Random tournament bracket generated')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to generate bracket')
   } finally {
@@ -758,6 +759,58 @@ async function reportMatchWinner(matchId, winnerTeamId) {
   } finally {
     reportingWinners.value = {
       ...reportingWinners.value,
+      [matchId]: false,
+    }
+  }
+}
+
+async function cancelMatchWinner(matchId) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || !isTourneyEvent.value || cancellingWinners.value[matchId]) {
+    return
+  }
+
+  const confirmed = window.confirm('Cancel this match result? Downstream bracket progression will be reset where needed.')
+  if (!confirmed) {
+    return
+  }
+
+  cancellingWinners.value = {
+    ...cancellingWinners.value,
+    [matchId]: true,
+  }
+
+  const savedWindowY = typeof window !== 'undefined' ? window.scrollY : 0
+  const savedWindowX = typeof window !== 'undefined' ? window.scrollX : 0
+  const savedBracketScrollLeft = typeof document !== 'undefined'
+    ? document.querySelector('.tourney-bracket-wrap')?.scrollLeft ?? 0
+    : 0
+
+  try {
+    await matchStore.cancelMatchWinner(eventId.value, matchId)
+    await loadEvent()
+    await nextTick()
+
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: savedWindowY, left: savedWindowX })
+    }
+
+    if (typeof document !== 'undefined') {
+      const bracketWrap = document.querySelector('.tourney-bracket-wrap')
+      if (bracketWrap) {
+        bracketWrap.scrollLeft = savedBracketScrollLeft
+      }
+    }
+
+    setNotice('Match result cancelled')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to cancel match result')
+  } finally {
+    cancellingWinners.value = {
+      ...cancellingWinners.value,
       [matchId]: false,
     }
   }
@@ -966,6 +1019,7 @@ provide('eventCtx', proxyRefs({
   savingTeamEdits,
   savingMatchups,
   reportingWinners,
+  cancellingWinners,
   isTourneyEvent,
   newTeamName,
   newMatchTitle,
@@ -1000,6 +1054,7 @@ provide('eventCtx', proxyRefs({
   deleteMatch,
   saveMatchup,
   reportMatchWinner,
+  cancelMatchWinner,
   saveTeamEdit,
   deleteTeam,
   assignPlayerToTeam,

@@ -17,3 +17,4 @@ jsonwebtoken = { version = "10", default-features = false, features = ["rust_cry
 sha2 = "0.10"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+rand = "0.9"

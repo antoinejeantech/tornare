@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+use rand::seq::SliceRandom;
 use uuid::Uuid;
 
 use crate::{
@@ -5,7 +7,7 @@ use crate::{
     features::{
         events::{
             models::{
-                CreateEventMatchInput, CreateMatchInput, Event, EventType, Match,
+                BracketGenerationMode, CreateEventMatchInput, CreateMatchInput, Event, EventType, Match,
                 ReportMatchWinnerInput, SetMatchupInput,
             },
             repo as events_repo,
@@ -105,6 +107,7 @@ pub async fn generate_tourney_bracket_for_user(
     state: &AppState,
     user_id: Uuid,
     event_id: Uuid,
+    mode: BracketGenerationMode,
 ) -> Result<Event, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
 
@@ -118,19 +121,30 @@ pub async fn generate_tourney_bracket_for_user(
         None => return Err(not_found("Event not found")),
     }
 
-    let team_ids = events_repo::list_team_ids_for_event(&state.pool, event_id).await?;
+    let mut team_ids = events_repo::list_team_ids_for_event(&state.pool, event_id).await?;
     if team_ids.len() < 2 {
         return Err(bad_request(
             "At least 2 teams are required to generate a tournament bracket",
         ));
     }
 
+    if matches!(mode, BracketGenerationMode::Random) {
+        let mut rng = rand::rng();
+        team_ids.shuffle(&mut rng);
+    }
+
     let existing_match_count = repo::count_event_matches(&state.pool, event_id).await?;
+    let mut should_replace_existing_matches = false;
 
     if existing_match_count > 0 {
-        return Err(bad_request(
-            "This event already has matches. Clear them before generating a bracket.",
-        ));
+        let played_match_count = repo::count_played_bracket_matches(&state.pool, event_id).await?;
+        if !can_regenerate_bracket(existing_match_count, played_match_count) {
+            return Err(bad_request(
+                "Cannot regenerate bracket after matches have been played.",
+            ));
+        }
+
+        should_replace_existing_matches = true;
     }
 
     let max_players_i32 = event_max_players_i32_or_not_found(state, event_id).await?;
@@ -198,8 +212,14 @@ pub async fn generate_tourney_bracket_for_user(
     let mut play_in_matches: Vec<BracketMatchPlan> = Vec::new();
     if play_in_count > 0 {
         for idx in 0..play_in_count {
-            let team_a_id = team_ids.get(direct_count + (idx * 2)).copied();
-            let team_b_id = team_ids.get(direct_count + (idx * 2) + 1).copied();
+            let (team_a_id, team_b_id) = if matches!(mode, BracketGenerationMode::Random) {
+                (
+                    team_ids.get(direct_count + (idx * 2)).copied(),
+                    team_ids.get(direct_count + (idx * 2) + 1).copied(),
+                )
+            } else {
+                (None, None)
+            };
 
             play_in_matches.push(BracketMatchPlan {
                 id: Uuid::new_v4(),
@@ -245,7 +265,11 @@ pub async fn generate_tourney_bracket_for_user(
         let slot_b = slots.get(position * 2 + 1);
 
         match slot_a {
-            Some(FirstRoundSlot::Direct(team_id)) => plan.team_a_id = Some(*team_id),
+            Some(FirstRoundSlot::Direct(team_id)) => {
+                if matches!(mode, BracketGenerationMode::Random) {
+                    plan.team_a_id = Some(*team_id);
+                }
+            }
             Some(FirstRoundSlot::PlayIn(play_in_idx)) => {
                 if let Some(play_in) = play_in_matches.get_mut(*play_in_idx) {
                     play_in.next_match_id = Some(plan.id);
@@ -256,7 +280,11 @@ pub async fn generate_tourney_bracket_for_user(
         }
 
         match slot_b {
-            Some(FirstRoundSlot::Direct(team_id)) => plan.team_b_id = Some(*team_id),
+            Some(FirstRoundSlot::Direct(team_id)) => {
+                if matches!(mode, BracketGenerationMode::Random) {
+                    plan.team_b_id = Some(*team_id);
+                }
+            }
             Some(FirstRoundSlot::PlayIn(play_in_idx)) => {
                 if let Some(play_in) = play_in_matches.get_mut(*play_in_idx) {
                     play_in.next_match_id = Some(plan.id);
@@ -276,6 +304,10 @@ pub async fn generate_tourney_bracket_for_user(
     plans.extend(play_in_matches);
 
     let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+    if should_replace_existing_matches {
+        repo::delete_event_matches_in_tx(&mut tx, event_id).await?;
+    }
 
     for plan in &plans {
         repo::insert_bracket_match_in_tx(
@@ -383,9 +415,11 @@ pub async fn set_matchup_for_user(
 ) -> Result<Match, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
 
-    if !events_repo::event_match_exists(&state.pool, event_id, match_id).await? {
+    let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+    let Some(match_state) = repo::get_bracket_match_state_in_tx(&mut tx, event_id, match_id).await? else {
         return Err(not_found("Match not found in this event"));
-    }
+    };
 
     match (payload.team_a_id, payload.team_b_id) {
         (Some(team_a_id), Some(team_b_id)) => {
@@ -400,13 +434,62 @@ pub async fn set_matchup_for_user(
                 return Err(not_found("Team B not found in this event"));
             }
 
-            repo::set_matchup(&state.pool, match_id, team_a_id, team_b_id).await?;
+            repo::set_matchup_in_tx(&mut tx, match_id, team_a_id, team_b_id).await?;
         }
         (None, None) => {
-            repo::clear_matchup(&state.pool, match_id).await?;
+            repo::clear_matchup_in_tx(&mut tx, match_id).await?;
         }
         _ => return Err(bad_request("Provide both teams or clear both")),
     }
+
+    if match_state.is_bracket {
+        invalidate_match_winner_and_downstream(&mut tx, match_id).await?;
+        normalize_bracket_matches(&mut tx, event_id).await?;
+    }
+
+    tx.commit().await.map_err(internal_error)?;
+
+    repo::load_match(&state.pool, match_id).await
+}
+
+pub async fn cancel_match_winner_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+    match_id: Uuid,
+) -> Result<Match, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    match events_repo::event_type_for_event(&state.pool, event_id).await? {
+        Some(EventType::Tourney) => {}
+        Some(EventType::Pug) => {
+            return Err(bad_request(
+                "Match result cancellation through bracket progression is only available for TOURNEY events",
+            ));
+        }
+        None => return Err(not_found("Event not found")),
+    }
+
+    let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+    let Some(match_state) = repo::get_bracket_match_state_in_tx(&mut tx, event_id, match_id).await? else {
+        return Err(not_found("Match not found in this event"));
+    };
+
+    if !match_state.is_bracket {
+        return Err(bad_request(
+            "Winner cancellation is only supported for bracket matches",
+        ));
+    }
+
+    if match_state.winner_team_id.is_none() {
+        return Err(bad_request("No winner is currently set for this match"));
+    }
+
+    invalidate_match_winner_and_downstream(&mut tx, match_id).await?;
+    normalize_bracket_matches(&mut tx, event_id).await?;
+
+    tx.commit().await.map_err(internal_error)?;
 
     repo::load_match(&state.pool, match_id).await
 }
@@ -414,6 +497,10 @@ pub async fn set_matchup_for_user(
 fn as_owner_event(mut event: Event) -> Event {
     event.is_owner = true;
     event
+}
+
+fn can_regenerate_bracket(existing_match_count: i64, played_match_count: i64) -> bool {
+    existing_match_count <= 0 || played_match_count <= 0
 }
 
 async fn event_max_players_i32_or_not_found(
@@ -593,4 +680,60 @@ async fn propagate_match_winners(
     }
 
     Ok(())
+}
+
+async fn invalidate_match_winner_and_downstream(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    root_match_id: Uuid,
+) -> Result<(), ApiError> {
+    let mut visited = HashSet::new();
+    let mut stack = vec![root_match_id];
+
+    while let Some(match_id) = stack.pop() {
+        if visited.contains(&match_id) {
+            continue;
+        }
+        visited.insert(match_id);
+
+        let (team_a_id, team_b_id, winner_team_id) = repo::get_match_state_in_tx(tx, match_id).await?;
+
+        if winner_team_id.is_some() {
+            repo::clear_match_winner_in_tx(tx, match_id).await?;
+        }
+
+        let next_status = match (team_a_id, team_b_id) {
+            (Some(_), Some(_)) => "READY",
+            _ => "OPEN",
+        };
+        repo::set_match_status_in_tx(tx, match_id, next_status).await?;
+
+        if let Some((next_match_id, next_match_slot)) = repo::get_next_match_link_in_tx(tx, match_id).await? {
+            if let Some(slot) = next_match_slot.as_deref() {
+                repo::clear_matchup_slot_in_tx(tx, next_match_id, slot).await?;
+            }
+            stack.push(next_match_id);
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::can_regenerate_bracket;
+
+    #[test]
+    fn regeneration_allowed_when_no_matches_exist() {
+        assert!(can_regenerate_bracket(0, 0));
+    }
+
+    #[test]
+    fn regeneration_allowed_when_matches_exist_but_none_played() {
+        assert!(can_regenerate_bracket(6, 0));
+    }
+
+    #[test]
+    fn regeneration_blocked_when_any_match_played() {
+        assert!(!can_regenerate_bracket(6, 1));
+    }
 }

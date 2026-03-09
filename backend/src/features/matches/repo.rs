@@ -65,6 +65,38 @@ pub async fn count_event_matches(
     Ok(row.get("count"))
 }
 
+pub async fn count_played_bracket_matches(
+    pool: &PgPool,
+    event_id: Uuid,
+) -> Result<i64, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT COUNT(*) AS count
+         FROM event_matches
+         WHERE event_id = $1
+           AND is_bracket = TRUE
+           AND winner_team_id IS NOT NULL",
+    )
+    .bind(event_id)
+    .fetch_one(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.get("count"))
+}
+
+pub async fn delete_event_matches_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("DELETE FROM event_matches WHERE event_id = $1")
+        .bind(event_id)
+        .execute(&mut **tx)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(())
+}
+
 pub async fn insert_event_match(
     pool: &PgPool,
     match_id: Uuid,
@@ -289,6 +321,19 @@ pub async fn set_match_winner_completed_in_tx(
     Ok(())
 }
 
+pub async fn clear_match_winner_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    match_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("UPDATE event_matches SET winner_team_id = NULL WHERE id = $1")
+        .bind(match_id)
+        .execute(&mut **tx)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(())
+}
+
 pub async fn get_next_match_link_in_tx(
     tx: &mut Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
@@ -340,6 +385,32 @@ pub async fn set_matchup_slot_in_tx(
     Ok(())
 }
 
+pub async fn clear_matchup_slot_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    match_id: Uuid,
+    slot: &str,
+) -> Result<(), crate::shared::errors::ApiError> {
+    match slot {
+        "A" => {
+            sqlx::query("UPDATE event_matches SET team_a_id = NULL WHERE id = $1")
+                .bind(match_id)
+                .execute(&mut **tx)
+                .await
+                .map_err(internal_error)?;
+        }
+        "B" => {
+            sqlx::query("UPDATE event_matches SET team_b_id = NULL WHERE id = $1")
+                .bind(match_id)
+                .execute(&mut **tx)
+                .await
+                .map_err(internal_error)?;
+        }
+        _ => {}
+    }
+
+    Ok(())
+}
+
 pub async fn get_match_state_in_tx(
     tx: &mut Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
@@ -376,8 +447,8 @@ pub async fn set_match_status_in_tx(
     Ok(())
 }
 
-pub async fn set_matchup(
-    pool: &PgPool,
+pub async fn set_matchup_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
     team_a_id: Uuid,
     team_b_id: Uuid,
@@ -386,20 +457,20 @@ pub async fn set_matchup(
         .bind(team_a_id)
         .bind(team_b_id)
         .bind(match_id)
-        .execute(pool)
+        .execute(&mut **tx)
         .await
         .map_err(internal_error)?;
 
     Ok(())
 }
 
-pub async fn clear_matchup(
-    pool: &PgPool,
+pub async fn clear_matchup_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query("UPDATE event_matches SET team_a_id = NULL, team_b_id = NULL WHERE id = $1")
         .bind(match_id)
-        .execute(pool)
+        .execute(&mut **tx)
         .await
         .map_err(internal_error)?;
 

@@ -13,7 +13,8 @@ use crate::{
             AddPlayerInput, AssignEventPlayerTeamInput, AutoBalanceTeamsResponse,
             CreateEventInput, CreateEventMatchInput, CreateEventSignupRequestInput,
             CreateEventTeamInput, Event, EventSignupLinkResponse, EventSignupRequest, Match,
-            PublicEventSignupInfo, ReportMatchWinnerInput, SetMatchupInput, UpdateEventInput,
+            GenerateTourneyBracketInput, PublicEventSignupInfo, ReportMatchWinnerInput,
+            SetMatchupInput, UpdateEventInput,
             UpdateEventPlayerInput, UpdateEventTeamInput,
         },
     },
@@ -209,9 +210,13 @@ pub async fn generate_tourney_bracket(
     Path(event_id): Path<Uuid>,
     State(state): State<AppState>,
     headers: HeaderMap,
+    payload: Option<Json<GenerateTourneyBracketInput>>,
 ) -> ApiResult<Event> {
     let user_id = require_authenticated_user_id(&state, &headers)?;
-    service::generate_tourney_bracket_for_user(&state, user_id, event_id)
+    let mode = payload
+        .map(|Json(input)| input.mode)
+        .unwrap_or(crate::features::events::models::BracketGenerationMode::Random);
+    service::generate_tourney_bracket_for_user(&state, user_id, event_id, mode)
         .await
         .map(Json)
 }
@@ -224,6 +229,17 @@ pub async fn report_match_winner(
 ) -> ApiResult<Match> {
     let user_id = require_authenticated_user_id(&state, &headers)?;
     service::report_match_winner_for_user(&state, user_id, event_id, match_id, payload)
+        .await
+        .map(Json)
+}
+
+pub async fn cancel_match_winner(
+    Path((event_id, match_id)): Path<(Uuid, Uuid)>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Match> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::cancel_match_winner_for_user(&state, user_id, event_id, match_id)
         .await
         .map(Json)
 }

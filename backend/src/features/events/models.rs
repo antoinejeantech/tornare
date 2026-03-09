@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+fn default_bracket_generation_mode() -> BracketGenerationMode {
+    BracketGenerationMode::Random
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum EventType {
@@ -169,6 +173,19 @@ pub struct SetMatchupInput {
 #[derive(Deserialize)]
 pub struct ReportMatchWinnerInput {
     pub winner_team_id: Uuid,
+}
+
+#[derive(Deserialize, Serialize, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum BracketGenerationMode {
+    Random,
+    Empty,
+}
+
+#[derive(Deserialize)]
+pub struct GenerateTourneyBracketInput {
+    #[serde(default = "default_bracket_generation_mode")]
+    pub mode: BracketGenerationMode,
 }
 
 #[derive(Deserialize)]
