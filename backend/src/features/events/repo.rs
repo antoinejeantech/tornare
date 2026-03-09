@@ -388,20 +388,6 @@ pub enum TeamNameUpdateOutcome {
     DuplicateName,
 }
 
-pub async fn event_match_exists(
-    pool: &PgPool,
-    event_id: Uuid,
-    match_id: Uuid,
-) -> Result<bool, crate::shared::errors::ApiError> {
-    let row = sqlx::query("SELECT id FROM event_matches WHERE id = $1 AND event_id = $2")
-        .bind(match_id)
-        .bind(event_id)
-        .fetch_optional(pool)
-        .await
-        .map_err(internal_error)?;
-    Ok(row.is_some())
-}
-
 pub async fn event_has_matches(
     pool: &PgPool,
     event_id: Uuid,
