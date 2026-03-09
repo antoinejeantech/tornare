@@ -110,6 +110,7 @@ pub struct Event {
     pub event_type: EventType,
     pub format: EventFormat,
     pub is_owner: bool,
+    pub creator_id: Option<Uuid>,
     pub creator_name: Option<String>,
     pub max_players: u8,
     pub players: Vec<Player>,

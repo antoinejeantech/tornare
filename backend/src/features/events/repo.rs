@@ -753,6 +753,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
             e.event_type,
             e.format,
             e.max_players,
+            m.user_id AS creator_id,
             u.display_name AS creator_name
          FROM events e
          LEFT JOIN event_memberships m ON m.event_id = e.id AND m.role = 'owner'
@@ -787,6 +788,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         event_type,
         format,
         is_owner: false,
+        creator_id: row.get("creator_id"),
         creator_name: row.get("creator_name"),
         max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,
         players,

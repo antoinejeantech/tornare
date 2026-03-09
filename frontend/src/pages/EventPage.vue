@@ -12,7 +12,7 @@ import TeamsSection from '../components/event/TeamsSection.vue'
 import MatchesSection from '../components/event/MatchesSection.vue'
 import OverviewSection from '../components/event/OverviewSection.vue'
 import SignupRequestsSection from '../components/event/SignupRequestsSection.vue'
-import overwatchLogo from '../assets/branding/overwatch-logo.png'
+import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -70,6 +70,14 @@ const eventId = computed(() => String(route.params.id || ''))
 const canManageEvent = computed(() => Boolean(event.value?.is_owner))
 const isTourneyEvent = computed(() => String(event.value?.event_type || '').toUpperCase() === 'TOURNEY')
 const formattedEventStartDate = computed(() => formatEventStartDate(event.value?.start_date))
+const creatorProfileRoute = computed(() => {
+  const creatorId = String(event.value?.creator_id || '').trim()
+  if (!creatorId) {
+    return null
+  }
+
+  return { name: 'profile', params: { id: creatorId } }
+})
 const signupShareUrl = computed(() => {
   if (!signupToken.value) {
     return ''
@@ -1028,7 +1036,13 @@ provide('eventCtx', proxyRefs({
           <div class="event-meta-row">
             <span class="meta-chip">{{ event.event_type }}</span>
             <span class="meta-chip">{{ event.format }}</span>
-            <span class="meta-chip">by {{ event.creator_name || 'Unknown' }}</span>
+            <span class="meta-chip">
+              by
+              <RouterLink v-if="creatorProfileRoute" class="meta-chip-link" :to="creatorProfileRoute">
+                {{ event.creator_name || 'Unknown' }}
+              </RouterLink>
+              <span v-else>{{ event.creator_name || 'Unknown' }}</span>
+            </span>
             <span v-if="formattedEventStartDate" class="meta-chip">{{ formattedEventStartDate }}</span>
             <span class="meta-chip">{{ event.players.length }}/{{ event.max_players }} players</span>
             <span class="meta-chip">{{ event.teams.length }} teams</span>
@@ -1196,7 +1210,7 @@ provide('eventCtx', proxyRefs({
   height: 4.5rem;
   border-radius: 8px;
   object-fit: contain;
-  background: color-mix(in srgb, var(--card) 74%, #eef4ff 26%);
+  background: color-mix(in srgb, var(--card) 74%, #19253a 26%);
   border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-1) 28%);
   box-shadow: 0 3px 10px rgba(17, 52, 112, 0.16);
   padding: 0.2rem;
@@ -1236,11 +1250,23 @@ provide('eventCtx', proxyRefs({
   border: 1px solid color-mix(in srgb, var(--brand-1) 35%, var(--line) 65%);
   background: color-mix(in srgb, var(--accent) 22%, var(--meta-bg) 78%);
   color: var(--meta-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
   padding: 0.22rem 0.62rem;
   font-size: 0.81rem;
   font-family: "Space Mono", ui-monospace, monospace;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.meta-chip-link {
+  color: var(--brand-1);
+  text-decoration: none;
+}
+
+.meta-chip-link:hover {
+  text-decoration: underline;
 }
 
 .event-layout {
