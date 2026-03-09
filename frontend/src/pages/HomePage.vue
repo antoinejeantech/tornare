@@ -268,8 +268,8 @@ onMounted(loadLatestEvents)
         </section>
 
         <section class="home-countdown-grid">
-          <article v-for="event in countdownEvents" :key="`countdown-${event.id}`" class="home-countdown card">
-            <span class="home-countdown-label">Next Event</span>
+          <article v-for="(event, index) in countdownEvents" :key="`countdown-${event.id}`" class="home-countdown card">
+            <span class="home-countdown-label">{{ index === 0 ? 'Next Event' : 'After That' }}</span>
               <strong class="home-countdown-value">{{ countdownLabel(event.start_date) }}</strong>
               <h3 class="home-countdown-title">{{ event.name }}</h3>
               <p class="muted">{{ formatEventStartDate(event.start_date) || 'No date set' }}</p>
