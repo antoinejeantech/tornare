@@ -169,9 +169,17 @@ function cancelEditPlayer() {
 }
 
 .roster-list {
-  max-height: 420px;
-  overflow: auto;
-  padding-right: 0.15rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+@media (max-width: 1200px) {
+  .roster-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .player-main {
@@ -187,6 +195,13 @@ function cancelEditPlayer() {
 }
 
 @media (max-width: 900px) {
+  .roster-list {
+    grid-template-columns: 1fr;
+    max-height: 56vh;
+    overflow: auto;
+    padding-right: 0.15rem;
+  }
+
   .inline-edit-grid {
     grid-template-columns: 1fr;
   }
