@@ -12,7 +12,7 @@ import TeamsSection from '../components/event/TeamsSection.vue'
 import MatchesSection from '../components/event/MatchesSection.vue'
 import OverviewSection from '../components/event/OverviewSection.vue'
 import SignupRequestsSection from '../components/event/SignupRequestsSection.vue'
-import overwatchLogo from '../assets/branding/overwatch-logo.png'
+import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,6 +38,7 @@ const savingPlayerEdits = ref({})
 const savingTeamEdits = ref({})
 const savingMatchups = ref({})
 const reportingWinners = ref({})
+const cancellingWinners = ref({})
 const loadingSignupRequests = ref(false)
 const signupRequests = ref([])
 const reviewingSignupRequests = ref({})
@@ -70,6 +71,14 @@ const eventId = computed(() => String(route.params.id || ''))
 const canManageEvent = computed(() => Boolean(event.value?.is_owner))
 const isTourneyEvent = computed(() => String(event.value?.event_type || '').toUpperCase() === 'TOURNEY')
 const formattedEventStartDate = computed(() => formatEventStartDate(event.value?.start_date))
+const creatorProfileRoute = computed(() => {
+  const creatorId = String(event.value?.creator_id || '').trim()
+  if (!creatorId) {
+    return null
+  }
+
+  return { name: 'profile', params: { id: creatorId } }
+})
 const signupShareUrl = computed(() => {
   if (!signupToken.value) {
     return ''
@@ -680,7 +689,7 @@ async function createMatch() {
   }
 }
 
-async function generateTourneyBracket() {
+async function generateTourneyBracket(mode = 'random') {
   if (!ensureOwnerAction()) {
     return
   }
@@ -689,18 +698,18 @@ async function generateTourneyBracket() {
     return
   }
 
-  const hasMatches = Boolean(event.value?.matches?.length)
-  if (hasMatches) {
-    setError('Bracket already exists for this event')
+  const hasPlayedMatches = Boolean(event.value?.matches?.some((match) => Boolean(match.winner_team_id)))
+  if (hasPlayedMatches) {
+    setError('Cannot regenerate bracket after matches have been played')
     return
   }
 
   creatingMatch.value = true
   try {
-    const updatedEvent = await matchStore.generateTourneyBracket(eventId.value)
+    const updatedEvent = await matchStore.generateTourneyBracket(eventId.value, mode)
     event.value = updatedEvent
     hydrateSelections()
-    setNotice('Tournament bracket generated')
+    setNotice(mode === 'empty' ? 'Empty tournament bracket generated' : 'Random tournament bracket generated')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to generate bracket')
   } finally {
@@ -750,6 +759,58 @@ async function reportMatchWinner(matchId, winnerTeamId) {
   } finally {
     reportingWinners.value = {
       ...reportingWinners.value,
+      [matchId]: false,
+    }
+  }
+}
+
+async function cancelMatchWinner(matchId) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || !isTourneyEvent.value || cancellingWinners.value[matchId]) {
+    return
+  }
+
+  const confirmed = window.confirm('Cancel this match result? Downstream bracket progression will be reset where needed.')
+  if (!confirmed) {
+    return
+  }
+
+  cancellingWinners.value = {
+    ...cancellingWinners.value,
+    [matchId]: true,
+  }
+
+  const savedWindowY = typeof window !== 'undefined' ? window.scrollY : 0
+  const savedWindowX = typeof window !== 'undefined' ? window.scrollX : 0
+  const savedBracketScrollLeft = typeof document !== 'undefined'
+    ? document.querySelector('.tourney-bracket-wrap')?.scrollLeft ?? 0
+    : 0
+
+  try {
+    await matchStore.cancelMatchWinner(eventId.value, matchId)
+    await loadEvent()
+    await nextTick()
+
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: savedWindowY, left: savedWindowX })
+    }
+
+    if (typeof document !== 'undefined') {
+      const bracketWrap = document.querySelector('.tourney-bracket-wrap')
+      if (bracketWrap) {
+        bracketWrap.scrollLeft = savedBracketScrollLeft
+      }
+    }
+
+    setNotice('Match result cancelled')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to cancel match result')
+  } finally {
+    cancellingWinners.value = {
+      ...cancellingWinners.value,
       [matchId]: false,
     }
   }
@@ -958,6 +1019,7 @@ provide('eventCtx', proxyRefs({
   savingTeamEdits,
   savingMatchups,
   reportingWinners,
+  cancellingWinners,
   isTourneyEvent,
   newTeamName,
   newMatchTitle,
@@ -992,6 +1054,7 @@ provide('eventCtx', proxyRefs({
   deleteMatch,
   saveMatchup,
   reportMatchWinner,
+  cancelMatchWinner,
   saveTeamEdit,
   deleteTeam,
   assignPlayerToTeam,
@@ -1028,7 +1091,13 @@ provide('eventCtx', proxyRefs({
           <div class="event-meta-row">
             <span class="meta-chip">{{ event.event_type }}</span>
             <span class="meta-chip">{{ event.format }}</span>
-            <span class="meta-chip">by {{ event.creator_name || 'Unknown' }}</span>
+            <span class="meta-chip">
+              by
+              <RouterLink v-if="creatorProfileRoute" class="meta-chip-link" :to="creatorProfileRoute">
+                {{ event.creator_name || 'Unknown' }}
+              </RouterLink>
+              <span v-else>{{ event.creator_name || 'Unknown' }}</span>
+            </span>
             <span v-if="formattedEventStartDate" class="meta-chip">{{ formattedEventStartDate }}</span>
             <span class="meta-chip">{{ event.players.length }}/{{ event.max_players }} players</span>
             <span class="meta-chip">{{ event.teams.length }} teams</span>
@@ -1117,12 +1186,35 @@ provide('eventCtx', proxyRefs({
 
       <div class="event-layout">
         <aside class="event-left-nav" aria-label="Event sections">
-          <button class="left-nav-item" :class="{ active: activeSection === 'overview' }" @click="openSection('overview')">Overview</button>
-          <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="openSection('roster')">Players</button>
-          <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="openSection('teams')">Teams</button>
-          <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="openSection('matches')">Matches</button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'overview' }" @click="openSection('overview')">
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">dashboard</span>
+              <span>Overview</span>
+            </span>
+          </button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="openSection('roster')">
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">groups</span>
+              <span>Players</span>
+            </span>
+          </button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="openSection('teams')">
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">shield</span>
+              <span>Teams</span>
+            </span>
+          </button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="openSection('matches')">
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">sports_score</span>
+              <span>Matches</span>
+            </span>
+          </button>
           <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'requests' }" @click="openSection('requests')">
-            <span>Requests</span>
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">mail</span>
+              <span>Requests</span>
+            </span>
             <span v-if="pendingSignupRequestCount > 0" class="left-nav-badge" :aria-label="`${pendingSignupRequestCount} pending signup requests`">
               {{ pendingSignupRequestCount }}
             </span>
@@ -1196,7 +1288,7 @@ provide('eventCtx', proxyRefs({
   height: 4.5rem;
   border-radius: 8px;
   object-fit: contain;
-  background: color-mix(in srgb, var(--card) 74%, #eef4ff 26%);
+  background: color-mix(in srgb, var(--card) 74%, #19253a 26%);
   border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-1) 28%);
   box-shadow: 0 3px 10px rgba(17, 52, 112, 0.16);
   padding: 0.2rem;
@@ -1236,11 +1328,23 @@ provide('eventCtx', proxyRefs({
   border: 1px solid color-mix(in srgb, var(--brand-1) 35%, var(--line) 65%);
   background: color-mix(in srgb, var(--accent) 22%, var(--meta-bg) 78%);
   color: var(--meta-ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
   padding: 0.22rem 0.62rem;
   font-size: 0.81rem;
   font-family: "Space Mono", ui-monospace, monospace;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.meta-chip-link {
+  color: var(--brand-1);
+  text-decoration: none;
+}
+
+.meta-chip-link:hover {
+  text-decoration: underline;
 }
 
 .event-layout {
@@ -1256,10 +1360,11 @@ provide('eventCtx', proxyRefs({
 .event-left-nav {
   display: grid;
   gap: 0.34rem;
-  border: 1px solid color-mix(in srgb, var(--brand-1) 24%, var(--line) 76%);
+  border: 1px solid color-mix(in srgb, var(--brand-1) 30%, var(--line) 70%);
   border-radius: 14px;
-  padding: 0.48rem;
+  padding: 0.52rem;
   background:
+    radial-gradient(180px 80px at 8% 0%, color-mix(in srgb, var(--brand-2) 14%, transparent 86%), transparent 72%),
     linear-gradient(180deg, color-mix(in srgb, var(--card) 88%, #edf4ff 12%), color-mix(in srgb, var(--card) 96%, #f4f8ff 4%));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
@@ -1269,6 +1374,8 @@ provide('eventCtx', proxyRefs({
 }
 
 .left-nav-item {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   display: inline-flex;
   align-items: center;
@@ -1280,7 +1387,7 @@ provide('eventCtx', proxyRefs({
   color: var(--ink-2);
   border-radius: 10px;
   padding: 0.55rem 0.62rem;
-  font-weight: 760;
+  font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
   transition:
@@ -1291,11 +1398,43 @@ provide('eventCtx', proxyRefs({
     box-shadow 0.16s ease;
 }
 
+.left-nav-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.left-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--line) 74%, var(--brand-2) 26%);
+  background: color-mix(in srgb, var(--card) 88%, #eff5ff 12%);
+  color: color-mix(in srgb, var(--brand-1) 72%, var(--ink-1) 28%);
+  font-size: 0.95rem;
+  line-height: 1;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+
 .left-nav-item:hover {
   color: var(--ink-1);
   border-color: color-mix(in srgb, var(--brand-2) 42%, var(--line) 58%);
   background: color-mix(in srgb, var(--brand-2) 10%, var(--card) 90%);
-  transform: translateX(1px);
+  transform: translateX(2px);
+}
+
+.left-nav-item:hover .left-nav-icon {
+  border-color: color-mix(in srgb, var(--brand-2) 56%, var(--line) 44%);
+  background: color-mix(in srgb, var(--brand-2) 20%, var(--card) 80%);
+  color: color-mix(in srgb, var(--ink-1) 88%, var(--brand-1) 12%);
+  transform: translateY(-1px);
 }
 
 .left-nav-item:focus-visible {
@@ -1308,6 +1447,23 @@ provide('eventCtx', proxyRefs({
   color: color-mix(in srgb, var(--ink-1) 92%, white 8%);
   border-color: color-mix(in srgb, var(--brand-2) 62%, var(--line) 38%);
   box-shadow: 0 8px 18px rgba(31, 97, 183, 0.2);
+}
+
+.left-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-1) 84%, #fff 16%);
+}
+
+.left-nav-item.active .left-nav-icon {
+  border-color: color-mix(in srgb, var(--brand-1) 68%, var(--line) 32%);
+  background: color-mix(in srgb, var(--brand-1) 28%, var(--card) 72%);
+  color: color-mix(in srgb, var(--ink-1) 96%, #fff 4%);
 }
 
 .left-nav-badge {

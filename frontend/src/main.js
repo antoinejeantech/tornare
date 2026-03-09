@@ -13,6 +13,7 @@ import NewsPage from './pages/NewsPage.vue'
 import AuthPage from './pages/AuthPage.vue'
 import JoinEventPage from './pages/JoinEventPage.vue'
 import ProfilePage from './pages/ProfilePage.vue'
+import NotFoundPage from './pages/NotFoundPage.vue'
 
 const pinia = createPinia()
 
@@ -27,7 +28,8 @@ const router = createRouter({
 		{ path: '/events/:id', name: 'event', component: EventPage, meta: { title: 'Event Setup | Tornare' } },
 		{ path: '/join/:token', name: 'join-event', component: JoinEventPage, meta: { title: 'Join Event | Tornare' } },
 		{ path: '/profiles/:id', name: 'profile', component: ProfilePage, meta: { title: 'Profile | Tornare' } },
-		{ path: '/matches/:id', name: 'match', component: MatchPage, meta: { requiresAuth: true, title: 'Match | Tornare' } }
+		{ path: '/matches/:id', name: 'match', component: MatchPage, meta: { requiresAuth: true, title: 'Match | Tornare' } },
+		{ path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundPage, meta: { title: '404 | Tornare' } }
 	]
 })
 

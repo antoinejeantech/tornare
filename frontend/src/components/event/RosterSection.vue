@@ -162,8 +162,8 @@ function cancelEditPlayer() {
   background: color-mix(in srgb, var(--card) 90%, #f1f5ff 10%);
   border-radius: 10px;
   padding: 0.64rem 0.7rem;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.65rem;
 }
@@ -192,7 +192,7 @@ function cancelEditPlayer() {
   }
 
   .player-row {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .player-actions {

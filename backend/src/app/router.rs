@@ -107,6 +107,10 @@ pub fn build_app(state: AppState) -> Router {
             post(events::report_match_winner),
         )
         .route(
+            "/api/events/{event_id}/matches/{match_id}/winner/cancel",
+            post(events::cancel_match_winner),
+        )
+        .route(
             "/api/events/{event_id}/signup-link",
             get(events::get_event_signup_link),
         )

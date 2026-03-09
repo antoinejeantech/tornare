@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
-import overwatchLogo from '../assets/branding/overwatch-logo.png'
+import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { useAuthStore } from '../stores/auth'
 
@@ -18,6 +18,7 @@ const notice = ref('')
 const profileFormTouched = ref(false)
 const editingAccount = ref(false)
 const editingOverwatch = ref(false)
+const editUsername = ref('')
 const editDisplayName = ref('')
 const editEmail = ref('')
 const editBattletag = ref('')
@@ -31,7 +32,7 @@ const profileId = computed(() => String(route.params.id || ''))
 const viewerId = computed(() => String(authStore.user?.id || ''))
 const canEdit = computed(() => authStore.isAuthenticated && profileId.value && viewerId.value === profileId.value)
 const profileInitial = computed(() => {
-  const label = String(profile.value?.display_name || '').trim()
+  const label = String(profile.value?.display_name || profile.value?.username || '').trim()
   return label.length > 0 ? label[0].toUpperCase() : 'A'
 })
 const battletagStateLabel = computed(() => {
@@ -43,12 +44,15 @@ const hasAccountChanges = computed(() => {
   }
 
   const nextDisplayName = editDisplayName.value.trim()
+  const nextUsername = editUsername.value.trim().toLowerCase()
   const nextEmail = editEmail.value.trim().toLowerCase()
+  const currentUsername = String(profile.value.username || '').trim().toLowerCase()
   const currentDisplayName = String(profile.value.display_name || '').trim()
   const currentEmail = String(profile.value.email || '').trim().toLowerCase()
   const hasPasswordInput = editPassword.value.trim().length > 0 || editPasswordConfirm.value.trim().length > 0
 
   return (
+    nextUsername !== currentUsername ||
     nextDisplayName !== currentDisplayName ||
     nextEmail !== currentEmail ||
     hasPasswordInput
@@ -111,6 +115,7 @@ function hydrateFormFromProfile(value) {
   }
 
   editDisplayName.value = value.display_name || ''
+  editUsername.value = value.username || ''
   editEmail.value = value.email || ''
   editBattletag.value = value.battletag || ''
   editRankTank.value = value.rank_tank || 'Unranked'
@@ -184,8 +189,25 @@ async function saveProfile() {
   }
 
   const nextDisplayName = editDisplayName.value.trim()
+  const nextUsername = editUsername.value.trim().toLowerCase()
   const nextEmail = editEmail.value.trim().toLowerCase()
   const nextBattletag = editBattletag.value.trim()
+
+  if (!nextUsername) {
+    setError('Username is required')
+    return
+  }
+
+  if (nextUsername.length < 3 || nextUsername.length > 24) {
+    setError('Username must be 3-24 characters long')
+    return
+  }
+
+  if (!/^[a-z0-9_]+$/.test(nextUsername)) {
+    setError('Username can only use lowercase letters, numbers, and underscores')
+    return
+  }
+
   if (!nextDisplayName) {
     setError('Display name is required')
     return
@@ -217,6 +239,7 @@ async function saveProfile() {
     const updated = await apiCall(`/api/users/${profileId.value}`, {
       method: 'PUT',
       body: JSON.stringify({
+        username: nextUsername,
         display_name: nextDisplayName,
         email: nextEmail,
         battletag: nextBattletag || null,
@@ -294,6 +317,7 @@ onMounted(async () => {
             <span class="profile-avatar" aria-hidden="true">{{ profileInitial }}</span>
             <div class="profile-headline">
               <h2>{{ profile.display_name }}</h2>
+              <p class="muted">{{ profile.username }}</p>
               <p v-if="profile.battletag" class="muted">{{ profile.battletag }}</p>
               <div class="profile-stat-chips">
                 <span class="meta-chip">Main game: Overwatch</span>
@@ -314,6 +338,10 @@ onMounted(async () => {
         </div>
 
         <form v-if="editingAccount" class="profile-form animated-panel" @submit.prevent="saveProfile">
+          <label>
+            Username
+            <input v-model="editUsername" placeholder="username" @input="markProfileFormTouched" />
+          </label>
           <label>
             Display name
             <input v-model="editDisplayName" placeholder="Your display name" @input="markProfileFormTouched" />
@@ -341,6 +369,7 @@ onMounted(async () => {
         </form>
 
         <div v-else class="profile-summary-grid animated-panel">
+          <p><strong>Username:</strong> {{ profile.username }}</p>
           <p><strong>Display name:</strong> {{ profile.display_name }}</p>
           <p><strong>Role:</strong> {{ profile.role || 'user' }}</p>
           <p v-if="canEdit"><strong>Email:</strong> {{ profile.email }}</p>
@@ -563,7 +592,7 @@ onMounted(async () => {
   padding: 0.62rem 0.68rem;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-2) 14%);
-  background: color-mix(in srgb, var(--card) 88%, #eef5ff 12%);
+  background: color-mix(in srgb, var(--card) 88%, #19253a 12%);
   box-shadow: 0 6px 14px rgba(19, 53, 116, 0.12);
 }
 
@@ -633,7 +662,7 @@ onMounted(async () => {
   color: var(--meta-ink);
   padding: 0.18rem 0.55rem;
   font-size: 0.74rem;
-  font-family: "Space Mono", ui-monospace, monospace;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -671,9 +700,9 @@ onMounted(async () => {
   font-size: 1rem;
   font-weight: 800;
   color: #fff;
-  background: linear-gradient(130deg, #0f4f99, var(--brand-1));
-  border: 1px solid color-mix(in srgb, var(--brand-2) 44%, #0f4f99 56%);
-  box-shadow: 0 4px 10px rgba(30, 136, 229, 0.26);
+  background: linear-gradient(130deg, var(--brand-2), var(--brand-1));
+  border: 1px solid color-mix(in srgb, var(--brand-2) 66%, var(--brand-1) 34%);
+  box-shadow: 0 4px 10px rgba(78, 52, 7, 0.26);
 }
 
 @media (max-width: 980px) {

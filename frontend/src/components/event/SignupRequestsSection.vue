@@ -16,7 +16,10 @@ const reviewedRequests = computed(() => {
 
 <template>
   <section>
-    <h3>Signup Requests</h3>
+    <h3 class="section-title">
+      <span class="material-symbols-rounded section-title-icon" aria-hidden="true">mail</span>
+      <span>Signup Requests</span>
+    </h3>
 
     <div class="signup-link-box">
       <p class="muted">Share this public link so players can request to join this event.</p>
@@ -80,35 +83,58 @@ const reviewedRequests = computed(() => {
 </template>
 
 <style scoped>
+.section-title {
+  margin: 0 0 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.section-title-icon {
+  font-size: 1.12rem;
+  line-height: 1;
+}
+
 .signup-link-box {
-  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-1) 12%);
+  border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--card) 90%, #edf5ff 10%);
-  padding: 0.6rem;
-  margin-bottom: 0.7rem;
+  background: color-mix(in srgb, var(--card) 92%, #f0f6ff 8%);
+  padding: 0.62rem;
+  margin-bottom: 0.72rem;
+  display: grid;
+  gap: 0.5rem;
 }
 
 .signup-link-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .signup-request-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 0.55rem;
+  align-items: start;
 }
 
 .signup-request-card {
-  border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
+  border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--card) 92%, #eef5ff 8%);
-  padding: 0.6rem;
+  background: color-mix(in srgb, var(--card) 92%, #f0f6ff 8%);
+  padding: 0.58rem 0.62rem;
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
 }
 
 .signup-request-card h4 {
-  margin: 0 0 0.45rem;
+  margin: 0;
+}
+
+.signup-request-card > .muted,
+.signup-request-card > .signup-request-list {
+  margin: 0;
 }
 
 .signup-request-list {
@@ -122,7 +148,7 @@ const reviewedRequests = computed(() => {
 .signup-request-item {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
   border-radius: 9px;
-  background: color-mix(in srgb, var(--card) 90%, #f4f8ff 10%);
+  background: color-mix(in srgb, var(--card) 94%, #f6f9ff 6%);
   padding: 0.5rem;
   display: flex;
   justify-content: space-between;
@@ -142,6 +168,11 @@ const reviewedRequests = computed(() => {
 .signup-request-actions {
   display: flex;
   gap: 0.4rem;
+}
+
+.signup-request-actions .btn-primary,
+.signup-request-actions .btn-danger {
+  min-width: 78px;
 }
 
 .status-badge {

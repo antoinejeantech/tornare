@@ -1,6 +1,6 @@
 <script setup>
 import { computed, inject } from 'vue'
-import overwatchLogo from '../../assets/branding/overwatch-logo.png'
+import overwatchLogo from '../../assets/branding/overwatch-logo-gold.png'
 import { formatEventStartDate } from '../../lib/dates'
 
 const ctx = inject('eventCtx')
@@ -133,7 +133,7 @@ function matchupLabel(match) {
 
 .overview-kpi {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  background: color-mix(in srgb, var(--card) 90%, #ecf4ff 10%);
+  background: color-mix(in srgb, var(--card) 90%, #162134 10%);
   border-radius: 10px;
   padding: 0.5rem 0.58rem;
 }

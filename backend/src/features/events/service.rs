@@ -37,8 +37,9 @@ pub use players::{
     update_event_player_for_user,
 };
 pub use matches::{
-    create_event_match_for_user, generate_tourney_bracket_for_user,
-    report_match_winner_for_user, set_matchup_for_user,
+    cancel_match_winner_for_user, create_event_match_for_user,
+    generate_tourney_bracket_for_user, report_match_winner_for_user,
+    set_matchup_for_user,
 };
 pub use public::{get_event_public, list_events_public};
 pub use events_admin::{create_event_for_user, delete_event_for_user, update_event_for_user};

@@ -1,45 +1,19 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import tornareLogo from '../assets/branding/tornare-logo.svg'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const storedTheme = typeof window !== 'undefined' ? window.localStorage.getItem('theme') : null
-const initialTheme = storedTheme === 'light' ? 'light' : 'dark'
-const theme = ref(initialTheme)
-
-if (typeof document !== 'undefined') {
-  document.documentElement.setAttribute('data-theme', initialTheme)
-}
-
-function toggleTheme() {
-  const nextTheme = theme.value === 'dark' ? 'light' : 'dark'
-  theme.value = nextTheme
-
-  if (typeof document !== 'undefined') {
-    document.documentElement.setAttribute('data-theme', nextTheme)
-  }
-
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem('theme', nextTheme)
-  }
-}
-
-const themeToggleLabel = computed(() => (theme.value === 'dark' ? 'Light' : 'Dark'))
-const themeIcon = computed(() => (theme.value === 'dark' ? 'light_mode' : 'dark_mode'))
 const loginRoute = computed(() => {
   const redirect = route.name === 'auth' ? '/events' : route.fullPath
   return { name: 'auth', query: { redirect } }
 })
 const authLabel = computed(() => authStore.user?.display_name || 'Account')
-const authInitial = computed(() => {
-  const label = authLabel.value.trim()
-  return label.length > 0 ? label[0].toUpperCase() : 'A'
-})
 const profileRoute = computed(() => {
   const id = String(authStore.user?.id || '').trim()
   if (!id) {
@@ -62,7 +36,10 @@ onMounted(() => {
 <template>
   <nav class="top-nav">
     <div class="top-nav-inner">
-      <RouterLink class="brand-link" to="/">Tornare</RouterLink>
+      <RouterLink class="brand-link" to="/">
+        <img class="brand-logo" :src="tornareLogo" alt="Tornare logo" />
+        <span>Tornare</span>
+      </RouterLink>
       <div class="top-nav-links">
         <RouterLink class="top-nav-link" to="/">
           <span class="material-symbols-rounded" aria-hidden="true">home</span>
@@ -80,13 +57,16 @@ onMounted(() => {
           <span class="material-symbols-rounded" aria-hidden="true">article</span>
           <span>News</span>
         </RouterLink>
+        <div class="top-nav-fake-search" aria-hidden="true">
+          <span class="material-symbols-rounded" aria-hidden="true">search</span>
+          <span>Search</span>
+        </div>
         <RouterLink v-if="!authStore.isAuthenticated" class="top-nav-link" :to="loginRoute">
           <span class="material-symbols-rounded" aria-hidden="true">login</span>
           <span>Login</span>
         </RouterLink>
         <div v-else class="top-nav-user-menu" tabindex="0">
           <button class="top-nav-user-trigger" type="button">
-            <span class="top-nav-user-avatar" aria-hidden="true">{{ authInitial }}</span>
             <span>{{ authLabel }}</span>
             <span class="material-symbols-rounded" aria-hidden="true">expand_more</span>
           </button>
@@ -101,10 +81,6 @@ onMounted(() => {
             </button>
           </div>
         </div>
-        <button class="top-nav-theme icon-btn" type="button" :title="`${themeToggleLabel} mode`" @click="toggleTheme">
-          <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon }}</span>
-          <span class="sr-only">{{ themeToggleLabel }} mode</span>
-        </button>
       </div>
     </div>
   </nav>
@@ -123,7 +99,8 @@ onMounted(() => {
 }
 
 .top-nav-inner {
-  max-width: 1020px;
+  max-width: 1820px;
+  width: min(96vw, 1820px);
   margin: 0 auto;
   padding: 0.8rem 1rem;
   display: flex;
@@ -133,19 +110,34 @@ onMounted(() => {
 }
 
 .brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
   text-decoration: none;
-  color: var(--ink-1);
+  color: var(--brand-1);
   font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  text-shadow: 2px 2px 0 rgba(15, 47, 140, 0.08);
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.22);
+}
+
+.brand-link:hover {
+  color: color-mix(in srgb, var(--brand-1) 86%, #fff 14%);
+}
+
+.brand-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(154, 114, 50, 0.28));
 }
 
 .top-nav-links {
   display: flex;
   align-items: center;
   gap: 0.42rem;
+  margin-left: auto;
 }
 
 .top-nav-link {
@@ -155,22 +147,26 @@ onMounted(() => {
   text-decoration: none;
   padding: 0.38rem 0.72rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--brand-2) 28%, var(--line) 72%);
-  background: color-mix(in srgb, var(--card) 90%, #edf5ff 10%);
-  color: var(--brand-1);
-  font-weight: 760;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  font-weight: 620;
   letter-spacing: 0.01em;
   transition: box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
 }
 
 .top-nav-link .material-symbols-rounded {
   font-size: 1rem;
+  color: color-mix(in srgb, var(--ink-muted) 88%, var(--ink-1) 12%);
 }
 
 .top-nav-link:hover {
-  border-color: color-mix(in srgb, var(--brand-2) 48%, var(--line) 52%);
-  background: color-mix(in srgb, var(--brand-2) 10%, var(--card) 90%);
-  transform: translateY(-1px);
+  color: var(--ink-1);
+  transform: none;
+}
+
+.top-nav-link:hover .material-symbols-rounded {
+  color: color-mix(in srgb, var(--ink-1) 92%, #fff 8%);
 }
 
 .top-nav-link:focus-visible {
@@ -180,9 +176,34 @@ onMounted(() => {
 
 .top-nav-link.router-link-active {
   color: #fff;
-  border-color: color-mix(in srgb, #0f4f99 75%, var(--brand-1) 25%);
-  background: linear-gradient(130deg, #0f4f99, var(--brand-1));
-  box-shadow: 0 8px 18px rgba(30, 136, 229, 0.3);
+  border-color: color-mix(in srgb, var(--brand-2) 70%, var(--brand-1) 30%);
+  background: linear-gradient(130deg, var(--brand-2), var(--brand-1));
+  box-shadow: 0 8px 18px rgba(78, 52, 7, 0.3);
+}
+
+.top-nav-link.router-link-active .material-symbols-rounded {
+  color: currentColor;
+}
+
+.top-nav-fake-search {
+  min-width: 140px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.34rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #5b6f93 46%, var(--line) 54%);
+  background: linear-gradient(180deg, #0b101b 0%, #0e1523 100%);
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  box-shadow: inset 0 1px 0 rgba(188, 210, 255, 0.08);
+}
+
+.top-nav-fake-search .material-symbols-rounded {
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--ink-muted) 88%, var(--ink-1) 12%);
 }
 
 .top-nav-user-menu {
@@ -192,32 +213,21 @@ onMounted(() => {
 }
 
 .top-nav-user-trigger {
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--brand-2) 30%, var(--line) 70%);
-  background: color-mix(in srgb, var(--card) 88%, #eef5ff 12%);
-  color: var(--ink-1);
-  padding: 0.34rem 0.58rem;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-muted);
+  padding: 0.34rem 0.5rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.18rem;
-  font-size: 0.84rem;
-  font-weight: 760;
-  font-family: "Space Mono", ui-monospace, monospace;
+  gap: 0.24rem;
+  font-size: 0.95rem;
+  font-weight: 620;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
 }
 
-.top-nav-user-avatar {
-  width: 1.35rem;
-  height: 1.35rem;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: #fff;
-  background: linear-gradient(130deg, #0f4f99, var(--brand-1));
-  border: 1px solid color-mix(in srgb, var(--brand-2) 44%, #0f4f99 56%);
-  box-shadow: 0 4px 10px rgba(30, 136, 229, 0.26);
+.top-nav-user-trigger:hover {
+  color: var(--ink-1);
 }
 
 .top-nav-user-trigger .material-symbols-rounded {
@@ -231,9 +241,10 @@ onMounted(() => {
   min-width: 140px;
   padding: 0.32rem;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--brand-2) 26%, var(--line) 74%);
-  background: color-mix(in srgb, var(--card) 94%, #f0f6ff 6%);
-  box-shadow: 0 12px 26px rgba(12, 28, 63, 0.24);
+  border: 1px solid color-mix(in srgb, var(--brand-2) 34%, var(--line) 66%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 90%, #18253a 10%) 0%, color-mix(in srgb, var(--card) 96%, #101828 4%) 100%);
+  box-shadow: 0 12px 26px rgba(3, 8, 18, 0.42);
   opacity: 0;
   transform: translateY(-4px);
   pointer-events: none;
@@ -255,7 +266,7 @@ onMounted(() => {
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: var(--ink-1);
+  color: var(--brand-1);
   text-align: left;
   text-decoration: none;
   padding: 0.46rem 0.56rem;
@@ -272,7 +283,8 @@ onMounted(() => {
 }
 
 .top-nav-user-action:hover {
-  background: color-mix(in srgb, var(--brand-2) 14%, var(--card) 86%);
+  background: color-mix(in srgb, var(--brand-2) 16%, var(--card) 84%);
+  color: color-mix(in srgb, var(--brand-1) 86%, #fff 14%);
 }
 
 .top-nav-current {
@@ -281,19 +293,14 @@ onMounted(() => {
   font-family: "Space Mono", ui-monospace, monospace;
 }
 
-.top-nav-theme {
-  border: 1px solid color-mix(in srgb, var(--brand-2) 32%, var(--line) 68%);
-  background: color-mix(in srgb, var(--brand-2) 14%, var(--card) 86%);
-  color: var(--ink-1);
-  border-radius: 999px;
-  padding: 0.34rem 0.62rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
 @media (max-width: 900px) {
   .top-nav-current {
     display: none;
+  }
+
+  .top-nav-fake-search {
+    min-width: 104px;
+    padding-inline: 0.52rem;
   }
 }
 </style>

@@ -15,15 +15,21 @@ export const useMatchStore = defineStore('match', {
         body: JSON.stringify(payload),
       })
     },
-    generateTourneyBracket(eventId) {
+    generateTourneyBracket(eventId, mode = 'random') {
       return apiCall(`/api/events/${eventId}/tourney/generate`, {
         method: 'POST',
+        body: JSON.stringify({ mode }),
       })
     },
     reportMatchWinner(eventId, matchId, winnerTeamId) {
       return apiCall(`/api/events/${eventId}/matches/${matchId}/winner`, {
         method: 'POST',
         body: JSON.stringify({ winner_team_id: winnerTeamId }),
+      })
+    },
+    cancelMatchWinner(eventId, matchId) {
+      return apiCall(`/api/events/${eventId}/matches/${matchId}/winner/cancel`, {
+        method: 'POST',
       })
     },
     fetchMatch(matchId) {

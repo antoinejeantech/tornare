@@ -42,6 +42,7 @@ const roadmap = [
   <main class="app-shell about-shell">
     <header class="page-header">
       <h1 class="page-title">About Tornare</h1>
+      <p class="muted page-subtitle">Built for organizers who run serious community game nights.</p>
     </header>
 
     <section class="card about-hero reveal-block reveal-1">
@@ -52,19 +53,37 @@ const roadmap = [
         The product focuses on practical execution, from first signup to final match handoff.
       </p>
       <div class="about-hero-actions">
-        <RouterLink class="btn-primary" to="/events">Open Event Hub</RouterLink>
-        <RouterLink class="btn-secondary" to="/news">Read Product Updates</RouterLink>
+        <RouterLink class="about-cta about-cta-link about-cta-link-primary" to="/events">Open Event Hub</RouterLink>
+        <RouterLink class="about-cta about-cta-link" to="/news">Updates</RouterLink>
       </div>
     </section>
 
-    <section class="about-pillars reveal-block reveal-2">
+    <section class="about-kpi-strip reveal-block reveal-2">
+      <article class="card about-kpi">
+        <span class="about-kpi-label">Focus</span>
+        <strong>Organizer Efficiency</strong>
+        <p class="muted">Reduce setup friction from signup to lobby handoff.</p>
+      </article>
+      <article class="card about-kpi">
+        <span class="about-kpi-label">Approach</span>
+        <strong>Visible Workflow</strong>
+        <p class="muted">Clear states for roster, teams, and match progression.</p>
+      </article>
+      <article class="card about-kpi">
+        <span class="about-kpi-label">Outcome</span>
+        <strong>Better Match Nights</strong>
+        <p class="muted">Less admin overhead, more energy on gameplay quality.</p>
+      </article>
+    </section>
+
+    <section class="about-pillars reveal-block reveal-3">
       <article v-for="pillar in pillars" :key="pillar.id" class="card about-pillar">
         <h3>{{ pillar.title }}</h3>
         <p class="muted">{{ pillar.text }}</p>
       </article>
     </section>
 
-    <section class="card reveal-block reveal-3">
+    <section class="card reveal-block reveal-4">
       <h2>Roadmap Snapshot</h2>
       <div class="about-roadmap">
         <article v-for="item in roadmap" :key="item.id" class="about-roadmap-item">
@@ -74,7 +93,7 @@ const roadmap = [
       </div>
     </section>
 
-    <section class="card about-principles reveal-block reveal-4">
+    <section class="card about-principles reveal-block reveal-5">
       <h2>Design Principles</h2>
       <ul class="about-list muted">
         <li>Prefer obvious workflows over hidden controls.</li>
@@ -93,17 +112,25 @@ const roadmap = [
   gap: 0.88rem;
 }
 
+.page-subtitle {
+  margin: 0;
+  text-align: right;
+}
+
 .about-shell :is(h2, h3) {
   letter-spacing: -0.01em;
 }
 
 .about-hero {
+  position: relative;
+  overflow: hidden;
   display: grid;
   gap: 0.55rem;
   border-color: color-mix(in srgb, var(--brand-2) 34%, var(--line) 66%);
   background:
-    radial-gradient(1000px 140px at 0% 0%, rgba(66, 133, 244, 0.16), transparent 60%),
-    color-mix(in srgb, var(--card) 92%, #edf5ff 8%);
+    radial-gradient(760px 210px at 92% 0%, rgba(255, 255, 255, 0.07), transparent 70%),
+    radial-gradient(1000px 150px at 0% 0%, rgba(74, 109, 164, 0.18), transparent 60%),
+    linear-gradient(145deg, color-mix(in srgb, var(--card) 90%, #1f2733 10%) 0%, var(--card) 100%);
 }
 
 .about-hero h2,
@@ -122,10 +149,68 @@ const roadmap = [
 }
 
 .about-hero-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.about-cta {
+  text-decoration: none;
+}
+
+.about-cta-link {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand-1);
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.about-cta-link-primary {
+  font-weight: 700;
+}
+
+.about-cta-link:hover {
+  color: color-mix(in srgb, var(--brand-1) 82%, #fff 18%);
+  text-decoration: underline;
+}
+
+.about-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.about-kpi {
+  display: grid;
+  gap: 0.24rem;
+  border-color: color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
+  background: color-mix(in srgb, var(--card) 93%, #1b2330 7%);
+}
+
+.about-kpi strong {
+  color: var(--ink-1);
+  font-size: 1.05rem;
+}
+
+.about-kpi p {
+  margin: 0;
+}
+
+.about-kpi-label {
+  color: var(--brand-1);
+  font-family: "Space Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.73rem;
+  font-weight: 700;
 }
 
 .about-pillars {
@@ -192,6 +277,7 @@ const roadmap = [
 .reveal-2 { animation-delay: 120ms; }
 .reveal-3 { animation-delay: 180ms; }
 .reveal-4 { animation-delay: 240ms; }
+.reveal-5 { animation-delay: 300ms; }
 
 @keyframes reveal-rise {
   to {
@@ -201,6 +287,19 @@ const roadmap = [
 }
 
 @media (max-width: 980px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .page-subtitle {
+    text-align: left;
+  }
+
+  .about-kpi-strip {
+    grid-template-columns: 1fr;
+  }
+
   .about-pillars {
     grid-template-columns: 1fr;
   }

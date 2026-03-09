@@ -1,9 +1,13 @@
 <script setup>
-import { computed, inject } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 const ctx = inject('eventCtx')
 const router = useRouter()
+const editingMatchups = ref({})
+const bracketWrapEl = ref(null)
+const measuredCardHeight = ref(212)
+let resizeObserver = null
 
 function openMatch(matchId) {
   router.push({ name: 'match', params: { id: matchId } })
@@ -103,8 +107,34 @@ function canReportWinner(match, teamId) {
   return Boolean(match.team_a_id && match.team_b_id)
 }
 
+function canCancelWinner(match) {
+  if (!ctx.canManageEvent) {
+    return false
+  }
+  return Boolean(match.winner_team_id)
+}
+
+function isEditingMatchup(matchId) {
+  return Boolean(editingMatchups.value[matchId])
+}
+
+function toggleMatchupEditor(matchId) {
+  editingMatchups.value = {
+    ...editingMatchups.value,
+    [matchId]: !editingMatchups.value[matchId],
+  }
+}
+
+async function saveMatchupAndClose(matchId) {
+  await ctx.saveMatchup(matchId)
+  editingMatchups.value = {
+    ...editingMatchups.value,
+    [matchId]: false,
+  }
+}
+
 function roundListStyle(roundIndex) {
-  const cardHeight = 148
+  const cardHeight = measuredCardHeight.value
   const baseGap = 16
   const rounds = bracketRounds.value
   const cardsCount = rounds[roundIndex]?.cards?.length || 1
@@ -228,6 +258,10 @@ const hasGeneratedMatches = computed(() => {
   return Array.isArray(ctx.event?.matches) && ctx.event.matches.length > 0
 })
 
+const hasPlayedMatches = computed(() => {
+  return Array.isArray(ctx.event?.matches) && ctx.event.matches.some((match) => Boolean(match.winner_team_id))
+})
+
 const previewLinkageInfo = computed(() => {
   const hasParent = new Set()
   const hasNext = new Set()
@@ -336,14 +370,69 @@ function hasRegularTransition(parentCount, childCount) {
   return childCount === parentCount * 2
 }
 
-function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
+function roundCenterStep(cardsCount, cardHeight = 212, baseGap = 16) {
+  const effectiveCardHeight = measuredCardHeight.value || cardHeight
   const maxCards = maxRoundCards.value
-  const columnHeight = (maxCards * cardHeight) + ((maxCards - 1) * baseGap)
+  const columnHeight = (maxCards * effectiveCardHeight) + ((maxCards - 1) * baseGap)
   const safeCards = Math.max(1, cardsCount)
 
   // Keep connector geometry in sync with roundListStyle center distribution.
   return columnHeight / safeCards
 }
+
+async function refreshMeasuredCardHeight() {
+  const hasEditing = Object.values(editingMatchups.value).some(Boolean)
+  if (hasEditing) {
+    return
+  }
+
+  await nextTick()
+
+  const root = bracketWrapEl.value
+  if (!root) {
+    return
+  }
+
+  const cards = root.querySelectorAll('.bracket-match')
+  if (!cards.length) {
+    return
+  }
+
+  let maxHeight = 0
+  cards.forEach((card) => {
+    maxHeight = Math.max(maxHeight, card.offsetHeight)
+  })
+
+  if (maxHeight > 0) {
+    measuredCardHeight.value = maxHeight
+  }
+}
+
+onMounted(async () => {
+  await refreshMeasuredCardHeight()
+
+  if (typeof ResizeObserver !== 'undefined' && bracketWrapEl.value) {
+    resizeObserver = new ResizeObserver(() => {
+      refreshMeasuredCardHeight()
+    })
+    resizeObserver.observe(bracketWrapEl.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+})
+
+watch(bracketRounds, () => {
+  refreshMeasuredCardHeight()
+}, { deep: true })
+
+watch(editingMatchups, () => {
+  refreshMeasuredCardHeight()
+}, { deep: true })
 </script>
 
 <template>
@@ -353,20 +442,33 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
         v-if="ctx.canManageEvent"
         class="btn-primary"
         type="button"
-        :disabled="ctx.creatingMatch || ctx.event.matches.length > 0"
-        @click="ctx.generateTourneyBracket"
+        :disabled="ctx.creatingMatch || hasPlayedMatches"
+        @click="ctx.generateTourneyBracket('random')"
       >
-        {{ ctx.creatingMatch ? 'Generating...' : 'Generate Bracket' }}
+        {{ ctx.creatingMatch ? 'Generating...' : 'Generate Random Bracket' }}
+      </button>
+      <button
+        v-if="ctx.canManageEvent"
+        class="btn-secondary"
+        type="button"
+        :disabled="ctx.creatingMatch || hasPlayedMatches"
+        @click="ctx.generateTourneyBracket('empty')"
+      >
+        {{ ctx.creatingMatch ? 'Generating...' : 'Generate Empty Bracket' }}
       </button>
       <p class="muted">
-        {{ ctx.event.matches.length > 0 ? 'Bracket generated. Report winners to advance teams.' : 'Bracket preview is shown below (play-ins are added automatically when team count is not a power of two).' }}
+        {{ hasPlayedMatches ? 'At least one match result is set, so bracket regeneration is disabled.' : (ctx.event.matches.length > 0 ? 'No match has been played yet. You can regenerate the bracket in random or empty mode.' : 'Choose random generation for auto-seeded matchups, or empty generation to assign matchups manually.') }}
       </p>
     </div>
 
     <div class="tourney-bracket-wrap">
       <div
+        ref="bracketWrapEl"
         class="tourney-bracket"
-        :style="{ '--rounds': bracketRounds.length, '--max-round-cards': maxRoundCards }"
+        :style="{
+          '--rounds': bracketRounds.length,
+          '--max-round-cards': maxRoundCards
+        }"
       >
         <section
           v-for="(round, roundIndex) in bracketRounds"
@@ -406,10 +508,41 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
                 {{ match.title }}
               </button>
               <p v-else class="bracket-match-title muted">{{ match.title }}</p>
-              <div class="bracket-team-row" :class="{ winner: match.winner_team_id === match.team_a_id && match.team_a_id }">
-                <span class="bracket-team-name">{{ displayTeamName(match, 'A') }}</span>
+              <div v-if="ctx.canManageEvent && !match.isPlaceholder" class="bracket-top-actions">
                 <button
-                  v-if="canReportWinner(match, match.team_a_id)"
+                  class="btn-secondary bracket-toggle-btn"
+                  type="button"
+                  :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
+                  @click="toggleMatchupEditor(match.id)"
+                >
+                  {{ isEditingMatchup(match.id) ? 'Close edit' : 'Edit matchup' }}
+                </button>
+                <button
+                  v-if="isEditingMatchup(match.id)"
+                  class="btn-secondary bracket-action-btn"
+                  type="button"
+                  :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
+                  @click="saveMatchupAndClose(match.id)"
+                >
+                  {{ ctx.savingMatchups[match.id] ? 'Saving...' : 'Save' }}
+                </button>
+              </div>
+              <div class="bracket-team-row" :class="{ winner: match.winner_team_id === match.team_a_id && match.team_a_id }">
+                <select
+                  v-if="ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id)"
+                  v-model="ctx.matchupSelections[match.id].teamAId"
+                  class="bracket-team-select"
+                  :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
+                  @click.stop
+                >
+                  <option value="">Choose team</option>
+                  <option v-for="team in ctx.event.teams" :key="`t-a-${match.id}-${team.id}`" :value="String(team.id)">
+                    {{ team.name }}
+                  </option>
+                </select>
+                <span v-else class="bracket-team-name">{{ displayTeamName(match, 'A') }}</span>
+                <button
+                  v-if="canReportWinner(match, match.team_a_id) && !isEditingMatchup(match.id)"
                   class="btn-secondary bracket-win-btn"
                   type="button"
                   :disabled="Boolean(ctx.reportingWinners[match.id])"
@@ -417,14 +550,37 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
                 >Win</button>
               </div>
               <div class="bracket-team-row" :class="{ winner: match.winner_team_id === match.team_b_id && match.team_b_id }">
-                <span class="bracket-team-name">{{ displayTeamName(match, 'B') }}</span>
+                <select
+                  v-if="ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id)"
+                  v-model="ctx.matchupSelections[match.id].teamBId"
+                  class="bracket-team-select"
+                  :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
+                  @click.stop
+                >
+                  <option value="">Choose team</option>
+                  <option v-for="team in ctx.event.teams" :key="`t-b-${match.id}-${team.id}`" :value="String(team.id)">
+                    {{ team.name }}
+                  </option>
+                </select>
+                <span v-else class="bracket-team-name">{{ displayTeamName(match, 'B') }}</span>
                 <button
-                  v-if="canReportWinner(match, match.team_b_id)"
+                  v-if="canReportWinner(match, match.team_b_id) && !isEditingMatchup(match.id)"
                   class="btn-secondary bracket-win-btn"
                   type="button"
                   :disabled="Boolean(ctx.reportingWinners[match.id])"
                   @click="ctx.reportMatchWinner(match.id, match.team_b_id)"
                 >Win</button>
+              </div>
+              <div v-if="ctx.canManageEvent && !match.isPlaceholder" class="bracket-edit-row">
+                <button
+                  v-if="canCancelWinner(match) && !isEditingMatchup(match.id)"
+                  class="btn-danger bracket-action-btn"
+                  type="button"
+                  :disabled="Boolean(ctx.cancellingWinners[match.id]) || Boolean(ctx.reportingWinners[match.id])"
+                  @click="ctx.cancelMatchWinner(match.id)"
+                >
+                  {{ ctx.cancellingWinners[match.id] ? 'Cancelling...' : 'Cancel Result' }}
+                </button>
               </div>
               <p class="muted bracket-status">
                 {{ match.winner_team_name ? `Winner: ${match.winner_team_name}` : `Status: ${match.status}` }}
@@ -452,7 +608,7 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
 }
 
 .tourney-bracket {
-  --card-min-height: 148px;
+  --card-min-height: 212px;
   --base-round-gap: 0.8rem;
   --col-gap: 16px;
   --column-height: calc(
@@ -460,7 +616,7 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
     ((var(--max-round-cards) - 1) * var(--base-round-gap))
   );
   display: grid;
-  grid-template-columns: repeat(var(--rounds), minmax(220px, 1fr));
+  grid-template-columns: repeat(var(--rounds), minmax(270px, 1fr));
   gap: var(--col-gap);
   min-width: max-content;
   align-items: stretch;
@@ -496,7 +652,6 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
   --connector-ink: color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
   position: relative;
   min-height: var(--card-min-height);
-  height: var(--card-min-height);
   border: 1px solid color-mix(in srgb, var(--line) 85%, var(--brand-2) 15%);
   background: color-mix(in srgb, var(--card) 90%, #f2f6ff 10%);
   border-radius: 10px;
@@ -587,6 +742,20 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
   font-weight: 800;
   color: var(--ink-1);
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bracket-toggle-btn {
+  padding: 0.14rem 0.44rem;
+  font-size: 0.74rem;
+}
+
+.bracket-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .bracket-team-row {
@@ -608,18 +777,43 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
 .bracket-team-name {
   font-size: 0.86rem;
   font-weight: 650;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bracket-team-select {
+  min-width: 0;
+  flex: 1;
+  max-width: 100%;
 }
 
 .bracket-win-btn {
   min-width: 48px;
   padding: 0.2rem 0.42rem;
   font-size: 0.78rem;
+  flex: 0 0 auto;
 }
 
 .bracket-status {
   margin: 0.22rem 0 0;
   font-size: 0.78rem;
   line-height: 1.3;
+}
+
+.bracket-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.bracket-action-btn {
+  padding: 0.18rem 0.44rem;
+  font-size: 0.76rem;
+  white-space: nowrap;
 }
 
 .bracket-round.round-first .bracket-match {
@@ -638,7 +832,7 @@ function roundCenterStep(cardsCount, cardHeight = 148, baseGap = 16) {
 
 @media (max-width: 900px) {
   .tourney-bracket {
-    grid-template-columns: repeat(var(--rounds), minmax(200px, 1fr));
+    grid-template-columns: repeat(var(--rounds), minmax(230px, 1fr));
     --col-gap: 12px;
   }
 

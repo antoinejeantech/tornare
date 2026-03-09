@@ -388,20 +388,6 @@ pub enum TeamNameUpdateOutcome {
     DuplicateName,
 }
 
-pub async fn event_match_exists(
-    pool: &PgPool,
-    event_id: Uuid,
-    match_id: Uuid,
-) -> Result<bool, crate::shared::errors::ApiError> {
-    let row = sqlx::query("SELECT id FROM event_matches WHERE id = $1 AND event_id = $2")
-        .bind(match_id)
-        .bind(event_id)
-        .fetch_optional(pool)
-        .await
-        .map_err(internal_error)?;
-    Ok(row.is_some())
-}
-
 pub async fn event_has_matches(
     pool: &PgPool,
     event_id: Uuid,
@@ -753,6 +739,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
             e.event_type,
             e.format,
             e.max_players,
+            m.user_id AS creator_id,
             u.display_name AS creator_name
          FROM events e
          LEFT JOIN event_memberships m ON m.event_id = e.id AND m.role = 'owner'
@@ -787,6 +774,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         event_type,
         format,
         is_owner: false,
+        creator_id: row.get("creator_id"),
         creator_name: row.get("creator_name"),
         max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,
         players,

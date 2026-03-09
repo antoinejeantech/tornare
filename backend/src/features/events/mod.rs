@@ -10,6 +10,7 @@ pub use handlers::{
     create_public_signup_request,
     decline_event_signup_request, delete_event, delete_event_player, delete_event_team,
     generate_tourney_bracket, get_event, get_event_signup_link, get_public_signup_info,
-    list_event_signup_requests, list_events, report_match_winner, rotate_event_signup_link,
+    list_event_signup_requests, list_events, report_match_winner, cancel_match_winner,
+    rotate_event_signup_link,
     set_matchup, update_event, update_event_player, update_event_team,
 };
