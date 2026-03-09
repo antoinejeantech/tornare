@@ -265,8 +265,8 @@ onMounted(() => {
 }
 
 .top-nav-mobile-user {
+  display: none;
   width: 100%;
-  display: grid;
   gap: 0.38rem;
 }
 
@@ -402,6 +402,10 @@ onMounted(() => {
 
   .mobile-only {
     display: block;
+  }
+
+  .top-nav-mobile-user {
+    display: grid;
   }
 
   .top-nav-current {
