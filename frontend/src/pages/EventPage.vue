@@ -267,6 +267,9 @@ async function loadOwnerSignupData() {
 
     if (requestsResult.status === 'fulfilled') {
       signupRequests.value = Array.isArray(requestsResult.value) ? requestsResult.value : []
+    } else {
+      signupRequests.value = []
+      reviewingSignupRequests.value = {}
     }
 
     if (linkResult.status === 'rejected' && requestsResult.status === 'rejected') {
@@ -279,6 +282,8 @@ async function loadOwnerSignupData() {
       setError('Failed to load signup requests')
     }
   } catch (err) {
+    signupRequests.value = []
+    reviewingSignupRequests.value = {}
     setError(err instanceof Error ? err.message : 'Failed to load signup requests')
   } finally {
     loadingSignupRequests.value = false
