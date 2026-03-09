@@ -33,11 +33,23 @@ watch(isOpen, (open) => {
   }
 
   document.body.style.overflow = open ? 'hidden' : ''
+
+  if (typeof window !== 'undefined') {
+    if (open) {
+      window.addEventListener('keydown', onKeydown)
+    } else {
+      window.removeEventListener('keydown', onKeydown)
+    }
+  }
 })
 
 onBeforeUnmount(() => {
   if (typeof document !== 'undefined') {
     document.body.style.overflow = ''
+  }
+
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', onKeydown)
   }
 })
 </script>
@@ -50,7 +62,6 @@ onBeforeUnmount(() => {
         class="confirm-backdrop"
         role="presentation"
         @click="onBackdropClick"
-        @keydown="onKeydown"
       >
         <article class="confirm-dialog" role="dialog" aria-modal="true" :aria-label="current.title">
           <h3 class="confirm-title">{{ current.title }}</h3>
