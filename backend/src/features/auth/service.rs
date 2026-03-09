@@ -37,6 +37,11 @@ pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<A
         return Err(bad_request("Email is already registered"));
     }
 
+    let normalized_username = normalize_username(&payload.username)?;
+    if repo::username_exists(&state.pool, &normalized_username).await? {
+        return Err(bad_request("Username is already taken"));
+    }
+
     let password_hash = hash_password(&payload.password)?;
     let user_id = Uuid::new_v4();
 
@@ -45,6 +50,7 @@ pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<A
         user_id,
         &normalized_email,
         &password_hash,
+        &normalized_username,
         payload.display_name.trim(),
     )
     .await?;
@@ -135,7 +141,7 @@ pub fn maybe_authenticated_user_id(state: &AppState, headers: &HeaderMap) -> Opt
 }
 
 pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<AuthUser, ApiError> {
-    let Some((id, email, display_name, role, battletag, rank_tank, rank_dps, rank_support, is_active)) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
+    let Some((id, email, username, display_name, role, battletag, rank_tank, rank_dps, rank_support, is_active)) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
         return Err(unauthorized("User not found"));
     };
 
@@ -148,6 +154,7 @@ pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<Auth
     Ok(AuthUser {
         id,
         email,
+        username,
         display_name,
         role,
         battletag,
@@ -176,7 +183,23 @@ fn validate_register_input(payload: &RegisterInput) -> Result<(), ApiError> {
         return Err(bad_request("Display name is required"));
     }
 
+    normalize_username(&payload.username)?;
+
     Ok(())
+}
+
+fn normalize_username(username: &str) -> Result<String, ApiError> {
+    let normalized = username.trim().to_lowercase();
+
+    if normalized.len() < 3 || normalized.len() > 24 {
+        return Err(bad_request("Username must be 3-24 characters long"));
+    }
+
+    if !normalized.chars().all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_') {
+        return Err(bad_request("Username can only use lowercase letters, numbers, and underscores"));
+    }
+
+    Ok(normalized)
 }
 
 fn normalize_email(email: &str) -> String {

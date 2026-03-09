@@ -6,11 +6,12 @@ use crate::shared::errors::internal_error;
 pub async fn find_user_profile_by_id(
     pool: &PgPool,
     user_id: Uuid,
-) -> Result<Option<(Uuid, String, String, String, Option<String>, String, String, String, bool)>, crate::shared::errors::ApiError> {
+) -> Result<Option<(Uuid, String, String, String, String, Option<String>, String, String, String, bool)>, crate::shared::errors::ApiError> {
     let row = sqlx::query(
                 "SELECT
                         u.id,
                         u.email,
+                        u.username,
                         u.display_name,
                     COALESCE(
                         (
@@ -50,6 +51,7 @@ pub async fn find_user_profile_by_id(
         (
             r.get("id"),
             r.get("email"),
+            r.get("username"),
             r.get("display_name"),
             r.get("role"),
             r.get("battletag"),
@@ -76,13 +78,30 @@ pub async fn email_exists_for_other_user(
     Ok(row.is_some())
 }
 
+pub async fn username_exists_for_other_user(
+    pool: &PgPool,
+    user_id: Uuid,
+    username: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query("SELECT id FROM users WHERE username = $1 AND id <> $2")
+        .bind(username)
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(row.is_some())
+}
+
 pub async fn update_user_profile_fields(
     pool: &PgPool,
     user_id: Uuid,
+    username: &str,
     display_name: &str,
     email: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE users SET display_name = $1, email = $2 WHERE id = $3")
+    sqlx::query("UPDATE users SET username = $1, display_name = $2, email = $3 WHERE id = $4")
+        .bind(username)
         .bind(display_name)
         .bind(email)
         .bind(user_id)

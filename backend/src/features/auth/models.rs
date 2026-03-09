@@ -5,6 +5,7 @@ use uuid::Uuid;
 pub struct AuthUser {
     pub id: Uuid,
     pub email: String,
+    pub username: String,
     pub display_name: String,
     pub role: String,
     pub battletag: Option<String>,
@@ -26,6 +27,7 @@ pub struct RegisterInput {
     pub email: String,
     pub password: String,
     pub password_confirm: String,
+    pub username: String,
     pub display_name: String,
 }
 

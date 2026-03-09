@@ -12,6 +12,7 @@ const mode = ref('login')
 const email = ref('')
 const password = ref('')
 const passwordConfirm = ref('')
+const username = ref('')
 const displayName = ref('')
 const error = ref('')
 const submitting = ref(false)
@@ -21,10 +22,17 @@ const canSubmit = computed(() => {
   const passwordOk = password.value.length >= 8
 
   if (mode.value === 'register') {
+    const usernameValue = username.value.trim().toLowerCase()
+    const usernameOk =
+      usernameValue.length >= 3 &&
+      usernameValue.length <= 24 &&
+      /^[a-z0-9_]+$/.test(usernameValue)
+
     return (
       emailOk &&
       passwordOk &&
       password.value === passwordConfirm.value &&
+      usernameOk &&
       displayName.value.trim().length > 0
     )
   }
@@ -54,6 +62,7 @@ async function submit() {
         email: email.value.trim(),
         password: password.value,
         password_confirm: passwordConfirm.value,
+        username: username.value.trim().toLowerCase(),
         display_name: displayName.value.trim(),
       })
     } else {
@@ -103,6 +112,10 @@ function switchMode(nextMode) {
       </div>
 
       <form class="grid-form" @submit.prevent="submit">
+        <label v-if="mode === 'register'">
+          Username
+          <input v-model="username" placeholder="antoine" />
+        </label>
         <label v-if="mode === 'register'">
           Display name
           <input v-model="displayName" placeholder="Antoine" />

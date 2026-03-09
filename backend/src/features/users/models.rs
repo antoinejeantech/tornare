@@ -14,6 +14,7 @@ pub const OVERWATCH_RANKS: [&str; 9] = [
 
 #[derive(Deserialize)]
 pub struct UpdateUserProfileInput {
+    pub username: String,
     pub display_name: String,
     pub email: String,
     pub battletag: Option<String>,

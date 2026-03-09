@@ -35,17 +35,28 @@ pub async fn email_exists(pool: &PgPool, email: &str) -> Result<bool, crate::sha
     Ok(row.is_some())
 }
 
+pub async fn username_exists(pool: &PgPool, username: &str) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query("SELECT id FROM users WHERE username = $1")
+        .bind(username)
+        .fetch_optional(pool)
+        .await
+        .map_err(internal_error)?;
+    Ok(row.is_some())
+}
+
 pub async fn insert_user(
     pool: &PgPool,
     user_id: Uuid,
     email: &str,
     password_hash: &str,
+    username: &str,
     display_name: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("INSERT INTO users (id, email, password_hash, display_name) VALUES ($1, $2, $3, $4)")
+    sqlx::query("INSERT INTO users (id, email, password_hash, username, display_name) VALUES ($1, $2, $3, $4, $5)")
         .bind(user_id)
         .bind(email)
         .bind(password_hash)
+        .bind(username)
         .bind(display_name)
         .execute(pool)
         .await
@@ -87,11 +98,12 @@ pub async fn insert_default_role(pool: &PgPool, user_id: Uuid) -> Result<(), cra
 pub async fn find_user_profile_by_id(
     pool: &PgPool,
     user_id: Uuid,
-) -> Result<Option<(Uuid, String, String, String, Option<String>, String, String, String, bool)>, crate::shared::errors::ApiError> {
+) -> Result<Option<(Uuid, String, String, String, String, Option<String>, String, String, String, bool)>, crate::shared::errors::ApiError> {
     let row = sqlx::query(
                 "SELECT
                         u.id,
                         u.email,
+                        u.username,
                         u.display_name,
                     COALESCE(
                         (
@@ -131,6 +143,7 @@ pub async fn find_user_profile_by_id(
         (
             r.get("id"),
             r.get("email"),
+            r.get("username"),
             r.get("display_name"),
             r.get("role"),
             r.get("battletag"),

@@ -21,7 +21,7 @@ pub async fn get_user_profile_public(
     state: &AppState,
     user_id: Uuid,
 ) -> Result<AuthUser, ApiError> {
-    let Some((id, email, display_name, role, battletag, rank_tank, rank_dps, rank_support, is_active)) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
+    let Some((id, email, username, display_name, role, battletag, rank_tank, rank_dps, rank_support, is_active)) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
         return Err(not_found("User not found"));
     };
 
@@ -34,6 +34,7 @@ pub async fn get_user_profile_public(
     Ok(AuthUser {
         id,
         email,
+        username,
         display_name,
         role,
         battletag,
@@ -59,6 +60,8 @@ pub async fn update_user_profile_for_user(
         return Err(bad_request("Display name is required"));
     }
 
+    let username = normalize_username(&payload.username)?;
+
     let email = normalize_email(&payload.email);
     if email.is_empty() || !email.contains('@') {
         return Err(bad_request("A valid email is required"));
@@ -66,6 +69,10 @@ pub async fn update_user_profile_for_user(
 
     if repo::email_exists_for_other_user(&state.pool, target_user_id, &email).await? {
         return Err(bad_request("Email is already registered"));
+    }
+
+    if repo::username_exists_for_other_user(&state.pool, target_user_id, &username).await? {
+        return Err(bad_request("Username is already taken"));
     }
 
     let current_profile = get_user_profile_public(state, target_user_id).await?;
@@ -90,6 +97,7 @@ pub async fn update_user_profile_for_user(
     repo::update_user_profile_fields(
         &state.pool,
         target_user_id,
+        &username,
         display_name,
         &email,
     )
@@ -134,6 +142,25 @@ pub async fn update_user_profile_for_user(
 
 fn normalize_email(email: &str) -> String {
     email.trim().to_lowercase()
+}
+
+fn normalize_username(username: &str) -> Result<String, ApiError> {
+    let normalized = username.trim().to_lowercase();
+
+    if normalized.len() < 3 || normalized.len() > 24 {
+        return Err(bad_request("Username must be 3-24 characters long"));
+    }
+
+    if !normalized
+        .chars()
+        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_')
+    {
+        return Err(bad_request(
+            "Username can only use lowercase letters, numbers, and underscores",
+        ));
+    }
+
+    Ok(normalized)
 }
 
 fn validate_rank(role: &str, rank: &str) -> Result<(), ApiError> {
