@@ -287,7 +287,30 @@ onMounted(loadLatestEvents)
       badge-label="Spotlight Event"
     />
 
-    <section class="home-latest card reveal-block reveal-5">
+    <section class="home-jump-grid reveal-block reveal-5" aria-label="Quick links">
+      <RouterLink class="card home-jump-card" to="/events">
+        <span class="material-symbols-rounded home-jump-icon" aria-hidden="true">event</span>
+        <h2>Event Hub</h2>
+        <p class="muted">Create events, configure formats, and manage signups from one operational view.</p>
+        <span class="home-jump-link">Go To Events</span>
+      </RouterLink>
+
+      <RouterLink class="card home-jump-card" to="/news">
+        <span class="material-symbols-rounded home-jump-icon" aria-hidden="true">campaign</span>
+        <h2>Latest Updates</h2>
+        <p class="muted">Broadcast patch notes, rule changes, and league news to everyone in one feed.</p>
+        <span class="home-jump-link">Read News</span>
+      </RouterLink>
+
+      <RouterLink class="card home-jump-card" to="/about">
+        <span class="material-symbols-rounded home-jump-icon" aria-hidden="true">groups</span>
+        <h2>Project Story</h2>
+        <p class="muted">See the roadmap and mission behind Tornare and where the platform is headed next.</p>
+        <span class="home-jump-link">About Tornare</span>
+      </RouterLink>
+    </section>
+
+    <section class="home-latest card reveal-block reveal-6">
       <div class="home-latest-head">
         <h2>Latest Events</h2>
         <RouterLink class="home-inline-link home-inline-link-action" to="/events">
@@ -309,7 +332,7 @@ onMounted(loadLatestEvents)
       </ul>
     </section>
 
-    <section class="home-banner card reveal-block reveal-6">
+    <section class="home-banner card reveal-block reveal-7">
       <h2>Command Center For Captains And Organizers</h2>
       <p class="muted">From signup links to team coordination, Tornare keeps your event lifecycle visible and actionable.</p>
     </section>
@@ -350,7 +373,6 @@ onMounted(loadLatestEvents)
 .home-ticker {
   display: grid;
   gap: 0.52rem;
-  border-color: color-mix(in srgb, var(--brand-2) 30%, var(--line) 70%);
 }
 
 .home-dashboard-grid {
@@ -612,7 +634,6 @@ onMounted(loadLatestEvents)
 .home-countdown {
   display: grid;
   gap: 0.22rem;
-  border-color: color-mix(in srgb, var(--brand-1) 24%, var(--line) 76%);
   background: color-mix(in srgb, var(--card) 92%, #162134 8%);
   min-height: 128px;
 }
@@ -710,7 +731,6 @@ onMounted(loadLatestEvents)
 .home-banner {
   padding-top: 0.88rem;
   padding-bottom: 0.88rem;
-  border-color: color-mix(in srgb, var(--brand-1) 28%, var(--line) 72%);
   background: linear-gradient(145deg, color-mix(in srgb, var(--card) 90%, #edf4ff 10%), var(--card));
 }
 
@@ -751,6 +771,58 @@ onMounted(loadLatestEvents)
   margin: 0.45rem 0 0;
 }
 
+.home-jump-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.62rem;
+}
+
+.home-jump-card {
+  text-decoration: none;
+  color: inherit;
+  display: grid;
+  align-content: start;
+  gap: 0.32rem;
+  min-height: 176px;
+  border-color: color-mix(in srgb, var(--line) 86%, var(--brand-2) 14%);
+  background:
+    radial-gradient(380px 130px at 0% 0%, color-mix(in srgb, var(--brand-2) 18%, transparent 82%), transparent 68%),
+    linear-gradient(145deg, color-mix(in srgb, var(--card) 93%, #19253a 7%), var(--card));
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.home-jump-card h2,
+.home-jump-card p {
+  margin: 0;
+}
+
+.home-jump-icon {
+  color: color-mix(in srgb, var(--brand-1) 84%, #fff 16%);
+  font-size: 1rem;
+}
+
+.home-jump-link {
+  margin-top: auto;
+  color: color-mix(in srgb, var(--ink-2) 86%, var(--ink-1) 14%);
+  font-family: "Space Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.home-jump-card:hover {
+  border-color: color-mix(in srgb, var(--brand-2) 52%, var(--line) 48%);
+  box-shadow:
+    0 12px 26px rgba(8, 20, 41, 0.28),
+    0 3px 10px rgba(8, 20, 41, 0.18);
+  transform: translateY(-2px);
+}
+
+.home-jump-card:hover .home-jump-link {
+  color: color-mix(in srgb, var(--brand-1) 80%, #fff 20%);
+}
+
 .reveal-block {
   opacity: 0;
   transform: translateY(10px);
@@ -763,6 +835,7 @@ onMounted(loadLatestEvents)
 .reveal-4 { animation-delay: 240ms; }
 .reveal-5 { animation-delay: 300ms; }
 .reveal-6 { animation-delay: 360ms; }
+.reveal-7 { animation-delay: 420ms; }
 
 @keyframes reveal-rise {
   to {
@@ -793,6 +866,10 @@ onMounted(loadLatestEvents)
   }
 
   .home-countdown-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-jump-grid {
     grid-template-columns: 1fr;
   }
 
