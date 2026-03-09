@@ -149,8 +149,8 @@ onMounted(loadSignupInfo)
         <p v-if="error" class="status status-error">{{ error }}</p>
         <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
-        <p v-if="rosterFull" class="status status-blocked status-blocked-soft">Event is currently full, but you can still send a request while the owner adjusts slots.</p>
         <p v-if="signupRequestsFull" class="status status-blocked">Signup is currently unavailable because this event reached the request limit.</p>
+        <p v-else-if="rosterFull" class="status status-blocked status-blocked-soft">Event is currently full, but you can still send a request while the owner adjusts slots.</p>
 
         <form class="join-form" @submit.prevent="submitRequest">
           <label class="join-field join-field-full">
