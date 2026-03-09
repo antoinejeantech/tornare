@@ -1,6 +1,8 @@
 :root {
   --bg-0: #10141a;
   --bg-1: #171d25;
+  --bg-edge-top: #0f0f0f;
+  --bg-edge-bottom: #141414;
   --bg-glow-a: rgba(255, 255, 255, 0.06);
   --bg-glow-b: rgba(0, 0, 0, 0.28);
   --ink-1: #e9edf5;
@@ -46,12 +48,14 @@ body {
   background:
     radial-gradient(920px 420px at 15% -10%, var(--bg-glow-a), transparent 66%),
     radial-gradient(1200px 620px at 85% 0%, var(--bg-glow-b), transparent 64%),
-    linear-gradient(180deg, #0f0f0f 0%, var(--bg-0) 48%, #141414 100%);
+    linear-gradient(180deg, var(--bg-edge-top) 0%, var(--bg-0) 48%, var(--bg-edge-bottom) 100%);
 }
 
 body.theme-light {
   --bg-0: #f5f0e3;
   --bg-1: #fcf8ef;
+  --bg-edge-top: #fbf5e8;
+  --bg-edge-bottom: #efe5cf;
   --bg-glow-a: rgba(211, 165, 86, 0.16);
   --bg-glow-b: rgba(76, 113, 168, 0.09);
   --card: #fffdf7;
