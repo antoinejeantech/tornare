@@ -16,7 +16,10 @@ const username = ref('')
 const displayName = ref('')
 const error = ref('')
 const submitting = ref(false)
-const publicSignupEnabled = String(import.meta.env.VITE_PUBLIC_SIGNUP_ENABLED || '').toLowerCase() === 'true'
+const publicSignupFlag = String(import.meta.env.VITE_PUBLIC_SIGNUP_ENABLED || '').trim().toLowerCase()
+const publicSignupEnabled = publicSignupFlag
+  ? publicSignupFlag === 'true'
+  : Boolean(import.meta.env.DEV)
 
 const canSubmit = computed(() => {
   const emailOk = email.value.trim().length > 0
