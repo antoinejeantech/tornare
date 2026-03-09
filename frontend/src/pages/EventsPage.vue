@@ -146,6 +146,11 @@ const weeklyTourneyCount = computed(() => {
 })
 
 const featuredEvent = computed(() => {
+  const manuallyFeatured = sortedEvents.value.find((event) => Boolean(event?.is_featured))
+  if (manuallyFeatured) {
+    return manuallyFeatured
+  }
+
   const upcoming = sortedEvents.value.find((event) => {
     const startAt = normalizeDateValue(event?.start_date)
     return startAt !== null && startAt >= Date.now()

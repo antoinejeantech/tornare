@@ -32,6 +32,11 @@ const sortedEvents = computed(() => {
 })
 
 const featuredEvent = computed(() => {
+  const manuallyFeatured = sortedEvents.value.find((event) => Boolean(event?.is_featured))
+  if (manuallyFeatured) {
+    return manuallyFeatured
+  }
+
   const now = Date.now()
   const nextUpcoming = sortedEvents.value.find((event) => {
     const start = normalizeDate(event?.start_date)
