@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -8,6 +8,7 @@ import tornareLogo from '../assets/branding/tornare-logo.svg'
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const mobileMenuOpen = ref(false)
 
 const loginRoute = computed(() => {
   const redirect = route.name === 'auth' ? '/events' : route.fullPath
@@ -24,9 +25,22 @@ const profileRoute = computed(() => {
 })
 
 async function logout() {
+  mobileMenuOpen.value = false
   await authStore.logout()
   router.push({ name: 'home' })
 }
+
+function toggleMobileMenu() {
+  mobileMenuOpen.value = !mobileMenuOpen.value
+}
+
+function closeMobileMenu() {
+  mobileMenuOpen.value = false
+}
+
+watch(() => route.fullPath, () => {
+  closeMobileMenu()
+})
 
 onMounted(() => {
   authStore.initialize()
@@ -40,20 +54,31 @@ onMounted(() => {
         <img class="brand-logo" :src="tornareLogo" alt="Tornare logo" />
         <span>Tornare</span>
       </RouterLink>
-      <div class="top-nav-links">
-        <RouterLink class="top-nav-link" to="/">
+      <button
+        class="top-nav-mobile-toggle icon-btn"
+        type="button"
+        :aria-expanded="mobileMenuOpen ? 'true' : 'false'"
+        aria-controls="top-nav-mobile-menu"
+        :title="mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'"
+        @click="toggleMobileMenu"
+      >
+        <span class="material-symbols-rounded" aria-hidden="true">{{ mobileMenuOpen ? 'close' : 'menu' }}</span>
+        <span class="sr-only">{{ mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu' }}</span>
+      </button>
+      <div id="top-nav-mobile-menu" class="top-nav-links" :class="{ 'menu-open': mobileMenuOpen }">
+        <RouterLink class="top-nav-link" to="/" @click="closeMobileMenu">
           <span class="material-symbols-rounded" aria-hidden="true">home</span>
           <span>Home</span>
         </RouterLink>
-        <RouterLink class="top-nav-link" to="/events">
+        <RouterLink class="top-nav-link" to="/events" @click="closeMobileMenu">
           <span class="material-symbols-rounded" aria-hidden="true">event</span>
           <span>Events</span>
         </RouterLink>
-        <RouterLink class="top-nav-link" to="/about">
+        <RouterLink class="top-nav-link" to="/about" @click="closeMobileMenu">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
           <span>About</span>
         </RouterLink>
-        <RouterLink class="top-nav-link" to="/news">
+        <RouterLink class="top-nav-link" to="/news" @click="closeMobileMenu">
           <span class="material-symbols-rounded" aria-hidden="true">article</span>
           <span>News</span>
         </RouterLink>
@@ -61,11 +86,11 @@ onMounted(() => {
           <span class="material-symbols-rounded" aria-hidden="true">search</span>
           <span>Search</span>
         </div>
-        <RouterLink v-if="!authStore.isAuthenticated" class="top-nav-link" :to="loginRoute">
+        <RouterLink v-if="!authStore.isAuthenticated" class="top-nav-link" :to="loginRoute" @click="closeMobileMenu">
           <span class="material-symbols-rounded" aria-hidden="true">login</span>
           <span>Login</span>
         </RouterLink>
-        <div v-else class="top-nav-user-menu" tabindex="0">
+        <div v-else class="top-nav-user-menu desktop-only" tabindex="0">
           <button class="top-nav-user-trigger" type="button">
             <span>{{ authLabel }}</span>
             <span class="material-symbols-rounded" aria-hidden="true">expand_more</span>
@@ -80,6 +105,17 @@ onMounted(() => {
               <span>Logout</span>
             </button>
           </div>
+        </div>
+
+        <div v-if="authStore.isAuthenticated" class="top-nav-mobile-user mobile-only">
+          <RouterLink class="top-nav-link" :to="profileRoute" @click="closeMobileMenu">
+            <span class="material-symbols-rounded" aria-hidden="true">person</span>
+            <span>Profile</span>
+          </RouterLink>
+          <button class="top-nav-link top-nav-mobile-logout" type="button" @click="logout">
+            <span class="material-symbols-rounded" aria-hidden="true">logout</span>
+            <span>Logout</span>
+          </button>
         </div>
       </div>
     </div>
@@ -138,6 +174,18 @@ onMounted(() => {
   align-items: center;
   gap: 0.42rem;
   margin-left: auto;
+}
+
+.top-nav-mobile-toggle {
+  display: none;
+  border: 1px solid color-mix(in srgb, var(--brand-2) 44%, var(--line) 56%);
+  background: color-mix(in srgb, var(--card) 92%, var(--brand-2) 8%);
+  color: var(--ink-1);
+  border-radius: 10px;
+}
+
+.top-nav-mobile-toggle .material-symbols-rounded {
+  font-size: 1.1rem;
 }
 
 .top-nav-link {
@@ -210,6 +258,22 @@ onMounted(() => {
   position: relative;
   display: inline-flex;
   align-items: center;
+}
+
+.mobile-only {
+  display: none;
+}
+
+.top-nav-mobile-user {
+  display: none;
+  width: 100%;
+  gap: 0.38rem;
+}
+
+.top-nav-mobile-logout {
+  justify-content: flex-start;
+  width: 100%;
+  cursor: pointer;
 }
 
 .top-nav-user-trigger {
@@ -294,6 +358,56 @@ onMounted(() => {
 }
 
 @media (max-width: 900px) {
+  .top-nav-inner {
+    position: relative;
+  }
+
+  .top-nav-mobile-toggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+
+  .top-nav-links {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 1rem;
+    left: 1rem;
+    z-index: 60;
+    display: none;
+    margin-left: 0;
+    padding: 0.55rem;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--brand-2) 36%, var(--line) 64%);
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--card) 92%, #18253a 8%) 0%, color-mix(in srgb, var(--card) 96%, #101828 4%) 100%);
+    box-shadow: 0 14px 28px rgba(3, 8, 18, 0.46);
+    gap: 0.38rem;
+    align-items: stretch;
+  }
+
+  .top-nav-links.menu-open {
+    display: grid;
+  }
+
+  .top-nav-link {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 10px;
+    padding: 0.52rem 0.62rem;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  .top-nav-mobile-user {
+    display: grid;
+  }
+
   .top-nav-current {
     display: none;
   }

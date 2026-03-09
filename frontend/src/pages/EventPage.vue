@@ -1,8 +1,7 @@
 <script setup>
-import { computed, nextTick, onMounted, provide, proxyRefs, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, proxyRefs, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
-import { formatEventStartDate } from '../lib/dates'
 import { formatOptionsForType } from '../lib/event-format'
 import { useAlert } from '../lib/alerts'
 import { useEventStore } from '../stores/event'
@@ -25,6 +24,7 @@ const loadingEvent = ref(false)
 const updatingEvent = ref(false)
 const editingEventMeta = ref(false)
 const creatingMatch = ref(false)
+const clearingBracket = ref(false)
 const deletingEvent = ref(false)
 const deletingMatchId = ref(null)
 const addingPlayer = ref(false)
@@ -66,18 +66,47 @@ const editEventFormat = ref('5v5')
 const editEventMaxPlayers = ref(10)
 const validSections = ['overview', 'roster', 'teams', 'matches', 'requests']
 const activeSection = ref('overview')
+const nowTick = ref(Date.now())
+let startsInTimer = null
 
 const eventId = computed(() => String(route.params.id || ''))
 const canManageEvent = computed(() => Boolean(event.value?.is_owner))
 const isTourneyEvent = computed(() => String(event.value?.event_type || '').toUpperCase() === 'TOURNEY')
-const formattedEventStartDate = computed(() => formatEventStartDate(event.value?.start_date))
-const creatorProfileRoute = computed(() => {
-  const creatorId = String(event.value?.creator_id || '').trim()
-  if (!creatorId) {
-    return null
+const eventStartsInLabel = computed(() => {
+  const raw = String(event.value?.start_date || '').trim()
+  if (!raw) {
+    return ''
   }
 
-  return { name: 'profile', params: { id: creatorId } }
+  const startAt = new Date(raw).getTime()
+  if (Number.isNaN(startAt)) {
+    return ''
+  }
+
+  const diffMs = startAt - nowTick.value
+  if (Math.abs(diffMs) < 60 * 1000) {
+    return 'Live now'
+  }
+
+  const absMs = Math.abs(diffMs)
+  const totalMinutes = Math.round(absMs / (60 * 1000))
+  const days = Math.floor(totalMinutes / (60 * 24))
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
+  const minutes = totalMinutes % 60
+  const parts = []
+
+  if (days > 0) {
+    parts.push(`${days}d`)
+  }
+  if (hours > 0) {
+    parts.push(`${hours}h`)
+  }
+  if (minutes > 0 || parts.length === 0) {
+    parts.push(`${minutes}m`)
+  }
+
+  const readable = parts.slice(0, 2).join(' ')
+  return diffMs > 0 ? `Starts in ${readable}` : `Started ${readable} ago`
 })
 const signupShareUrl = computed(() => {
   if (!signupToken.value) {
@@ -433,7 +462,51 @@ async function deleteTeam(team) {
   try {
     await eventStore.deleteTeam(eventId.value, team.id)
 
-    await loadEvent()
+    if (event.value) {
+      const deletedTeamId = String(team.id)
+
+      event.value = {
+        ...event.value,
+        teams: event.value.teams.filter((entry) => String(entry.id) !== deletedTeamId),
+        players: event.value.players.map((player) => {
+          if (String(player.team_id || '') !== deletedTeamId) {
+            return player
+          }
+
+          return {
+            ...player,
+            team_id: null,
+            team: null,
+          }
+        }),
+        matches: event.value.matches.map((match) => {
+          const clearsTeamA = String(match.team_a_id || '') === deletedTeamId
+          const clearsTeamB = String(match.team_b_id || '') === deletedTeamId
+          const clearsWinner = String(match.winner_team_id || '') === deletedTeamId
+
+          if (!clearsTeamA && !clearsTeamB && !clearsWinner) {
+            return match
+          }
+
+          return {
+            ...match,
+            team_a_id: clearsTeamA ? null : match.team_a_id,
+            team_a_name: clearsTeamA ? null : match.team_a_name,
+            team_b_id: clearsTeamB ? null : match.team_b_id,
+            team_b_name: clearsTeamB ? null : match.team_b_name,
+            winner_team_id: clearsWinner ? null : match.winner_team_id,
+            winner_team_name: clearsWinner ? null : match.winner_team_name,
+          }
+        }),
+      }
+    }
+
+    if (editingTeamId.value === team.id) {
+      editingTeamId.value = null
+      editTeamName.value = ''
+    }
+
+    hydrateSelections()
     setNotice('Team deleted')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to delete team')
@@ -595,7 +668,6 @@ async function removePlayer(player) {
   } catch (err) {
     event.value = previousEvent
     setError(err instanceof Error ? err.message : 'Failed to remove player')
-    await loadEvent()
   } finally {
     deletingPlayers.value = {
       ...deletingPlayers.value,
@@ -639,7 +711,6 @@ async function saveMatchup(matchId) {
     setNotice('Matchup saved')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to save matchup')
-    await loadEvent()
   } finally {
     savingMatchups.value = {
       ...savingMatchups.value,
@@ -717,6 +788,45 @@ async function generateTourneyBracket(mode = 'random') {
   }
 }
 
+async function clearTourneyBracket() {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || !isTourneyEvent.value || clearingBracket.value) {
+    return
+  }
+
+  const hasPlayedMatches = Boolean(event.value?.matches?.some((match) => Boolean(match.winner_team_id)))
+  if (hasPlayedMatches) {
+    setError('Cannot clear bracket after matches have been played')
+    return
+  }
+
+  const hasBracketMatches = Boolean(event.value?.matches?.length)
+  if (!hasBracketMatches) {
+    setNotice('No generated bracket to clear')
+    return
+  }
+
+  const confirmed = window.confirm('Delete generated bracket matches? This cannot be undone.')
+  if (!confirmed) {
+    return
+  }
+
+  clearingBracket.value = true
+  try {
+    const updatedEvent = await matchStore.clearTourneyBracket(eventId.value)
+    event.value = updatedEvent
+    hydrateSelections()
+    setNotice('Bracket cleared')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to clear bracket')
+  } finally {
+    clearingBracket.value = false
+  }
+}
+
 async function reportMatchWinner(matchId, winnerTeamId) {
   if (!ensureOwnerAction()) {
     return
@@ -739,7 +849,9 @@ async function reportMatchWinner(matchId, winnerTeamId) {
 
   try {
     await matchStore.reportMatchWinner(eventId.value, matchId, winnerTeamId)
-    await loadEvent()
+    const updatedEvent = await eventStore.fetchEvent(eventId.value)
+    event.value = updatedEvent
+    hydrateSelections()
     await nextTick()
 
     if (typeof window !== 'undefined') {
@@ -791,7 +903,9 @@ async function cancelMatchWinner(matchId) {
 
   try {
     await matchStore.cancelMatchWinner(eventId.value, matchId)
-    await loadEvent()
+    const updatedEvent = await eventStore.fetchEvent(eventId.value)
+    event.value = updatedEvent
+    hydrateSelections()
     await nextTick()
 
     if (typeof window !== 'undefined') {
@@ -999,7 +1113,18 @@ watch(
   }
 )
 
-onMounted(loadEvent)
+onMounted(() => {
+  loadEvent()
+  startsInTimer = window.setInterval(() => {
+    nowTick.value = Date.now()
+  }, 30 * 1000)
+})
+
+onBeforeUnmount(() => {
+  if (startsInTimer) {
+    window.clearInterval(startsInTimer)
+  }
+})
 
 provide('eventCtx', proxyRefs({
   event,
@@ -1009,6 +1134,7 @@ provide('eventCtx', proxyRefs({
   creatingSoloTeams,
   balancingTeams,
   creatingMatch,
+  clearingBracket,
   deletingEvent,
   deletingMatchId,
   addingPlayer,
@@ -1050,6 +1176,7 @@ provide('eventCtx', proxyRefs({
   autoBalanceTeams,
   createMatch,
   generateTourneyBracket,
+  clearTourneyBracket,
   deleteEvent,
   deleteMatch,
   saveMatchup,
@@ -1087,21 +1214,7 @@ provide('eventCtx', proxyRefs({
           <img class="event-logo" :src="overwatchLogo" alt="Overwatch" />
           <div class="event-title-row">
             <h2>{{ event.name }}</h2>
-          </div>
-          <div class="event-meta-row">
-            <span class="meta-chip">{{ event.event_type }}</span>
-            <span class="meta-chip">{{ event.format }}</span>
-            <span class="meta-chip">
-              by
-              <RouterLink v-if="creatorProfileRoute" class="meta-chip-link" :to="creatorProfileRoute">
-                {{ event.creator_name || 'Unknown' }}
-              </RouterLink>
-              <span v-else>{{ event.creator_name || 'Unknown' }}</span>
-            </span>
-            <span v-if="formattedEventStartDate" class="meta-chip">{{ formattedEventStartDate }}</span>
-            <span class="meta-chip">{{ event.players.length }}/{{ event.max_players }} players</span>
-            <span class="meta-chip">{{ event.teams.length }} teams</span>
-            <span class="meta-chip">{{ event.matches.length }} matches</span>
+            <p v-if="eventStartsInLabel" class="event-starts-in muted">{{ eventStartsInLabel }}</p>
           </div>
         </div>
         <div class="event-header-actions">
@@ -1257,30 +1370,37 @@ provide('eventCtx', proxyRefs({
 }
 
 .event-workspace-card {
-  min-height: calc(100vh - 200px);
   display: flex;
   flex-direction: column;
 }
 
 .event-header-row h2 {
   margin: 0;
+  text-transform: capitalize;
 }
 
 .event-title-stack {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto auto;
+  grid-template-rows: auto;
   gap: 0.42rem 0.6rem;
   min-width: 0;
 }
 
 .event-title-row {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 0.55rem;
   min-width: 0;
   grid-column: 2;
   grid-row: 1;
+}
+
+.event-starts-in {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 .event-logo {
@@ -1289,11 +1409,10 @@ provide('eventCtx', proxyRefs({
   border-radius: 8px;
   object-fit: contain;
   background: color-mix(in srgb, var(--card) 74%, #19253a 26%);
-  border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-1) 28%);
   box-shadow: 0 3px 10px rgba(17, 52, 112, 0.16);
   padding: 0.2rem;
   grid-column: 1;
-  grid-row: 1 / span 2;
+  grid-row: 1;
   align-self: stretch;
 }
 
@@ -1314,50 +1433,17 @@ provide('eventCtx', proxyRefs({
   gap: 0.24rem;
 }
 
-.event-meta-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.48rem;
-  margin-bottom: 0;
-  grid-column: 2;
-  grid-row: 2;
-}
-
-.meta-chip {
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--brand-1) 35%, var(--line) 65%);
-  background: color-mix(in srgb, var(--accent) 22%, var(--meta-bg) 78%);
-  color: var(--meta-ink);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.22rem;
-  padding: 0.22rem 0.62rem;
-  font-size: 0.81rem;
-  font-family: "Space Mono", ui-monospace, monospace;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.meta-chip-link {
-  color: var(--brand-1);
-  text-decoration: none;
-}
-
-.meta-chip-link:hover {
-  text-decoration: underline;
-}
-
 .event-layout {
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr);
   gap: 0.75rem;
-  align-items: stretch;
+  align-items: start;
   margin-bottom: 0;
-  flex: 1;
-  min-height: 0;
 }
 
 .event-left-nav {
+  position: sticky;
+  top: 5.1rem;
   display: grid;
   gap: 0.34rem;
   border: 1px solid color-mix(in srgb, var(--brand-1) 30%, var(--line) 70%);
@@ -1493,9 +1579,6 @@ provide('eventCtx', proxyRefs({
   padding: 0.78rem;
   display: grid;
   gap: 0.6rem;
-  height: 100%;
-  min-height: 0;
-  overflow-y: auto;
 }
 
 @media (max-width: 900px) {
@@ -1511,6 +1594,11 @@ provide('eventCtx', proxyRefs({
     grid-template-columns: 1fr;
   }
 
+  .event-left-nav {
+    position: static;
+    top: auto;
+  }
+
   .event-header-row {
     flex-direction: column;
     align-items: stretch;
@@ -1522,7 +1610,7 @@ provide('eventCtx', proxyRefs({
 
   .event-title-stack {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
+    grid-template-rows: auto auto;
     gap: 0.35rem;
   }
 
@@ -1537,11 +1625,6 @@ provide('eventCtx', proxyRefs({
   .event-title-row {
     grid-column: 1;
     grid-row: 2;
-  }
-
-  .event-meta-row {
-    grid-column: 1;
-    grid-row: 3;
   }
 
   .event-panel {

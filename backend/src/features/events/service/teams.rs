@@ -255,6 +255,13 @@ pub async fn delete_event_team_for_user(
 
     ensure_event_exists(state, event_id).await?;
 
+    let played_matches = repo::count_played_matches_for_team(&state.pool, event_id, team_id).await?;
+    if played_matches > 0 {
+        return Err(bad_request(
+            "Cannot delete a team that already has completed match results.",
+        ));
+    }
+
     let deleted = repo::delete_event_team_by_id(&state.pool, event_id, team_id).await?;
 
     if !deleted {

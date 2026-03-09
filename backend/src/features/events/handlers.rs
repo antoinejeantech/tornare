@@ -221,6 +221,17 @@ pub async fn generate_tourney_bracket(
         .map(Json)
 }
 
+pub async fn clear_tourney_bracket(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Event> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::clear_tourney_bracket_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
 pub async fn report_match_winner(
     Path((event_id, match_id)): Path<(Uuid, Uuid)>,
     State(state): State<AppState>,

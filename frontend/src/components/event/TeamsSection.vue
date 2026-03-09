@@ -347,7 +347,9 @@ function assignmentNotice(player) {
       >
         {{ ctx.balancingTeams ? 'Balancing teams...' : 'Best team setup (ELO)' }}
       </button>
-      <p class="muted">Creates one team per unassigned player.</p>
+      <p class="muted solo-team-help">
+        Auto-create makes one team per unassigned player. Best team setup rebalances teams by rank ELO.
+      </p>
     </div>
 
     <div v-if="ctx.canManageEvent && ctx.lastBalanceSummary" class="balance-report-box" role="status" aria-live="polite">
@@ -580,6 +582,10 @@ function assignmentNotice(player) {
   margin: 0;
 }
 
+.solo-team-help {
+  flex-basis: 100%;
+}
+
 .balance-report-box {
   border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-2) 12%);
   background: color-mix(in srgb, var(--card) 94%, #eef6ff 6%);
@@ -725,7 +731,15 @@ function assignmentNotice(player) {
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: 0.55rem;
+}
+
+@media (max-width: 1280px) {
+  .entry-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .entry-list li {

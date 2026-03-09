@@ -30,6 +30,14 @@ pub async fn generate_tourney_bracket_for_user(
     matches_service::generate_tourney_bracket_for_user(state, user_id, event_id, mode).await
 }
 
+pub async fn clear_tourney_bracket_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+) -> Result<Event, ApiError> {
+    matches_service::clear_tourney_bracket_for_user(state, user_id, event_id).await
+}
+
 pub async fn report_match_winner_for_user(
     state: &AppState,
     user_id: Uuid,
