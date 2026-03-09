@@ -77,12 +77,6 @@ const countdownEvents = computed(() => {
     .slice(0, 2)
 })
 
-const countdownCardSlots = computed(() => {
-  const first = countdownEvents.value[0] || null
-  const second = countdownEvents.value[1] || null
-  return [first, second]
-})
-
 const activityRows = computed(() => {
   return sortedEvents.value.slice(0, 6).map((event) => {
     const players = Array.isArray(event?.players) ? event.players.length : 0
@@ -211,7 +205,7 @@ onMounted(loadLatestEvents)
       <h2 class="home-section-title">Dashboard Overview</h2>
     </div>
 
-    <section class="home-dashboard-grid" :class="{ 'single-event': totalEvents === 1 }">
+    <section class="home-dashboard-grid">
       <section class="home-ticker card reveal-block reveal-1">
         <div class="home-ticker-head">
           <h2>Live Activity</h2>
@@ -269,24 +263,17 @@ onMounted(loadLatestEvents)
         </section>
 
         <section class="home-countdown-grid">
-          <article
-            v-for="(event, index) in countdownCardSlots"
-            :key="`countdown-slot-${index}-${event?.id || 'empty'}`"
-            class="home-countdown card"
-            :class="{ 'home-countdown-empty': !event }"
-          >
-            <template v-if="event">
-              <span class="home-countdown-label">{{ index === 0 ? 'Next Event' : 'After That' }}</span>
+          <article v-for="event in countdownEvents" :key="`countdown-${event.id}`" class="home-countdown card">
+            <span class="home-countdown-label">Next Event</span>
               <strong class="home-countdown-value">{{ countdownLabel(event.start_date) }}</strong>
               <h3 class="home-countdown-title">{{ event.name }}</h3>
               <p class="muted">{{ formatEventStartDate(event.start_date) || 'No date set' }}</p>
               <RouterLink class="home-inline-link" :to="{ name: 'event', params: { id: event.id } }">Open event</RouterLink>
-            </template>
-            <template v-else>
-              <span class="home-countdown-label">{{ index === 0 ? 'Next Event' : 'After That' }}</span>
+          </article>
+          <article v-if="countdownEvents.length === 0" class="home-countdown card home-countdown-empty">
+            <span class="home-countdown-label">Next Event</span>
               <strong class="home-countdown-value">-</strong>
-              <p class="muted">{{ index === 0 ? 'No upcoming events.' : 'No second upcoming event yet.' }}</p>
-            </template>
+              <p class="muted">No upcoming events.</p>
           </article>
         </section>
       </aside>
@@ -383,19 +370,17 @@ onMounted(loadLatestEvents)
 }
 
 .home-ticker {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.52rem;
+  height: 100%;
 }
 
 .home-dashboard-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
   gap: 0.62rem;
-  align-items: start;
-}
-
-.home-dashboard-grid.single-event {
-  grid-template-columns: 1fr;
+  align-items: stretch;
 }
 
 .home-dashboard-side {
@@ -436,6 +421,7 @@ onMounted(loadLatestEvents)
 }
 
 .home-activity-table-wrap {
+  flex: 1;
   overflow: hidden;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-1) 18%);
