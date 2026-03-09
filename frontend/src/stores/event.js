@@ -78,6 +78,12 @@ export const useEventStore = defineStore('event', {
         method: 'POST',
       })
     },
+    setSignupVisibility(eventId, enabled) {
+      return apiCall(`/api/events/${eventId}/signup-visibility`, {
+        method: 'PUT',
+        body: JSON.stringify({ enabled }),
+      })
+    },
     listSignupRequests(eventId) {
       return apiCall(`/api/events/${eventId}/signup-requests`)
     },

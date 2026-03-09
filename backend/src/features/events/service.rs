@@ -30,7 +30,7 @@ use validation::{
 pub use signup::{
     accept_signup_request_for_user, create_public_signup_request, decline_signup_request_for_user,
     get_event_signup_link_for_user, get_public_signup_info, list_signup_requests_for_user,
-    rotate_event_signup_link_for_user,
+    rotate_event_signup_link_for_user, set_event_public_signup_for_user,
 };
 pub use players::{
     add_event_player_for_user, assign_event_player_team_for_user, delete_event_player_for_user,

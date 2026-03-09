@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { formatOptionsForType } from '../lib/event-format'
 import { useAlert } from '../lib/alerts'
+import { useConfirm } from '../lib/confirm'
 import { useEventStore } from '../stores/event'
 import { useMatchStore } from '../stores/match'
 import RosterSection from '../components/event/RosterSection.vue'
@@ -16,13 +17,13 @@ import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
 const route = useRoute()
 const router = useRouter()
 const alert = useAlert()
+const confirm = useConfirm()
 const eventStore = useEventStore()
 const matchStore = useMatchStore()
 
 const event = ref(null)
 const loadingEvent = ref(false)
 const updatingEvent = ref(false)
-const editingEventMeta = ref(false)
 const creatingMatch = ref(false)
 const clearingBracket = ref(false)
 const deletingEvent = ref(false)
@@ -44,6 +45,7 @@ const signupRequests = ref([])
 const reviewingSignupRequests = ref({})
 const signupToken = ref('')
 const rotatingSignupLink = ref(false)
+const updatingSignupVisibility = ref(false)
 const lastBalanceSummary = ref('')
 
 const newMatchTitle = ref('')
@@ -64,7 +66,7 @@ const editEventDescription = ref('')
 const editEventStartDate = ref('')
 const editEventFormat = ref('5v5')
 const editEventMaxPlayers = ref(10)
-const validSections = ['overview', 'roster', 'teams', 'matches', 'requests']
+const validSections = ['overview', 'roster', 'teams', 'matches', 'requests', 'settings']
 const activeSection = ref('overview')
 const nowTick = ref(Date.now())
 let startsInTimer = null
@@ -107,6 +109,18 @@ const eventStartsInLabel = computed(() => {
 
   const readable = parts.slice(0, 2).join(' ')
   return diffMs > 0 ? `Starts in ${readable}` : `Started ${readable} ago`
+})
+const headerJoinRoute = computed(() => {
+  if (!event.value?.public_signup_enabled) {
+    return null
+  }
+
+  const token = String(event.value?.public_signup_token || signupToken.value || '').trim()
+  if (!token) {
+    return null
+  }
+
+  return { name: 'join-event', params: { token } }
 })
 const signupShareUrl = computed(() => {
   if (!signupToken.value) {
@@ -195,6 +209,18 @@ function hydrateSelections() {
   matchupSelections.value = nextMatchups
 }
 
+function syncEventEditDraftFromEvent() {
+  if (!event.value) {
+    return
+  }
+
+  editEventName.value = event.value.name || ''
+  editEventDescription.value = event.value.description || ''
+  editEventStartDate.value = event.value.start_date || ''
+  editEventFormat.value = event.value.format || '5v5'
+  editEventMaxPlayers.value = Number(event.value.max_players)
+}
+
 async function loadEvent() {
   if (!eventId.value) {
     event.value = null
@@ -205,6 +231,7 @@ async function loadEvent() {
   try {
     lastBalanceSummary.value = ''
     event.value = await eventStore.fetchEvent(eventId.value)
+    syncEventEditDraftFromEvent()
     hydrateSelections()
     if (event.value?.is_owner) {
       await loadOwnerSignupData()
@@ -227,13 +254,30 @@ async function loadOwnerSignupData() {
 
   loadingSignupRequests.value = true
   try {
-    const [linkResponse, requests] = await Promise.all([
+    const [linkResult, requestsResult] = await Promise.allSettled([
       eventStore.fetchSignupLink(eventId.value),
       eventStore.listSignupRequests(eventId.value),
     ])
 
-    signupToken.value = linkResponse.signup_token || ''
-    signupRequests.value = Array.isArray(requests) ? requests : []
+    if (linkResult.status === 'fulfilled') {
+      signupToken.value = linkResult.value?.signup_token || ''
+    } else {
+      signupToken.value = ''
+    }
+
+    if (requestsResult.status === 'fulfilled') {
+      signupRequests.value = Array.isArray(requestsResult.value) ? requestsResult.value : []
+    }
+
+    if (linkResult.status === 'rejected' && requestsResult.status === 'rejected') {
+      throw new Error('Failed to load signup link and requests')
+    }
+
+    if (linkResult.status === 'rejected') {
+      setError('Failed to refresh signup link. Please retry before sharing.')
+    } else if (requestsResult.status === 'rejected') {
+      setError('Failed to load signup requests')
+    }
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to load signup requests')
   } finally {
@@ -263,7 +307,12 @@ async function rotateSignupLink() {
     return
   }
 
-  const confirmed = window.confirm('Rotate signup link? The current shared link will stop working immediately.')
+  const confirmed = await confirm.ask({
+    title: 'Rotate signup link?',
+    message: 'The current shared link will stop working immediately.',
+    confirmText: 'Rotate link',
+    tone: 'warning',
+  })
   if (!confirmed) {
     return
   }
@@ -277,6 +326,42 @@ async function rotateSignupLink() {
     setError(err instanceof Error ? err.message : 'Failed to rotate signup link')
   } finally {
     rotatingSignupLink.value = false
+  }
+}
+
+async function setSignupVisibility(enabled) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || updatingSignupVisibility.value) {
+    return
+  }
+
+  const currentlyPublic = Boolean(event.value?.public_signup_enabled)
+  if (!enabled && currentlyPublic) {
+    const confirmed = await confirm.ask({
+      title: 'Make registration private?',
+      message: 'This hides the public Join button and rotates the signup link token. Existing shared links will stop working.',
+      confirmText: 'Make private',
+      tone: 'warning',
+    })
+    if (!confirmed) {
+      return
+    }
+  }
+
+  updatingSignupVisibility.value = true
+  try {
+    const updatedEvent = await eventStore.setSignupVisibility(eventId.value, enabled)
+    event.value = updatedEvent
+    hydrateSelections()
+    await loadOwnerSignupData()
+    setNotice(enabled ? 'Public event registration enabled' : 'Event registration is now private. Public Join button is hidden and the signup link was rotated.')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to update signup visibility')
+  } finally {
+    updatingSignupVisibility.value = false
   }
 }
 
@@ -449,7 +534,12 @@ async function deleteTeam(team) {
     return
   }
 
-  const confirmed = window.confirm(`Delete team "${team.name}"?`)
+  const confirmed = await confirm.ask({
+    title: 'Delete team?',
+    message: `Delete team "${team.name}"?`,
+    confirmText: 'Delete team',
+    tone: 'danger',
+  })
   if (!confirmed) {
     return
   }
@@ -639,7 +729,12 @@ async function removePlayer(player) {
     return
   }
 
-  const confirmed = window.confirm(`Remove player "${player.name}" from this event?`)
+  const confirmed = await confirm.ask({
+    title: 'Remove player?',
+    message: `Remove player "${player.name}" from this event?`,
+    confirmText: 'Remove player',
+    tone: 'danger',
+  })
   if (!confirmed) {
     return
   }
@@ -809,7 +904,12 @@ async function clearTourneyBracket() {
     return
   }
 
-  const confirmed = window.confirm('Delete generated bracket matches? This cannot be undone.')
+  const confirmed = await confirm.ask({
+    title: 'Clear bracket?',
+    message: 'Delete generated bracket matches? This cannot be undone.',
+    confirmText: 'Delete bracket',
+    tone: 'danger',
+  })
   if (!confirmed) {
     return
   }
@@ -885,7 +985,12 @@ async function cancelMatchWinner(matchId) {
     return
   }
 
-  const confirmed = window.confirm('Cancel this match result? Downstream bracket progression will be reset where needed.')
+  const confirmed = await confirm.ask({
+    title: 'Cancel match result?',
+    message: 'Downstream bracket progression will be reset where needed.',
+    confirmText: 'Cancel result',
+    tone: 'warning',
+  })
   if (!confirmed) {
     return
   }
@@ -940,7 +1045,12 @@ async function deleteMatch(matchId) {
   }
 
   const target = event.value?.matches.find((match) => match.id === matchId)
-  const confirmed = window.confirm(`Delete match "${target?.title || matchId}"?`)
+  const confirmed = await confirm.ask({
+    title: 'Delete match?',
+    message: `Delete match "${target?.title || matchId}"?`,
+    confirmText: 'Delete match',
+    tone: 'danger',
+  })
   if (!confirmed) {
     return
   }
@@ -973,7 +1083,12 @@ async function deleteEvent() {
     return
   }
 
-  const confirmed = window.confirm(`Delete event "${event.value.name}" and all its matches?`)
+  const confirmed = await confirm.ask({
+    title: 'Delete event?',
+    message: `Delete event "${event.value.name}" and all its matches?`,
+    confirmText: 'Delete event',
+    tone: 'danger',
+  })
   if (!confirmed) {
     return
   }
@@ -988,27 +1103,6 @@ async function deleteEvent() {
   } finally {
     deletingEvent.value = false
   }
-}
-
-function startEditEvent() {
-  if (!ensureOwnerAction()) {
-    return
-  }
-
-  if (!event.value) {
-    return
-  }
-
-  editEventName.value = event.value.name
-  editEventDescription.value = event.value.description || ''
-  editEventStartDate.value = event.value.start_date || ''
-  editEventFormat.value = event.value.format || '5v5'
-  editEventMaxPlayers.value = Number(event.value.max_players)
-  editingEventMeta.value = true
-}
-
-function cancelEditEvent() {
-  editingEventMeta.value = false
 }
 
 async function saveEventEdit() {
@@ -1034,8 +1128,8 @@ async function saveEventEdit() {
     })
 
     event.value = updatedEvent
+    syncEventEditDraftFromEvent()
     hydrateSelections()
-    editingEventMeta.value = false
     setNotice('Event updated')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to update event')
@@ -1054,7 +1148,7 @@ function normalizeSection(section) {
     return 'overview'
   }
 
-  if (candidate === 'requests' && !canManageEvent.value) {
+  if ((candidate === 'requests' || candidate === 'settings') && !canManageEvent.value) {
     return 'overview'
   }
 
@@ -1168,7 +1262,9 @@ provide('eventCtx', proxyRefs({
   loadingSignupRequests,
   reviewingSignupRequests,
   rotatingSignupLink,
+  updatingSignupVisibility,
   signupShareUrl,
+  signupToken,
   lastBalanceSummary,
   openSection,
   createTeam,
@@ -1191,6 +1287,7 @@ provide('eventCtx', proxyRefs({
   removePlayer,
   copySignupLink,
   rotateSignupLink,
+  setSignupVisibility,
   acceptSignupRequest,
   declineSignupRequest,
   getRankIcon,
@@ -1218,84 +1315,11 @@ provide('eventCtx', proxyRefs({
           </div>
         </div>
         <div class="event-header-actions">
-          <button
-            v-if="canManageEvent && !editingEventMeta"
-            class="btn-secondary icon-btn"
-            :disabled="updatingEvent"
-            :title="updatingEvent ? 'Saving event' : 'Edit event details'"
-            @click="startEditEvent"
-          >
-            <span class="material-symbols-rounded" aria-hidden="true">
-              {{ updatingEvent ? 'hourglass_top' : 'edit' }}
-            </span>
-            <span class="sr-only">{{ updatingEvent ? 'Saving event' : 'Edit event details' }}</span>
-          </button>
-          <button
-            v-if="canManageEvent && editingEventMeta"
-            class="btn-primary icon-btn"
-            :disabled="updatingEvent || !canSaveEventMeta"
-            :title="updatingEvent ? 'Saving event' : 'Save event'"
-            @click="saveEventEdit"
-          >
-            <span class="material-symbols-rounded" aria-hidden="true">
-              {{ updatingEvent ? 'hourglass_top' : 'save' }}
-            </span>
-            <span class="sr-only">{{ updatingEvent ? 'Saving event' : 'Save event' }}</span>
-          </button>
-          <button
-            v-if="canManageEvent && editingEventMeta"
-            class="btn-secondary icon-btn"
-            :disabled="updatingEvent"
-            title="Cancel event edit"
-            @click="cancelEditEvent"
-          >
-            <span class="material-symbols-rounded" aria-hidden="true">close</span>
-            <span class="sr-only">Cancel event edit</span>
-          </button>
-          <button
-            v-if="canManageEvent && !editingEventMeta"
-            class="btn-danger icon-btn"
-            :disabled="deletingEvent"
-            :title="deletingEvent ? 'Deleting event' : 'Delete event'"
-            @click="deleteEvent"
-          >
-            <span class="material-symbols-rounded" aria-hidden="true">
-              {{ deletingEvent ? 'hourglass_top' : 'delete' }}
-            </span>
-            <span class="sr-only">{{ deletingEvent ? 'Deleting event' : 'Delete event' }}</span>
-          </button>
+          <RouterLink v-if="headerJoinRoute" class="btn-primary event-join-header-btn" :to="headerJoinRoute">
+            Join event
+          </RouterLink>
         </div>
       </div>
-      <form v-if="editingEventMeta" class="event-edit-form" @submit.prevent="saveEventEdit">
-        <label>
-          Event name
-          <input v-model="editEventName" placeholder="Event name" />
-        </label>
-        <label>
-          Description
-          <textarea v-model="editEventDescription" rows="4" placeholder="Rules, cashprize, check-in info..." />
-        </label>
-        <label>
-          Start date
-          <input v-model="editEventStartDate" type="datetime-local" />
-        </label>
-        <label>
-          Format
-          <select v-model="editEventFormat">
-            <option
-              v-for="format in formatOptionsForType(event.event_type)"
-              :key="`edit-event-format-${format}`"
-              :value="format"
-            >
-              {{ format }}
-            </option>
-          </select>
-        </label>
-        <label>
-          Max players
-          <input v-model.number="editEventMaxPlayers" type="number" min="2" max="99" step="1" />
-        </label>
-      </form>
 
       <div class="event-layout">
         <aside class="event-left-nav" aria-label="Event sections">
@@ -1332,6 +1356,12 @@ provide('eventCtx', proxyRefs({
               {{ pendingSignupRequestCount }}
             </span>
           </button>
+          <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'settings' }" @click="openSection('settings')">
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">settings</span>
+              <span>Settings</span>
+            </span>
+          </button>
         </aside>
 
         <section class="event-panel">
@@ -1340,6 +1370,86 @@ provide('eventCtx', proxyRefs({
           <TeamsSection v-else-if="activeSection === 'teams'" />
           <MatchesSection v-else-if="activeSection === 'matches'" />
           <SignupRequestsSection v-else-if="activeSection === 'requests' && canManageEvent" />
+          <section v-else-if="activeSection === 'settings' && canManageEvent" class="event-settings-section">
+            <h3 class="section-title">
+              <span class="material-symbols-rounded section-title-icon" aria-hidden="true">settings</span>
+              <span>Settings</span>
+            </h3>
+
+            <div class="event-registration-toggle-box" :class="event.public_signup_enabled ? 'is-public' : 'is-private'">
+              <div class="event-registration-header">
+                <p class="event-registration-kicker">Event registration</p>
+                <span class="event-registration-state-pill" :class="event.public_signup_enabled ? 'is-public' : 'is-private'">
+                  {{ event.public_signup_enabled ? 'Public' : 'Private' }}
+                </span>
+              </div>
+
+              <p class="event-registration-copy">
+                {{ event.public_signup_enabled
+                  ? 'Anyone can discover this event and use the Join button from event surfaces.'
+                  : 'Only people with a direct invite link can submit a signup request.' }}
+              </p>
+
+              <div class="event-registration-toggle-actions">
+                <button
+                  class="btn-secondary"
+                  :disabled="updatingSignupVisibility"
+                  @click="setSignupVisibility(!event.public_signup_enabled)"
+                >
+                  {{ updatingSignupVisibility ? 'Updating...' : (event.public_signup_enabled ? 'Make private' : 'Make public') }}
+                </button>
+              </div>
+
+              <p class="muted event-registration-note">
+                {{ event.public_signup_enabled
+                  ? 'Switching to private hides the public Join button and rotates the signup token. Existing shared links stop working.'
+                  : 'Switch to public to show the Join button to everyone.' }}
+              </p>
+            </div>
+
+            <form class="event-edit-form" @submit.prevent="saveEventEdit">
+              <label>
+                Event name
+                <input v-model="editEventName" placeholder="Event name" />
+              </label>
+              <label>
+                Description
+                <textarea v-model="editEventDescription" rows="4" placeholder="Rules, cashprize, check-in info..." />
+              </label>
+              <label>
+                Start date
+                <input v-model="editEventStartDate" type="datetime-local" />
+              </label>
+              <label>
+                Format
+                <select v-model="editEventFormat">
+                  <option
+                    v-for="format in formatOptionsForType(event.event_type)"
+                    :key="`edit-event-format-${format}`"
+                    :value="format"
+                  >
+                    {{ format }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                Max players
+                <input v-model.number="editEventMaxPlayers" type="number" min="2" max="99" step="1" />
+              </label>
+
+              <div class="event-settings-actions">
+                <button class="btn-primary" :disabled="updatingEvent || !canSaveEventMeta" type="submit">
+                  {{ updatingEvent ? 'Saving...' : 'Save event settings' }}
+                </button>
+                <button class="btn-secondary" :disabled="updatingEvent" type="button" @click="syncEventEditDraftFromEvent">
+                  Reset changes
+                </button>
+                <button class="btn-danger" :disabled="deletingEvent || updatingEvent" type="button" @click="deleteEvent">
+                  {{ deletingEvent ? 'Deleting event...' : 'Delete event' }}
+                </button>
+              </div>
+            </form>
+          </section>
           <OverviewSection v-else />
         </section>
       </div>
@@ -1419,11 +1529,28 @@ provide('eventCtx', proxyRefs({
 .event-header-actions {
   display: flex;
   gap: 0.35rem;
+  align-items: center;
+  align-self: center;
+  flex-wrap: wrap;
+}
+
+.event-join-header-btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 8px;
+  padding: 0.56rem 1.02rem;
+  box-shadow: 0 10px 22px rgba(123, 89, 30, 0.36);
 }
 
 .event-edit-form {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
   margin: 0.55rem 0 0.7rem;
 }
@@ -1431,6 +1558,127 @@ provide('eventCtx', proxyRefs({
 .event-edit-form label {
   display: grid;
   gap: 0.24rem;
+}
+
+.event-settings-section {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.event-registration-toggle-box {
+  border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-2) 28%);
+  border-radius: 14px;
+  padding: 0.82rem;
+  background:
+    radial-gradient(140px 90px at 100% 0%, color-mix(in srgb, var(--brand-2) 18%, transparent 82%), transparent 72%),
+    linear-gradient(160deg, color-mix(in srgb, var(--card) 90%, #eef5ff 10%), color-mix(in srgb, var(--card) 96%, #f7faff 4%));
+  display: grid;
+  gap: 0.62rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.event-registration-toggle-box.is-private {
+  border-color: color-mix(in srgb, #e36b55 26%, var(--line) 74%);
+  background:
+    radial-gradient(120px 85px at 100% 0%, rgba(227, 107, 85, 0.13), transparent 72%),
+    linear-gradient(160deg, color-mix(in srgb, var(--card) 90%, #fff0ec 10%), color-mix(in srgb, var(--card) 96%, #fff8f6 4%));
+}
+
+.event-registration-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.event-registration-kicker {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--ink-2) 82%, var(--brand-1) 18%);
+}
+
+.event-registration-state-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.22rem 0.62rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid transparent;
+}
+
+.event-registration-state-pill.is-public {
+  color: #edfdf4;
+  background: color-mix(in srgb, #1c7a4f 82%, #0f2d1f 18%);
+  border-color: color-mix(in srgb, #36b376 58%, #0f2d1f 42%);
+}
+
+.event-registration-state-pill.is-private {
+  color: #fff3f1;
+  background: color-mix(in srgb, #8f3427 84%, #2c1411 16%);
+  border-color: color-mix(in srgb, #d96a57 56%, #2c1411 44%);
+}
+
+.event-registration-copy {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-1);
+}
+
+.event-registration-toggle-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.event-registration-note {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.event-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+@media (max-width: 720px) {
+  .event-registration-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .event-registration-toggle-actions,
+  .event-registration-toggle-actions button {
+    width: 100%;
+  }
+
+  .event-settings-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .event-settings-actions button {
+    width: 100%;
+  }
+}
+
+.section-title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.section-title-icon {
+  font-size: 1.12rem;
+  line-height: 1;
 }
 
 .event-layout {

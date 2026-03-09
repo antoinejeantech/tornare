@@ -48,7 +48,6 @@ const canSubmit = computed(() => {
     signupToken.value.length > 0 &&
     playerName.value.trim().length > 0 &&
     !submitting.value &&
-    !rosterFull.value &&
     !signupRequestsFull.value
   )
 })
@@ -150,8 +149,8 @@ onMounted(loadSignupInfo)
         <p v-if="error" class="status status-error">{{ error }}</p>
         <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
-        <p v-if="rosterFull" class="status status-blocked">This roster is currently full. You can try again later.</p>
-        <p v-else-if="signupRequestsFull" class="status status-blocked">Signup is currently unavailable because this event reached the request limit.</p>
+        <p v-if="rosterFull" class="status status-blocked status-blocked-soft">Event is currently full, but you can still send a request while the owner adjusts slots.</p>
+        <p v-if="signupRequestsFull" class="status status-blocked">Signup is currently unavailable because this event reached the request limit.</p>
 
         <form class="join-form" @submit.prevent="submitRequest">
           <label class="join-field join-field-full">
@@ -274,6 +273,12 @@ onMounted(loadSignupInfo)
   border-color: color-mix(in srgb, var(--meta-ink) 26%, var(--line) 74%);
 }
 
+.status-blocked-soft {
+  color: color-mix(in srgb, var(--warn) 54%, var(--ink-1) 46%);
+  background: color-mix(in srgb, var(--warn) 12%, var(--card) 88%);
+  border-color: color-mix(in srgb, var(--warn) 36%, var(--line) 64%);
+}
+
 .join-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -292,7 +297,7 @@ onMounted(loadSignupInfo)
 .join-actions {
   grid-column: 1 / -1;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
 }
 
 .join-actions .btn-primary {

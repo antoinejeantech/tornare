@@ -2,6 +2,7 @@
 import { computed, inject } from 'vue'
 
 const ctx = inject('eventCtx')
+const isPublicRegistration = computed(() => Boolean(ctx.event?.public_signup_enabled))
 
 const pendingRequests = computed(() => {
   const requests = Array.isArray(ctx.signupRequests) ? ctx.signupRequests : []
@@ -22,7 +23,24 @@ const reviewedRequests = computed(() => {
     </h3>
 
     <div class="signup-link-box">
-      <p class="muted">Share this public link so players can request to join this event.</p>
+      <div class="signup-visibility-row">
+        <p class="muted signup-visibility-label">
+          Registration is currently
+          <strong>{{ isPublicRegistration ? 'Public' : 'Private' }}</strong>.
+        </p>
+        <button class="btn-secondary" type="button" @click="ctx.openSection('settings')">
+          Go to settings
+        </button>
+      </div>
+
+      <p class="muted signup-settings-hint">
+        If you want to change event registration visibility, go to Settings.
+      </p>
+
+      <p class="muted">
+        {{ isPublicRegistration ? 'Share this public link so players can request to join this event.' : 'You can still copy and share the current direct link while private. The public Join button is hidden.' }}
+      </p>
+
       <div class="signup-link-row">
         <input :value="ctx.signupShareUrl || ''" readonly placeholder="Loading signup link..." />
         <button class="btn-secondary" :disabled="!ctx.signupShareUrl || ctx.rotatingSignupLink" @click="ctx.copySignupLink">
@@ -109,6 +127,22 @@ const reviewedRequests = computed(() => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.45rem;
+}
+
+.signup-visibility-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.signup-visibility-label {
+  margin: 0;
+}
+
+.signup-settings-hint {
+  margin: 0;
+  font-size: 0.84rem;
 }
 
 .signup-request-groups {
@@ -203,6 +237,11 @@ const reviewedRequests = computed(() => {
 
   .signup-link-row {
     grid-template-columns: 1fr;
+  }
+
+  .signup-visibility-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 </style>

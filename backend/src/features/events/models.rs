@@ -116,10 +116,17 @@ pub struct Event {
     pub is_owner: bool,
     pub creator_id: Option<Uuid>,
     pub creator_name: Option<String>,
+    pub public_signup_enabled: bool,
+    pub public_signup_token: Option<String>,
     pub max_players: u8,
     pub players: Vec<Player>,
     pub teams: Vec<EventTeam>,
     pub matches: Vec<Match>,
+}
+
+#[derive(Deserialize)]
+pub struct SetEventPublicSignupInput {
+    pub enabled: bool,
 }
 
 #[derive(Deserialize)]
@@ -129,6 +136,8 @@ pub struct CreateEventInput {
     pub start_date: Option<String>,
     pub event_type: EventType,
     pub format: EventFormat,
+    #[serde(default)]
+    pub public_signup_enabled: bool,
     pub max_players: u8,
 }
 

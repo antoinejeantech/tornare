@@ -14,6 +14,7 @@ use crate::{
             CreateEventInput, CreateEventMatchInput, CreateEventSignupRequestInput,
             CreateEventTeamInput, Event, EventSignupLinkResponse, EventSignupRequest, Match,
             GenerateTourneyBracketInput, PublicEventSignupInfo, ReportMatchWinnerInput,
+            SetEventPublicSignupInput,
             SetMatchupInput, UpdateEventInput,
             UpdateEventPlayerInput, UpdateEventTeamInput,
         },
@@ -273,6 +274,18 @@ pub async fn rotate_event_signup_link(
 ) -> ApiResult<EventSignupLinkResponse> {
     let user_id = require_authenticated_user_id(&state, &headers)?;
     service::rotate_event_signup_link_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
+pub async fn set_event_public_signup(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<SetEventPublicSignupInput>,
+) -> ApiResult<Event> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::set_event_public_signup_for_user(&state, user_id, event_id, payload.enabled)
         .await
         .map(Json)
 }

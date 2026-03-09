@@ -24,6 +24,7 @@ const newEventDescription = ref('')
 const newEventStartDate = ref('')
 const newEventType = ref('PUG')
 const newEventFormat = ref('5v5')
+const newEventSignupVisibility = ref('private')
 const newEventMaxPlayers = ref(10)
 
 const availableFormatOptions = computed(() => {
@@ -204,6 +205,7 @@ function resetCreateForm() {
   newEventStartDate.value = ''
   newEventType.value = 'PUG'
   newEventFormat.value = '5v5'
+  newEventSignupVisibility.value = 'private'
   newEventMaxPlayers.value = 10
 }
 
@@ -276,6 +278,7 @@ async function createEvent() {
         start_date: newEventStartDate.value ? newEventStartDate.value : null,
         event_type: newEventType.value,
         format: newEventFormat.value,
+        public_signup_enabled: newEventSignupVisibility.value === 'public',
         max_players: Number(newEventMaxPlayers.value)
       })
     })
@@ -492,6 +495,13 @@ onBeforeUnmount(() => {
               <option v-for="format in availableFormatOptions" :key="`new-event-format-${format}`" :value="format">
                 {{ format }}
               </option>
+            </select>
+          </label>
+          <label>
+            Signup visibility
+            <select v-model="newEventSignupVisibility">
+              <option value="private">Private (link only)</option>
+              <option value="public">Public (visible join link)</option>
             </select>
           </label>
           <label>

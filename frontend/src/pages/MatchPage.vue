@@ -3,11 +3,13 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { averagePlayersElo, formatAverageElo } from '../lib/elo'
 import { sortPlayersByRoleThenName } from '../lib/roles'
+import { useConfirm } from '../lib/confirm'
 import { useMatchStore } from '../stores/match'
 import PlayerIdentity from '../components/player/PlayerIdentity.vue'
 
 const route = useRoute()
 const router = useRouter()
+const confirm = useConfirm()
 const matchStore = useMatchStore()
 
 const match = ref(null)
@@ -84,7 +86,12 @@ async function deleteMatch() {
     return
   }
 
-  const confirmed = window.confirm(`Delete match "${match.value.title}"?`)
+  const confirmed = await confirm.ask({
+    title: 'Delete match?',
+    message: `Delete match "${match.value.title}"?`,
+    confirmText: 'Delete match',
+    tone: 'danger',
+  })
   if (!confirmed) {
     return
   }
