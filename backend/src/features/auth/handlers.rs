@@ -6,7 +6,7 @@ use crate::{
         AuthResponse, AuthUser, LoginInput, LogoutInput, RefreshInput, RegisterInput,
     },
     shared::{
-        errors::ApiResult,
+        errors::{ApiResult, forbidden},
         models::MessageResponse,
     },
 };
@@ -18,6 +18,10 @@ pub async fn register(
     headers: HeaderMap,
     Json(payload): Json<RegisterInput>,
 ) -> ApiResult<AuthResponse> {
+    if !state.public_signup_enabled {
+        return Err(forbidden("Public signup is disabled for now. It will be available soon."));
+    }
+
     enforce_rate_limit(&state.rate_limiter, &headers, "auth_register", 10, 60).await?;
     service::register_user(&state, payload).await.map(Json)
 }

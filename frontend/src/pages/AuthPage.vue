@@ -16,12 +16,17 @@ const username = ref('')
 const displayName = ref('')
 const error = ref('')
 const submitting = ref(false)
+const publicSignupEnabled = String(import.meta.env.VITE_PUBLIC_SIGNUP_ENABLED || '').toLowerCase() === 'true'
 
 const canSubmit = computed(() => {
   const emailOk = email.value.trim().length > 0
   const passwordOk = password.value.length >= 8
 
   if (mode.value === 'register') {
+    if (!publicSignupEnabled) {
+      return false
+    }
+
     const usernameValue = username.value.trim().toLowerCase()
     const usernameOk =
       usernameValue.length >= 3 &&
@@ -58,6 +63,11 @@ async function submit() {
 
   try {
     if (mode.value === 'register') {
+      if (!publicSignupEnabled) {
+        error.value = 'Public signup will be available soon.'
+        return
+      }
+
       await authStore.register({
         email: email.value.trim(),
         password: password.value,
@@ -82,6 +92,11 @@ async function submit() {
 }
 
 function switchMode(nextMode) {
+  if (nextMode === 'register' && !publicSignupEnabled) {
+    error.value = 'Public signup will be available soon.'
+    return
+  }
+
   mode.value = nextMode
   error.value = ''
   if (nextMode !== 'register') {
@@ -99,6 +114,14 @@ function switchMode(nextMode) {
       </header>
 
       <p v-if="error" class="status status-error">{{ error }}</p>
+
+      <div v-if="!publicSignupEnabled" class="auth-signup-lock" role="status" aria-live="polite">
+        <span class="material-symbols-rounded" aria-hidden="true">lock</span>
+        <div>
+          <strong>Public signup is currently disabled</strong>
+          <p class="muted">It will be available to everyone soon. Login is active if you already have an account.</p>
+        </div>
+      </div>
 
       <div class="auth-soon">
         <button type="button" class="btn-bnet" disabled aria-disabled="true" title="Coming soon">
@@ -146,13 +169,18 @@ function switchMode(nextMode) {
         </button>
         <button
           class="btn-secondary"
-          :disabled="mode === 'register'"
+          :class="{ 'btn-disabled-feature': !publicSignupEnabled }"
+          :disabled="mode === 'register' || !publicSignupEnabled"
+          :title="publicSignupEnabled ? 'Register' : 'Public signup will be available soon'"
           @click="switchMode('register')"
           type="button"
         >
-          Register
+          {{ publicSignupEnabled ? 'Register' : 'Register (Soon)' }}
         </button>
       </div>
+      <p v-if="!publicSignupEnabled" class="muted auth-signup-disabled-note">
+        Public signup will be available soon.
+      </p>
     </section>
   </main>
 </template>
@@ -241,6 +269,37 @@ function switchMode(nextMode) {
 .auth-soon-note {
   margin: 0;
   font-size: 0.88rem;
+}
+
+.auth-signup-disabled-note {
+  margin: -0.1rem 0 0;
+  font-size: 0.86rem;
+}
+
+.auth-signup-lock {
+  border: 1px dashed color-mix(in srgb, var(--line) 64%, #f08b2f 36%);
+  background: linear-gradient(130deg, color-mix(in srgb, var(--card) 78%, #fff1df 22%), color-mix(in srgb, var(--card) 86%, #ffe5cc 14%));
+  border-radius: 12px;
+  padding: 0.6rem 0.72rem;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.auth-signup-lock strong {
+  display: block;
+  font-size: 0.9rem;
+}
+
+.auth-signup-lock p {
+  margin: 0.12rem 0 0;
+  font-size: 0.84rem;
+}
+
+.btn-disabled-feature {
+  border-style: dashed;
+  opacity: 0.75;
 }
 
 @media (prefers-color-scheme: dark) {
