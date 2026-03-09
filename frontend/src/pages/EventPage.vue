@@ -1186,12 +1186,35 @@ provide('eventCtx', proxyRefs({
 
       <div class="event-layout">
         <aside class="event-left-nav" aria-label="Event sections">
-          <button class="left-nav-item" :class="{ active: activeSection === 'overview' }" @click="openSection('overview')">Overview</button>
-          <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="openSection('roster')">Players</button>
-          <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="openSection('teams')">Teams</button>
-          <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="openSection('matches')">Matches</button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'overview' }" @click="openSection('overview')">
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">dashboard</span>
+              <span>Overview</span>
+            </span>
+          </button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="openSection('roster')">
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">groups</span>
+              <span>Players</span>
+            </span>
+          </button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="openSection('teams')">
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">shield</span>
+              <span>Teams</span>
+            </span>
+          </button>
+          <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="openSection('matches')">
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">sports_score</span>
+              <span>Matches</span>
+            </span>
+          </button>
           <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'requests' }" @click="openSection('requests')">
-            <span>Requests</span>
+            <span class="left-nav-label">
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">mail</span>
+              <span>Requests</span>
+            </span>
             <span v-if="pendingSignupRequestCount > 0" class="left-nav-badge" :aria-label="`${pendingSignupRequestCount} pending signup requests`">
               {{ pendingSignupRequestCount }}
             </span>
@@ -1337,10 +1360,11 @@ provide('eventCtx', proxyRefs({
 .event-left-nav {
   display: grid;
   gap: 0.34rem;
-  border: 1px solid color-mix(in srgb, var(--brand-1) 24%, var(--line) 76%);
+  border: 1px solid color-mix(in srgb, var(--brand-1) 30%, var(--line) 70%);
   border-radius: 14px;
-  padding: 0.48rem;
+  padding: 0.52rem;
   background:
+    radial-gradient(180px 80px at 8% 0%, color-mix(in srgb, var(--brand-2) 14%, transparent 86%), transparent 72%),
     linear-gradient(180deg, color-mix(in srgb, var(--card) 88%, #edf4ff 12%), color-mix(in srgb, var(--card) 96%, #f4f8ff 4%));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
@@ -1350,6 +1374,8 @@ provide('eventCtx', proxyRefs({
 }
 
 .left-nav-item {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   display: inline-flex;
   align-items: center;
@@ -1361,7 +1387,7 @@ provide('eventCtx', proxyRefs({
   color: var(--ink-2);
   border-radius: 10px;
   padding: 0.55rem 0.62rem;
-  font-weight: 760;
+  font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
   transition:
@@ -1372,11 +1398,43 @@ provide('eventCtx', proxyRefs({
     box-shadow 0.16s ease;
 }
 
+.left-nav-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.left-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--line) 74%, var(--brand-2) 26%);
+  background: color-mix(in srgb, var(--card) 88%, #eff5ff 12%);
+  color: color-mix(in srgb, var(--brand-1) 72%, var(--ink-1) 28%);
+  font-size: 0.95rem;
+  line-height: 1;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+
 .left-nav-item:hover {
   color: var(--ink-1);
   border-color: color-mix(in srgb, var(--brand-2) 42%, var(--line) 58%);
   background: color-mix(in srgb, var(--brand-2) 10%, var(--card) 90%);
-  transform: translateX(1px);
+  transform: translateX(2px);
+}
+
+.left-nav-item:hover .left-nav-icon {
+  border-color: color-mix(in srgb, var(--brand-2) 56%, var(--line) 44%);
+  background: color-mix(in srgb, var(--brand-2) 20%, var(--card) 80%);
+  color: color-mix(in srgb, var(--ink-1) 88%, var(--brand-1) 12%);
+  transform: translateY(-1px);
 }
 
 .left-nav-item:focus-visible {
@@ -1389,6 +1447,23 @@ provide('eventCtx', proxyRefs({
   color: color-mix(in srgb, var(--ink-1) 92%, white 8%);
   border-color: color-mix(in srgb, var(--brand-2) 62%, var(--line) 38%);
   box-shadow: 0 8px 18px rgba(31, 97, 183, 0.2);
+}
+
+.left-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-1) 84%, #fff 16%);
+}
+
+.left-nav-item.active .left-nav-icon {
+  border-color: color-mix(in srgb, var(--brand-1) 68%, var(--line) 32%);
+  background: color-mix(in srgb, var(--brand-1) 28%, var(--card) 72%);
+  color: color-mix(in srgb, var(--ink-1) 96%, #fff 4%);
 }
 
 .left-nav-badge {

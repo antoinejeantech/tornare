@@ -733,15 +733,14 @@ function assignmentNotice(player) {
   background: color-mix(in srgb, var(--card) 90%, #f1f5ff 10%);
   border-radius: 10px;
   padding: 0.64rem 0.7rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 0.7rem;
 }
 
 .team-row {
-  position: relative;
-  padding-right: 5.2rem;
+  position: static;
 }
 
 .list-main {
@@ -801,11 +800,9 @@ function assignmentNotice(player) {
 }
 
 .team-actions {
-  position: absolute;
-  top: 0.52rem;
-  right: 0.52rem;
   display: flex;
   gap: 0.32rem;
+  align-self: start;
 }
 
 .team-player-list {
@@ -981,6 +978,14 @@ function assignmentNotice(player) {
 }
 
 @media (max-width: 900px) {
+  .entry-list li {
+    grid-template-columns: 1fr;
+  }
+
+  .team-actions {
+    justify-content: flex-start;
+  }
+
   .team-player-main {
     flex-wrap: wrap;
     gap: 0.3rem;

@@ -167,7 +167,7 @@ const statusClass = computed(() => {
 }
 
 .event-list-title {
-  font-weight: 760;
+  font-weight: 680;
   color: var(--ink-1);
   text-transform: uppercase;
   letter-spacing: 0.02em;

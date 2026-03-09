@@ -81,7 +81,11 @@ function getPlayerCount(event) {
     radial-gradient(700px 110px at 0% 0%, rgba(255, 255, 255, 0.08), transparent 62%),
     radial-gradient(360px 170px at 92% 52%, rgba(0, 0, 0, 0.24), transparent 72%),
     linear-gradient(90deg, color-mix(in srgb, var(--card) 94%, #232323 6%) 0%, color-mix(in srgb, var(--card) 96%, #2a2a2a 4%) 68%, color-mix(in srgb, #181818 72%, var(--card) 28%) 100%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand-1) 20%, transparent 80%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--brand-1) 20%, transparent 80%),
+    0 0 14px color-mix(in srgb, #dbe8ff 28%, transparent 72%),
+    0 10px 22px rgba(27, 82, 160, 0.2),
+    0 2px 8px rgba(21, 44, 88, 0.12);
 }
 
 .spotlight-head {

@@ -630,8 +630,7 @@ onBeforeUnmount(() => {
   border: 0;
   background: transparent;
   color: var(--ink-2);
-  font-weight: 760;
-  letter-spacing: 0.01em;
+  font-weight: 620;
   padding: 0.34rem 0.72rem;
   border-radius: 999px;
   cursor: pointer;
@@ -645,6 +644,7 @@ onBeforeUnmount(() => {
 
 .events-subnav-btn.active {
   color: #fff;
+  font-weight: 680;
   background: linear-gradient(130deg, var(--brand-2), var(--brand-1));
 }
 

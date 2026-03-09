@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -9,38 +9,11 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const storedTheme = typeof window !== 'undefined' ? window.localStorage.getItem('theme') : null
-const initialTheme = storedTheme === 'light' ? 'light' : 'dark'
-const theme = ref(initialTheme)
-
-if (typeof document !== 'undefined') {
-  document.documentElement.setAttribute('data-theme', initialTheme)
-}
-
-function toggleTheme() {
-  const nextTheme = theme.value === 'dark' ? 'light' : 'dark'
-  theme.value = nextTheme
-
-  if (typeof document !== 'undefined') {
-    document.documentElement.setAttribute('data-theme', nextTheme)
-  }
-
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem('theme', nextTheme)
-  }
-}
-
-const themeToggleLabel = computed(() => (theme.value === 'dark' ? 'Light' : 'Dark'))
-const themeIcon = computed(() => (theme.value === 'dark' ? 'light_mode' : 'dark_mode'))
 const loginRoute = computed(() => {
   const redirect = route.name === 'auth' ? '/events' : route.fullPath
   return { name: 'auth', query: { redirect } }
 })
 const authLabel = computed(() => authStore.user?.display_name || 'Account')
-const authInitial = computed(() => {
-  const label = authLabel.value.trim()
-  return label.length > 0 ? label[0].toUpperCase() : 'A'
-})
 const profileRoute = computed(() => {
   const id = String(authStore.user?.id || '').trim()
   if (!id) {
@@ -94,7 +67,6 @@ onMounted(() => {
         </RouterLink>
         <div v-else class="top-nav-user-menu" tabindex="0">
           <button class="top-nav-user-trigger" type="button">
-            <span class="top-nav-user-avatar" aria-hidden="true">{{ authInitial }}</span>
             <span>{{ authLabel }}</span>
             <span class="material-symbols-rounded" aria-hidden="true">expand_more</span>
           </button>
@@ -109,10 +81,6 @@ onMounted(() => {
             </button>
           </div>
         </div>
-        <button class="top-nav-theme icon-btn" type="button" :title="`${themeToggleLabel} mode`" @click="toggleTheme">
-          <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon }}</span>
-          <span class="sr-only">{{ themeToggleLabel }} mode</span>
-        </button>
       </div>
     </div>
   </nav>
@@ -181,7 +149,7 @@ onMounted(() => {
   border-radius: 999px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--brand-1);
+  color: var(--ink-muted);
   font-weight: 620;
   letter-spacing: 0.01em;
   transition: box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
@@ -189,11 +157,16 @@ onMounted(() => {
 
 .top-nav-link .material-symbols-rounded {
   font-size: 1rem;
+  color: color-mix(in srgb, var(--ink-muted) 88%, var(--ink-1) 12%);
 }
 
 .top-nav-link:hover {
-  color: color-mix(in srgb, var(--brand-1) 86%, #fff 14%);
+  color: var(--ink-1);
   transform: none;
+}
+
+.top-nav-link:hover .material-symbols-rounded {
+  color: color-mix(in srgb, var(--ink-1) 92%, #fff 8%);
 }
 
 .top-nav-link:focus-visible {
@@ -208,6 +181,10 @@ onMounted(() => {
   box-shadow: 0 8px 18px rgba(78, 52, 7, 0.3);
 }
 
+.top-nav-link.router-link-active .material-symbols-rounded {
+  color: currentColor;
+}
+
 .top-nav-fake-search {
   min-width: 140px;
   display: inline-flex;
@@ -217,7 +194,7 @@ onMounted(() => {
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, #5b6f93 46%, var(--line) 54%);
   background: linear-gradient(180deg, #0b101b 0%, #0e1523 100%);
-  color: var(--brand-1);
+  color: var(--ink-muted);
   font-size: 0.78rem;
   font-weight: 650;
   letter-spacing: 0.01em;
@@ -226,7 +203,7 @@ onMounted(() => {
 
 .top-nav-fake-search .material-symbols-rounded {
   font-size: 0.92rem;
-  color: var(--brand-1);
+  color: color-mix(in srgb, var(--ink-muted) 88%, var(--ink-1) 12%);
 }
 
 .top-nav-user-menu {
@@ -239,32 +216,18 @@ onMounted(() => {
   border-radius: 9px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--brand-1);
+  color: var(--ink-muted);
   padding: 0.34rem 0.5rem;
   display: inline-flex;
   align-items: center;
   gap: 0.24rem;
-  font-size: 0.84rem;
+  font-size: 0.95rem;
   font-weight: 620;
   font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
 }
 
 .top-nav-user-trigger:hover {
-  color: color-mix(in srgb, var(--brand-1) 86%, #fff 14%);
-}
-
-.top-nav-user-avatar {
-  width: 1.2rem;
-  height: 1.2rem;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.68rem;
-  font-weight: 760;
-  color: color-mix(in srgb, var(--brand-1) 84%, #fff 16%);
-  background: color-mix(in srgb, var(--brand-2) 12%, transparent 88%);
-  border: 1px solid color-mix(in srgb, var(--brand-2) 36%, var(--line) 64%);
+  color: var(--ink-1);
 }
 
 .top-nav-user-trigger .material-symbols-rounded {
@@ -328,16 +291,6 @@ onMounted(() => {
   font-size: 0.83rem;
   color: var(--ink-2);
   font-family: "Space Mono", ui-monospace, monospace;
-}
-
-.top-nav-theme {
-  border: 1px solid color-mix(in srgb, var(--brand-2) 32%, var(--line) 68%);
-  background: color-mix(in srgb, var(--brand-2) 14%, var(--card) 86%);
-  color: var(--ink-1);
-  border-radius: 999px;
-  padding: 0.34rem 0.62rem;
-  font-size: 0.82rem;
-  font-weight: 700;
 }
 
 @media (max-width: 900px) {
