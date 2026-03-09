@@ -659,6 +659,38 @@ pub async fn set_public_signup_enabled_for_event(
     Ok(updated.is_some())
 }
 
+pub async fn set_featured_event_state(
+    pool: &PgPool,
+    event_id: Uuid,
+    featured: bool,
+) -> Result<(), crate::shared::errors::ApiError> {
+    let mut tx = pool.begin().await.map_err(internal_error)?;
+
+    if featured {
+        sqlx::query("UPDATE events SET is_featured = FALSE WHERE is_featured = TRUE AND id <> $1")
+            .bind(event_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(internal_error)?;
+
+        sqlx::query("UPDATE events SET is_featured = TRUE WHERE id = $1")
+            .bind(event_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(internal_error)?;
+    } else {
+        sqlx::query("UPDATE events SET is_featured = FALSE WHERE id = $1")
+            .bind(event_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(internal_error)?;
+    }
+
+    tx.commit().await.map_err(internal_error)?;
+
+    Ok(())
+}
+
 pub async fn create_signup_request(
     pool: &PgPool,
     event_id: Uuid,
@@ -788,6 +820,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
             e.start_date,
             e.event_type,
             e.format,
+            e.is_featured,
             e.signup_token,
             e.public_signup_enabled,
             e.max_players,
@@ -825,6 +858,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         start_date: row.get("start_date"),
         event_type,
         format,
+        is_featured: row.get("is_featured"),
         is_owner: false,
         creator_id: row.get("creator_id"),
         creator_name: row.get("creator_name"),

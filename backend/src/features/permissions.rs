@@ -50,3 +50,17 @@ pub async fn require_event_owner_access(
 
     Err(forbidden("Only event owners can perform this action"))
 }
+
+pub async fn require_app_admin(state: &AppState, user_id: Uuid) -> Result<(), ApiError> {
+    let row = sqlx::query("SELECT id FROM user_roles WHERE user_id = $1 AND role = 'admin'")
+        .bind(user_id)
+        .fetch_optional(&state.pool)
+        .await
+        .map_err(internal_error)?;
+
+    if row.is_some() {
+        return Ok(());
+    }
+
+    Err(forbidden("Only app admins can perform this action"))
+}

@@ -4,7 +4,7 @@ use crate::{
     app::state::AppState,
     features::{
         events::models::{CreateEventInput, Event, UpdateEventInput},
-        permissions::require_event_owner_access,
+        permissions::{require_app_admin, require_event_owner_access},
     },
     shared::{
         errors::{not_found, ApiError},
@@ -92,4 +92,23 @@ pub async fn delete_event_for_user(
     Ok(MessageResponse {
         message: "Event deleted".to_string(),
     })
+}
+
+pub async fn set_featured_event_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+    featured: bool,
+) -> Result<Event, ApiError> {
+    require_app_admin(state, user_id).await?;
+
+    if !repo::event_exists(&state.pool, event_id).await? {
+        return Err(not_found("Event not found"));
+    }
+
+    repo::set_featured_event_state(&state.pool, event_id, featured).await?;
+
+    let mut event = repo::load_event(&state.pool, event_id).await?;
+    event.is_owner = repo::is_event_owner(&state.pool, event_id, user_id).await?;
+    Ok(event)
 }

@@ -5,6 +5,7 @@ import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { formatOptionsForType } from '../lib/event-format'
 import { useAlert } from '../lib/alerts'
 import { useConfirm } from '../lib/confirm'
+import { useAuthStore } from '../stores/auth'
 import { useEventStore } from '../stores/event'
 import { useMatchStore } from '../stores/match'
 import RosterSection from '../components/event/RosterSection.vue'
@@ -18,6 +19,7 @@ const route = useRoute()
 const router = useRouter()
 const alert = useAlert()
 const confirm = useConfirm()
+const authStore = useAuthStore()
 const eventStore = useEventStore()
 const matchStore = useMatchStore()
 
@@ -46,6 +48,7 @@ const reviewingSignupRequests = ref({})
 const signupToken = ref('')
 const rotatingSignupLink = ref(false)
 const updatingSignupVisibility = ref(false)
+const updatingFeaturedEvent = ref(false)
 const lastBalanceSummary = ref('')
 
 const newMatchTitle = ref('')
@@ -73,6 +76,7 @@ let startsInTimer = null
 
 const eventId = computed(() => String(route.params.id || ''))
 const canManageEvent = computed(() => Boolean(event.value?.is_owner))
+const isAppAdmin = computed(() => String(authStore.user?.role || '').toLowerCase() === 'admin')
 const isTourneyEvent = computed(() => String(event.value?.event_type || '').toUpperCase() === 'TOURNEY')
 const eventStartsInLabel = computed(() => {
   const raw = String(event.value?.start_date || '').trim()
@@ -367,6 +371,29 @@ async function setSignupVisibility(enabled) {
     setError(err instanceof Error ? err.message : 'Failed to update signup visibility')
   } finally {
     updatingSignupVisibility.value = false
+  }
+}
+
+async function setFeaturedEvent(featured) {
+  if (!isAppAdmin.value) {
+    setError('Only app admins can change the featured event.')
+    return
+  }
+
+  if (!eventId.value || updatingFeaturedEvent.value) {
+    return
+  }
+
+  updatingFeaturedEvent.value = true
+  try {
+    const updatedEvent = await eventStore.setFeaturedEvent(eventId.value, featured)
+    event.value = updatedEvent
+    hydrateSelections()
+    setNotice(featured ? 'Event is now featured in the spotlight card' : 'Event removed from the spotlight card')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to update featured event')
+  } finally {
+    updatingFeaturedEvent.value = false
   }
 }
 
@@ -1322,6 +1349,15 @@ provide('eventCtx', proxyRefs({
           </div>
         </div>
         <div class="event-header-actions">
+          <button
+            v-if="isAppAdmin"
+            class="btn-secondary"
+            :disabled="updatingFeaturedEvent"
+            type="button"
+            @click="setFeaturedEvent(!event.is_featured)"
+          >
+            {{ updatingFeaturedEvent ? 'Updating...' : (event.is_featured ? 'Remove spotlight' : 'Set as spotlight') }}
+          </button>
           <RouterLink v-if="headerJoinRoute" class="btn-primary event-join-header-btn" :to="headerJoinRoute">
             Join event
           </RouterLink>

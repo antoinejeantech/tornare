@@ -42,7 +42,10 @@ pub use matches::{
     set_matchup_for_user,
 };
 pub use public::{get_event_public, list_events_public};
-pub use events_admin::{create_event_for_user, delete_event_for_user, update_event_for_user};
+pub use events_admin::{
+    create_event_for_user, delete_event_for_user, set_featured_event_for_user,
+    update_event_for_user,
+};
 pub use teams::{
     auto_balance_teams_for_user, auto_create_solo_teams_for_user, create_event_team_for_user,
     delete_event_team_for_user, update_event_team_for_user,

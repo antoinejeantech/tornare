@@ -236,6 +236,8 @@ onMounted(loadSignupInfo)
   margin: 0.05rem 0 0.15rem;
   max-width: 66ch;
   line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .join-stats {

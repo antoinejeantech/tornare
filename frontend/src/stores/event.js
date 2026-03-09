@@ -84,6 +84,12 @@ export const useEventStore = defineStore('event', {
         body: JSON.stringify({ enabled }),
       })
     },
+    setFeaturedEvent(eventId, featured) {
+      return apiCall(`/api/events/${eventId}/featured`, {
+        method: 'PUT',
+        body: JSON.stringify({ featured }),
+      })
+    },
     listSignupRequests(eventId) {
       return apiCall(`/api/events/${eventId}/signup-requests`)
     },
