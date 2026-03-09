@@ -1,10 +1,13 @@
 <script setup>
-import { computed, inject, ref } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 const ctx = inject('eventCtx')
 const router = useRouter()
 const editingMatchups = ref({})
+const bracketWrapEl = ref(null)
+const measuredCardHeight = ref(212)
+let resizeObserver = null
 
 function openMatch(matchId) {
   router.push({ name: 'match', params: { id: matchId } })
@@ -131,7 +134,7 @@ async function saveMatchupAndClose(matchId) {
 }
 
 function roundListStyle(roundIndex) {
-  const cardHeight = 212
+  const cardHeight = measuredCardHeight.value
   const baseGap = 16
   const rounds = bracketRounds.value
   const cardsCount = rounds[roundIndex]?.cards?.length || 1
@@ -368,13 +371,68 @@ function hasRegularTransition(parentCount, childCount) {
 }
 
 function roundCenterStep(cardsCount, cardHeight = 212, baseGap = 16) {
+  const effectiveCardHeight = measuredCardHeight.value || cardHeight
   const maxCards = maxRoundCards.value
-  const columnHeight = (maxCards * cardHeight) + ((maxCards - 1) * baseGap)
+  const columnHeight = (maxCards * effectiveCardHeight) + ((maxCards - 1) * baseGap)
   const safeCards = Math.max(1, cardsCount)
 
   // Keep connector geometry in sync with roundListStyle center distribution.
   return columnHeight / safeCards
 }
+
+async function refreshMeasuredCardHeight() {
+  const hasEditing = Object.values(editingMatchups.value).some(Boolean)
+  if (hasEditing) {
+    return
+  }
+
+  await nextTick()
+
+  const root = bracketWrapEl.value
+  if (!root) {
+    return
+  }
+
+  const cards = root.querySelectorAll('.bracket-match')
+  if (!cards.length) {
+    return
+  }
+
+  let maxHeight = 0
+  cards.forEach((card) => {
+    maxHeight = Math.max(maxHeight, card.offsetHeight)
+  })
+
+  if (maxHeight > 0) {
+    measuredCardHeight.value = maxHeight
+  }
+}
+
+onMounted(async () => {
+  await refreshMeasuredCardHeight()
+
+  if (typeof ResizeObserver !== 'undefined' && bracketWrapEl.value) {
+    resizeObserver = new ResizeObserver(() => {
+      refreshMeasuredCardHeight()
+    })
+    resizeObserver.observe(bracketWrapEl.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+})
+
+watch(bracketRounds, () => {
+  refreshMeasuredCardHeight()
+}, { deep: true })
+
+watch(editingMatchups, () => {
+  refreshMeasuredCardHeight()
+}, { deep: true })
 </script>
 
 <template>
@@ -405,8 +463,12 @@ function roundCenterStep(cardsCount, cardHeight = 212, baseGap = 16) {
 
     <div class="tourney-bracket-wrap">
       <div
+        ref="bracketWrapEl"
         class="tourney-bracket"
-        :style="{ '--rounds': bracketRounds.length, '--max-round-cards': maxRoundCards }"
+        :style="{
+          '--rounds': bracketRounds.length,
+          '--max-round-cards': maxRoundCards
+        }"
       >
         <section
           v-for="(round, roundIndex) in bracketRounds"
@@ -446,15 +508,25 @@ function roundCenterStep(cardsCount, cardHeight = 212, baseGap = 16) {
                 {{ match.title }}
               </button>
               <p v-else class="bracket-match-title muted">{{ match.title }}</p>
-              <button
-                v-if="ctx.canManageEvent && !match.isPlaceholder"
-                class="btn-secondary bracket-toggle-btn"
-                type="button"
-                :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
-                @click="toggleMatchupEditor(match.id)"
-              >
-                {{ isEditingMatchup(match.id) ? 'Close edit' : 'Edit matchup' }}
-              </button>
+              <div v-if="ctx.canManageEvent && !match.isPlaceholder" class="bracket-top-actions">
+                <button
+                  class="btn-secondary bracket-toggle-btn"
+                  type="button"
+                  :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
+                  @click="toggleMatchupEditor(match.id)"
+                >
+                  {{ isEditingMatchup(match.id) ? 'Close edit' : 'Edit matchup' }}
+                </button>
+                <button
+                  v-if="isEditingMatchup(match.id)"
+                  class="btn-secondary bracket-action-btn"
+                  type="button"
+                  :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
+                  @click="saveMatchupAndClose(match.id)"
+                >
+                  {{ ctx.savingMatchups[match.id] ? 'Saving...' : 'Save' }}
+                </button>
+              </div>
               <div class="bracket-team-row" :class="{ winner: match.winner_team_id === match.team_a_id && match.team_a_id }">
                 <select
                   v-if="ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id)"
@@ -500,15 +572,6 @@ function roundCenterStep(cardsCount, cardHeight = 212, baseGap = 16) {
                 >Win</button>
               </div>
               <div v-if="ctx.canManageEvent && !match.isPlaceholder" class="bracket-edit-row">
-                <button
-                  v-if="isEditingMatchup(match.id)"
-                  class="btn-secondary bracket-action-btn"
-                  type="button"
-                  :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
-                  @click="saveMatchupAndClose(match.id)"
-                >
-                  {{ ctx.savingMatchups[match.id] ? 'Saving...' : 'Save' }}
-                </button>
                 <button
                   v-if="canCancelWinner(match) && !isEditingMatchup(match.id)"
                   class="btn-danger bracket-action-btn"
@@ -589,7 +652,6 @@ function roundCenterStep(cardsCount, cardHeight = 212, baseGap = 16) {
   --connector-ink: color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
   position: relative;
   min-height: var(--card-min-height);
-  height: var(--card-min-height);
   border: 1px solid color-mix(in srgb, var(--line) 85%, var(--brand-2) 15%);
   background: color-mix(in srgb, var(--card) 90%, #f2f6ff 10%);
   border-radius: 10px;
@@ -686,9 +748,14 @@ function roundCenterStep(cardsCount, cardHeight = 212, baseGap = 16) {
 }
 
 .bracket-toggle-btn {
-  justify-self: start;
   padding: 0.14rem 0.44rem;
   font-size: 0.74rem;
+}
+
+.bracket-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .bracket-team-row {
