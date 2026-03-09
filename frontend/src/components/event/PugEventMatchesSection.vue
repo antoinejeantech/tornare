@@ -157,8 +157,10 @@ function currentMatchupLabel(match, slot) {
 }
 
 async function saveMatchupAndClose(match) {
-  await ctx.saveMatchup(match.id)
-  closeMatchupEditor(match.id)
+  const saved = await ctx.saveMatchup(match.id)
+  if (saved) {
+    closeMatchupEditor(match.id)
+  }
 }
 </script>
 

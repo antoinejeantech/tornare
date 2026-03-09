@@ -126,10 +126,12 @@ function toggleMatchupEditor(matchId) {
 }
 
 async function saveMatchupAndClose(matchId) {
-  await ctx.saveMatchup(matchId)
-  editingMatchups.value = {
-    ...editingMatchups.value,
-    [matchId]: false,
+  const saved = await ctx.saveMatchup(matchId)
+  if (saved) {
+    editingMatchups.value = {
+      ...editingMatchups.value,
+      [matchId]: false,
+    }
   }
 }
 

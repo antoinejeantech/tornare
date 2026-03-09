@@ -778,11 +778,11 @@ async function removePlayer(player) {
 
 async function saveMatchup(matchId) {
   if (!ensureOwnerAction()) {
-    return
+    return false
   }
 
   if (!eventId.value || savingMatchups.value[matchId]) {
-    return
+    return false
   }
 
   const selection = matchupSelections.value[matchId] || { teamAId: '', teamBId: '' }
@@ -809,8 +809,10 @@ async function saveMatchup(matchId) {
     }
 
     setNotice('Matchup saved')
+    return true
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to save matchup')
+    return false
   } finally {
     savingMatchups.value = {
       ...savingMatchups.value,
