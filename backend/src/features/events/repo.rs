@@ -355,6 +355,31 @@ pub async fn clear_team_from_event_matches(
     Ok(())
 }
 
+pub async fn count_played_matches_for_team(
+    pool: &PgPool,
+    event_id: Uuid,
+    team_id: Uuid,
+) -> Result<i64, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT COUNT(*) AS count
+         FROM event_matches
+         WHERE event_id = $1
+           AND winner_team_id IS NOT NULL
+           AND (
+             team_a_id = $2
+             OR team_b_id = $2
+             OR winner_team_id = $2
+           )",
+    )
+    .bind(event_id)
+    .bind(team_id)
+    .fetch_one(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.get("count"))
+}
+
 pub async fn update_event_team_name_by_id(
     pool: &PgPool,
     event_id: Uuid,

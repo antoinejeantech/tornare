@@ -103,6 +103,10 @@ pub fn build_app(state: AppState) -> Router {
             post(events::generate_tourney_bracket),
         )
         .route(
+            "/api/events/{event_id}/tourney/clear",
+            post(events::clear_tourney_bracket),
+        )
+        .route(
             "/api/events/{event_id}/matches/{match_id}/winner",
             post(events::report_match_winner),
         )

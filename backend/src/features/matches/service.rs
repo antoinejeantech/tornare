@@ -346,6 +346,41 @@ pub async fn generate_tourney_bracket_for_user(
     Ok(as_owner_event(event))
 }
 
+pub async fn clear_tourney_bracket_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+) -> Result<Event, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    match events_repo::event_type_for_event(&state.pool, event_id).await? {
+        Some(EventType::Tourney) => {}
+        Some(EventType::Pug) => {
+            return Err(bad_request(
+                "Bracket clearing is only available for TOURNEY events",
+            ));
+        }
+        None => return Err(not_found("Event not found")),
+    }
+
+    let existing_match_count = repo::count_event_matches(&state.pool, event_id).await?;
+    if existing_match_count > 0 {
+        let played_match_count = repo::count_played_bracket_matches(&state.pool, event_id).await?;
+        if !can_regenerate_bracket(existing_match_count, played_match_count) {
+            return Err(bad_request(
+                "Cannot clear bracket after matches have been played.",
+            ));
+        }
+
+        let mut tx = state.pool.begin().await.map_err(internal_error)?;
+        repo::delete_event_matches_in_tx(&mut tx, event_id).await?;
+        tx.commit().await.map_err(internal_error)?;
+    }
+
+    let event = events_repo::load_event(&state.pool, event_id).await?;
+    Ok(as_owner_event(event))
+}
+
 pub async fn report_match_winner_for_user(
     state: &AppState,
     user_id: Uuid,
