@@ -5,6 +5,7 @@ import { apiCall } from '../lib/api'
 import torbjornImage from '../assets/branding/torbjorn.webp'
 import { formatEventStartDate } from '../lib/dates'
 import EventListItem from '../components/events/EventListItem.vue'
+import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 
 const events = ref([])
 const loadingEvents = ref(false)
@@ -66,26 +67,6 @@ const upcomingThisWeek = computed(() => {
   }).length
 })
 
-const featuredEventMeta = computed(() => {
-  if (!featuredEvent.value) {
-    return ''
-  }
-
-  const playerCount = Array.isArray(featuredEvent.value.players) ? featuredEvent.value.players.length : 0
-  const startText = formatEventStartDate(featuredEvent.value.start_date)
-  const parts = [
-    String(featuredEvent.value.event_type || 'PUG'),
-    String(featuredEvent.value.format || '5v5'),
-    `${playerCount}/${Number(featuredEvent.value.max_players) || 0} players`,
-  ]
-
-  if (startText) {
-    parts.push(startText)
-  }
-
-  return parts.join(' · ')
-})
-
 const countdownEvents = computed(() => {
   const now = Date.now()
   return sortedEvents.value
@@ -96,18 +77,31 @@ const countdownEvents = computed(() => {
     .slice(0, 2)
 })
 
-const activityItems = computed(() => {
-  if (events.value.length === 0) {
-    return []
-  }
+const activityRows = computed(() => {
+  return sortedEvents.value.slice(0, 6).map((event) => {
+    const players = Array.isArray(event?.players) ? event.players.length : 0
+    const maxPlayers = Number(event?.max_players) || 0
 
-  return events.value.slice(0, 8).map((event, index) => {
-    const playerCount = Array.isArray(event?.players) ? event.players.length : 0
-    const startText = formatEventStartDate(event?.start_date) || 'No start date'
-    const format = String(event?.format || '5v5')
-    return `${index + 1}. ${event?.name || 'Untitled event'} - ${format} - ${playerCount} players - ${startText}`
+    return {
+      id: event.id,
+      time: formatShortTime(event?.start_date),
+      name: event?.name || 'Untitled event',
+      format: String(event?.format || '5v5'),
+      players,
+      maxPlayers,
+      status: eventStatusForDashboard(event, players, maxPlayers),
+    }
   })
 })
+
+function normalizeDate(value) {
+  if (!value) {
+    return null
+  }
+
+  const parsed = new Date(value).getTime()
+  return Number.isNaN(parsed) ? null : parsed
+}
 
 function countdownLabel(startDate) {
   const start = normalizeDate(startDate)
@@ -119,26 +113,57 @@ function countdownLabel(startDate) {
   const totalMinutes = Math.floor(diff / (1000 * 60))
   const days = Math.floor(totalMinutes / (60 * 24))
   const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
-  const minutes = totalMinutes % 60
 
   if (days > 0) {
     return `${days}d ${hours}h`
   }
 
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`
-  }
-
-  return `${minutes}m`
+  return `${hours}h`
 }
 
-function normalizeDate(value) {
-  if (!value) {
-    return null
+function formatShortTime(value) {
+  const normalized = normalizeDate(value)
+  if (normalized === null) {
+    return '--:--'
   }
 
-  const parsed = new Date(value).getTime()
-  return Number.isNaN(parsed) ? null : parsed
+  return new Date(normalized).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
+function eventStatusForDashboard(event, players, maxPlayers) {
+  if (maxPlayers > 0 && players >= maxPlayers) {
+    return 'Full'
+  }
+
+  const startAt = normalizeDate(event?.start_date)
+  if (startAt !== null && startAt <= Date.now()) {
+    return 'Progress'
+  }
+
+  return 'Open'
+}
+
+function activityStatusClass(status) {
+  if (status === 'Full') {
+    return 'is-full'
+  }
+  if (status === 'Progress') {
+    return 'is-progress'
+  }
+
+  return 'is-open'
+}
+
+function activityPlayersFill(players, maxPlayers) {
+  const max = Math.max(1, Number(maxPlayers) || 1)
+  const ratio = Math.max(0, Math.min(1, players / max))
+  return {
+    width: `${Math.round(ratio * 100)}%`,
+  }
 }
 
 async function loadLatestEvents() {
@@ -163,8 +188,8 @@ onMounted(loadLatestEvents)
       <p class="home-eyebrow">Community Match Ops</p>
       <h1 class="home-title">Build Match Night Momentum, Not Admin Debt.</h1>
       <p class="home-subtitle muted">
-        Tornare is your operations cockpit for Overwatch communities. Launch events fast, keep signups visible,
-        and move from planning to lobby with less friction.
+        Tornare is your operations cockpit for Overwatch communities.
+        Launch events quickly, keep signups visible, and move from planning to lobby with less friction.
       </p>
       <div class="home-hero-kpis">
         <span class="home-kpi-pill">{{ totalEvents }} live events</span>
@@ -172,93 +197,105 @@ onMounted(loadLatestEvents)
         <span class="home-kpi-pill">{{ upcomingThisWeek }} starting this week</span>
       </div>
       <div class="home-hero-actions">
-        <RouterLink class="btn-primary home-cta" to="/events">Open Event Hub</RouterLink>
-        <RouterLink class="btn-secondary home-cta" to="/news">Latest News</RouterLink>
+        <RouterLink class="home-cta home-cta-link home-cta-link-primary" to="/events">Open Event Hub</RouterLink>
+        <RouterLink class="home-cta home-cta-link" to="/news">Updates</RouterLink>
       </div>
     </section>
 
-    <section class="home-ticker card reveal-block reveal-1">
-      <div class="home-ticker-head">
-        <h2>Live Activity</h2>
-        <span class="home-ticker-dot" aria-hidden="true"></span>
-      </div>
-      <p v-if="activityItems.length === 0" class="muted">No activity yet. Create an event to kick things off.</p>
-      <div v-else class="home-ticker-track-wrap">
-        <div class="home-ticker-track">
-          <span v-for="(item, index) in [...activityItems, ...activityItems]" :key="`ticker-${index}`" class="home-ticker-item">
-            {{ item }}
-          </span>
+    <div class="home-section-head">
+      <h2 class="home-section-title">Dashboard Overview</h2>
+    </div>
+
+    <section class="home-dashboard-grid">
+      <section class="home-ticker card reveal-block reveal-1">
+        <div class="home-ticker-head">
+          <h2>Live Activity</h2>
+          <span class="home-ticker-dot" aria-hidden="true"></span>
         </div>
-      </div>
+        <p v-if="activityRows.length === 0" class="muted">No activity yet. Create an event to kick things off.</p>
+        <div v-else class="home-activity-table-wrap">
+          <div class="home-activity-table-head">
+            <span>Time</span>
+            <span>Event</span>
+            <span>Format</span>
+            <span>Players</span>
+            <span>Status</span>
+          </div>
+          <div class="home-activity-table-body">
+            <article v-for="row in activityRows" :key="`activity-${row.id}`" class="home-activity-row">
+              <span class="home-activity-time">{{ row.time }}</span>
+              <span class="home-activity-event" :title="row.name">{{ row.name }}</span>
+              <span class="home-activity-format">{{ row.format }}</span>
+              <span class="home-activity-players">
+                <span class="home-activity-players-bar" aria-hidden="true">
+                  <span class="home-activity-players-fill" :style="activityPlayersFill(row.players, row.maxPlayers)"></span>
+                </span>
+                <span class="home-activity-players-value">{{ row.players }}</span>
+              </span>
+              <span class="home-activity-status" :class="activityStatusClass(row.status)">{{ row.status }}</span>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <aside class="home-dashboard-side reveal-block reveal-2">
+        <section class="home-signal-grid">
+          <article class="home-signal card">
+            <div class="home-signal-head">
+              <span class="home-signal-label">Board</span>
+            </div>
+            <strong class="home-signal-value">{{ totalEvents }}</strong>
+            <p class="muted">Current event listings available to your community.</p>
+          </article>
+          <article class="home-signal card">
+            <div class="home-signal-head">
+              <span class="home-signal-label">Signups</span>
+            </div>
+            <strong class="home-signal-value">{{ totalSignups }}</strong>
+            <p class="muted">Total players currently committed across events.</p>
+          </article>
+          <article class="home-signal card">
+            <div class="home-signal-head">
+              <span class="home-signal-label">7-Day Pulse</span>
+            </div>
+            <strong class="home-signal-value">{{ upcomingThisWeek }}</strong>
+            <p class="muted">Events kicking off within the next week.</p>
+          </article>
+        </section>
+
+        <section class="home-countdown-grid">
+          <article v-for="event in countdownEvents" :key="`countdown-${event.id}`" class="home-countdown card">
+            <span class="home-countdown-label">Next Event</span>
+            <strong class="home-countdown-value">{{ countdownLabel(event.start_date) }}</strong>
+            <h3 class="home-countdown-title">{{ event.name }}</h3>
+            <p class="muted">{{ formatEventStartDate(event.start_date) || 'No date set' }}</p>
+            <RouterLink class="home-inline-link" :to="{ name: 'event', params: { id: event.id } }">Open event</RouterLink>
+          </article>
+          <article v-if="countdownEvents.length === 0" class="home-countdown card home-countdown-empty">
+            <span class="home-countdown-label">Next Event</span>
+            <strong class="home-countdown-value">-</strong>
+            <p class="muted">No upcoming events.</p>
+          </article>
+        </section>
+      </aside>
     </section>
 
-    <section class="home-signal-grid reveal-block reveal-2">
-      <article class="home-signal card">
-        <span class="home-signal-label">Board</span>
-        <strong class="home-signal-value">{{ totalEvents }}</strong>
-        <p class="muted">Current event listings available to your community.</p>
-      </article>
-      <article class="home-signal card">
-        <span class="home-signal-label">Signups</span>
-        <strong class="home-signal-value">{{ totalSignups }}</strong>
-        <p class="muted">Total players currently committed across events.</p>
-      </article>
-      <article class="home-signal card">
-        <span class="home-signal-label">7-Day Pulse</span>
-        <strong class="home-signal-value">{{ upcomingThisWeek }}</strong>
-        <p class="muted">Events kicking off within the next week.</p>
-      </article>
-    </section>
+    <SpotlightEventCard
+      v-if="featuredEvent"
+      class="reveal-block reveal-4"
+      :event="featuredEvent"
+      badge-label="Spotlight Event"
+    />
 
-    <section class="home-countdown-grid reveal-block reveal-3">
-      <article v-for="event in countdownEvents" :key="`countdown-${event.id}`" class="home-countdown card">
-        <span class="home-countdown-label">Next start in</span>
-        <strong class="home-countdown-value">{{ countdownLabel(event.start_date) }}</strong>
-        <h3 class="home-countdown-title">{{ event.name }}</h3>
-        <p class="muted">{{ formatEventStartDate(event.start_date) || 'No date set' }}</p>
-        <RouterLink class="home-inline-link" :to="{ name: 'event', params: { id: event.id } }">Open event</RouterLink>
-      </article>
-      <article v-if="countdownEvents.length === 0" class="home-countdown card home-countdown-empty">
-        <span class="home-countdown-label">No upcoming starts</span>
-        <strong class="home-countdown-value">-</strong>
-        <p class="muted">Create an event with a start date to populate countdown cards.</p>
-      </article>
-    </section>
-
-    <section v-if="featuredEvent" class="home-spotlight card reveal-block reveal-4">
-      <div class="home-spotlight-head">
-        <span class="home-spotlight-badge">Spotlight Event</span>
-        <RouterLink class="home-inline-link" :to="{ name: 'event', params: { id: featuredEvent.id } }">Open</RouterLink>
-      </div>
-      <h2 class="home-spotlight-title">{{ featuredEvent.name }}</h2>
-      <p class="muted">{{ featuredEventMeta }}</p>
-    </section>
-
-    <section class="home-grid reveal-block reveal-5">
-      <article class="home-feature card">
-        <span class="material-symbols-rounded home-feature-icon" aria-hidden="true">stadium</span>
-        <h2>Event Hub</h2>
-        <p class="muted">Create events, configure formats, and manage signups from one operational view.</p>
-        <RouterLink class="home-inline-link" to="/events">Go to events</RouterLink>
-      </article>
-      <article class="home-feature card">
-        <span class="material-symbols-rounded home-feature-icon" aria-hidden="true">campaign</span>
-        <h2>Latest Updates</h2>
-        <p class="muted">Broadcast patch notes, rule changes, and league news to everyone in one feed.</p>
-        <RouterLink class="home-inline-link" to="/news">Read news</RouterLink>
-      </article>
-      <article class="home-feature card">
-        <span class="material-symbols-rounded home-feature-icon" aria-hidden="true">groups</span>
-        <h2>Project Story</h2>
-        <p class="muted">See the roadmap and mission behind Tornare and where the platform is headed next.</p>
-        <RouterLink class="home-inline-link" to="/about">About Tornare</RouterLink>
-      </article>
-    </section>
-
-    <section class="home-latest card reveal-block reveal-6">
+    <section class="home-latest card reveal-block reveal-5">
       <div class="home-latest-head">
         <h2>Latest Events</h2>
-        <RouterLink class="home-inline-link" to="/events">View all events</RouterLink>
+        <RouterLink class="home-inline-link home-inline-link-action" to="/events">
+          <span>View all events</span>
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </RouterLink>
       </div>
       <p v-if="loadingEvents" class="muted">Loading events...</p>
       <p v-else-if="latestEvents.length === 0" class="muted">No additional events yet. Open Event Hub to create one.</p>
@@ -267,13 +304,12 @@ onMounted(loadLatestEvents)
           v-for="event in latestEvents"
           :key="event.id"
           :event="event"
-          as="link"
           :to="{ name: 'event', params: { id: event.id } }"
         />
       </ul>
     </section>
 
-    <section class="home-banner card reveal-block reveal-7">
+    <section class="home-banner card reveal-block reveal-6">
       <h2>Command Center For Captains And Organizers</h2>
       <p class="muted">From signup links to team coordination, Tornare keeps your event lifecycle visible and actionable.</p>
     </section>
@@ -285,18 +321,18 @@ onMounted(loadLatestEvents)
   max-width: 1820px;
   width: min(96vw, 1820px);
   display: grid;
-  gap: 0.88rem;
+  gap: 0.82rem;
 }
 
 .home-hero {
   position: relative;
   overflow: hidden;
-  padding: 1.25rem;
-  padding-right: clamp(1.25rem, 25vw, 15.5rem);
+  padding: 1.35rem;
+  padding-right: clamp(1.25rem, 20vw, 12rem);
   border-color: color-mix(in srgb, var(--brand-2) 38%, var(--line) 62%);
   background:
-    radial-gradient(600px 220px at 85% 0%, color-mix(in srgb, var(--brand-1) 22%, transparent) 0%, transparent 70%),
-    linear-gradient(145deg, color-mix(in srgb, var(--card) 86%, #e7f1ff 14%) 0%, var(--card) 100%);
+    radial-gradient(620px 220px at 85% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 72%),
+    linear-gradient(145deg, color-mix(in srgb, var(--card) 90%, #2a2a2a 10%) 0%, var(--card) 100%);
 }
 
 .home-hero-art {
@@ -313,8 +349,34 @@ onMounted(loadLatestEvents)
 
 .home-ticker {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.52rem;
   border-color: color-mix(in srgb, var(--brand-2) 30%, var(--line) 70%);
+}
+
+.home-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 0.62rem;
+  align-items: start;
+}
+
+.home-dashboard-side {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.home-section-title {
+  margin: 0;
+  font-size: clamp(1.1rem, 0.9vw + 0.9rem, 1.4rem);
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.home-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.7rem;
 }
 
 .home-ticker-head {
@@ -335,25 +397,122 @@ onMounted(loadLatestEvents)
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand-1) 20%, transparent);
 }
 
-.home-ticker-track-wrap {
+.home-activity-table-wrap {
   overflow: hidden;
-  border-radius: 10px;
-  border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
-  background: color-mix(in srgb, var(--card) 92%, #eff5ff 8%);
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-1) 18%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 94%, #1a2438 6%) 0%, color-mix(in srgb, var(--card) 98%, #1a2438 2%) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 14%, transparent 86%);
 }
 
-.home-ticker-track {
-  display: inline-flex;
-  gap: 1.1rem;
-  white-space: nowrap;
-  padding: 0.52rem 0.75rem;
-  animation: ticker-scroll 26s linear infinite;
+.home-activity-table-head,
+.home-activity-row {
+  display: grid;
+  grid-template-columns: 64px minmax(180px, 1fr) 68px 110px 78px;
+  gap: 0.52rem;
+  align-items: center;
 }
 
-.home-ticker-item {
+.home-activity-table-head {
+  padding: 0.56rem 0.72rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-2);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
+  background: color-mix(in srgb, var(--card) 90%, #172236 10%);
+}
+
+.home-activity-table-body {
+  display: grid;
+}
+
+.home-activity-row {
+  padding: 0.52rem 0.7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 92%, #101928 8%);
+  transition: background 0.16s ease;
+}
+
+.home-activity-row:last-child {
+  border-bottom: 0;
+}
+
+.home-activity-row:hover {
+  background: color-mix(in srgb, var(--brand-2) 8%, var(--card) 92%);
+}
+
+.home-activity-time,
+.home-activity-format,
+.home-activity-players-value,
+.home-activity-status {
   font-family: "Space Mono", ui-monospace, monospace;
   font-size: 0.78rem;
+}
+
+.home-activity-time,
+.home-activity-format {
   color: var(--ink-2);
+}
+
+.home-activity-event {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--ink-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-activity-players {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.home-activity-players-bar {
+  position: relative;
+  width: 66px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 85%, #0f1930 15%);
+  overflow: hidden;
+}
+
+.home-activity-players-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--brand-2) 74%, #ffffff 26%), color-mix(in srgb, var(--accent) 66%, #ffffff 34%));
+}
+
+.home-activity-status {
+  border-radius: 999px;
+  padding: 0.1rem 0.34rem;
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.home-activity-status.is-open {
+  color: #9ce9b8;
+  background: #123224;
+  border-color: #2e7a4f;
+}
+
+.home-activity-status.is-full {
+  color: #ffb9a2;
+  background: #3c1b16;
+  border-color: #8b4433;
+}
+
+.home-activity-status.is-progress {
+  color: #c4dcff;
+  background: #1c2f4b;
+  border-color: #3f5f8d;
 }
 
 .home-eyebrow {
@@ -371,27 +530,29 @@ onMounted(loadLatestEvents)
 }
 
 .home-title {
-  margin: 0.35rem 0 0;
+  margin: 0.45rem 0 0;
   font-size: clamp(1.8rem, 2vw + 1.1rem, 2.8rem);
   line-height: 1.05;
   letter-spacing: -0.01em;
-  max-width: 20ch;
+  max-width: 24ch;
+  color: color-mix(in srgb, var(--heading-ink) 88%, #fff 12%);
 }
 
 .home-subtitle {
-  margin: 0.65rem 0 0;
-  max-width: 68ch;
+  margin: 0.8rem 0 0;
+  max-width: 76ch;
+  line-height: 1.5;
 }
 
 .home-hero-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, max-content));
-  gap: 0.55rem;
-  margin-top: 0.8rem;
+  gap: 0.6rem;
+  margin-top: 1rem;
 }
 
 .home-hero-kpis {
-  margin-top: 0.75rem;
+  margin-top: 0.95rem;
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -404,56 +565,26 @@ onMounted(loadLatestEvents)
   color: var(--meta-ink);
   padding: 0.18rem 0.6rem;
   font-size: 0.74rem;
-  font-family: "Space Mono", ui-monospace, monospace;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   font-weight: 700;
 }
 
 .home-signal-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.7rem;
-}
-
-.home-countdown-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.7rem;
-}
-
-.home-countdown {
-  display: grid;
-  gap: 0.25rem;
-  border-color: color-mix(in srgb, var(--brand-1) 24%, var(--line) 76%);
-  background: color-mix(in srgb, var(--card) 92%, #ecf4ff 8%);
-}
-
-.home-countdown-label {
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.home-countdown-value {
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
-.home-countdown-title {
-  margin: 0.1rem 0 0;
-}
-
-.home-countdown p {
-  margin: 0;
-}
-
-.home-countdown-empty {
-  grid-column: 1 / -1;
+  gap: 0.5rem;
 }
 
 .home-signal {
   display: grid;
   gap: 0.25rem;
+  min-height: 106px;
+}
+
+.home-signal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .home-signal p {
@@ -472,54 +603,73 @@ onMounted(loadLatestEvents)
   line-height: 1;
 }
 
-.home-spotlight {
+.home-countdown-grid {
   display: grid;
-  gap: 0.35rem;
-  border-color: color-mix(in srgb, var(--brand-2) 32%, var(--line) 68%);
-  background:
-    radial-gradient(1000px 90px at 0% 0%, rgba(66, 133, 244, 0.16), transparent 60%),
-    color-mix(in srgb, var(--card) 92%, #eef5ff 8%);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
 }
 
-.home-spotlight-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.home-countdown {
+  display: grid;
+  gap: 0.22rem;
+  border-color: color-mix(in srgb, var(--brand-1) 24%, var(--line) 76%);
+  background: color-mix(in srgb, var(--card) 92%, #162134 8%);
+  min-height: 128px;
 }
 
-.home-spotlight-badge {
+.home-countdown-label {
   font-size: 0.72rem;
-  font-weight: 800;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--brand-1);
+  color: var(--ink-2);
 }
 
-.home-spotlight-title {
+.home-countdown-value {
+  font-size: 1.22rem;
+  line-height: 1;
+}
+
+.home-countdown-title {
+  margin: 0.08rem 0 0;
+  font-size: 0.95rem;
+}
+
+.home-countdown p {
   margin: 0;
 }
+
+.home-countdown-empty {
+  grid-column: 1 / -1;
+}
+
 
 .home-cta {
   text-decoration: none;
 }
 
-.home-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.7rem;
-}
-
-.home-feature {
-  display: grid;
-  gap: 0.35rem;
-}
-
-.home-feature-icon {
-  font-size: 1.25rem;
+.home-cta-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--brand-1);
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-.home-feature h2,
+.home-cta-link-primary {
+  font-weight: 700;
+}
+
+.home-cta-link:hover {
+  color: color-mix(in srgb, var(--brand-1) 82%, #fff 18%);
+  text-decoration: underline;
+}
+
 .home-banner h2 {
   margin: 0;
 }
@@ -537,14 +687,36 @@ onMounted(loadLatestEvents)
   text-decoration: underline;
 }
 
+.home-inline-link-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.26rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
+
+.home-inline-link-action svg {
+  width: 0.78rem;
+  height: 0.78rem;
+  transition: transform 180ms ease;
+}
+
+.home-inline-link-action:hover svg {
+  transform: translateX(2px);
+}
+
 .home-banner {
+  padding-top: 0.88rem;
+  padding-bottom: 0.88rem;
   border-color: color-mix(in srgb, var(--brand-1) 28%, var(--line) 72%);
   background: linear-gradient(145deg, color-mix(in srgb, var(--card) 90%, #edf4ff 10%), var(--card));
 }
 
 .home-latest {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.5rem;
 }
 
 .home-latest-head {
@@ -563,7 +735,16 @@ onMounted(loadLatestEvents)
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.5rem;
+  gap: 0.62rem;
+}
+
+.home-latest-list :deep(.event-list-item) {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.home-latest-list :deep(.event-list-main .muted) {
+  line-height: 1.35;
 }
 
 .home-banner p {
@@ -582,21 +763,11 @@ onMounted(loadLatestEvents)
 .reveal-4 { animation-delay: 240ms; }
 .reveal-5 { animation-delay: 300ms; }
 .reveal-6 { animation-delay: 360ms; }
-.reveal-7 { animation-delay: 420ms; }
 
 @keyframes reveal-rise {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes ticker-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
   }
 }
 
@@ -613,11 +784,11 @@ onMounted(loadLatestEvents)
     opacity: 0.9;
   }
 
-  .home-grid {
+  .home-signal-grid {
     grid-template-columns: 1fr;
   }
 
-  .home-signal-grid {
+  .home-dashboard-grid {
     grid-template-columns: 1fr;
   }
 
@@ -627,6 +798,17 @@ onMounted(loadLatestEvents)
 
   .home-hero-actions {
     grid-template-columns: 1fr;
+  }
+
+  .home-section-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .home-activity-table-head,
+  .home-activity-row {
+    grid-template-columns: 56px minmax(120px, 1fr) 58px 86px 68px;
+    gap: 0.4rem;
   }
 }
 </style>

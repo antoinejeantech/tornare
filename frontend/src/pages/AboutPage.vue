@@ -102,8 +102,8 @@ const roadmap = [
   gap: 0.55rem;
   border-color: color-mix(in srgb, var(--brand-2) 34%, var(--line) 66%);
   background:
-    radial-gradient(1000px 140px at 0% 0%, rgba(66, 133, 244, 0.16), transparent 60%),
-    color-mix(in srgb, var(--card) 92%, #edf5ff 8%);
+    radial-gradient(1000px 140px at 0% 0%, rgba(74, 109, 164, 0.18), transparent 60%),
+    color-mix(in srgb, var(--card) 92%, #162033 8%);
 }
 
 .about-hero h2,

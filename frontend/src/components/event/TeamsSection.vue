@@ -641,7 +641,7 @@ function assignmentNotice(player) {
 
 .balance-roster-chip {
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
-  background: color-mix(in srgb, var(--card) 92%, #f2f7ff 8%);
+  background: color-mix(in srgb, var(--card) 92%, #1b2840 8%);
   border-radius: 999px;
   padding: 0.16rem 0.5rem;
   font-size: 0.82rem;
@@ -650,7 +650,7 @@ function assignmentNotice(player) {
 
 .quick-assign-panel {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
-  background: color-mix(in srgb, var(--card) 92%, #eef4ff 8%);
+  background: color-mix(in srgb, var(--card) 92%, #19253a 8%);
   border-radius: 10px;
   padding: 0.6rem;
   margin: -0.18rem 0 0.72rem;
@@ -691,7 +691,7 @@ function assignmentNotice(player) {
 
 .quick-assign-item {
   border: 1px solid color-mix(in srgb, var(--line) 92%, var(--brand-2) 8%);
-  background: color-mix(in srgb, var(--card) 94%, #f2f7ff 6%);
+  background: color-mix(in srgb, var(--card) 94%, #1b2840 6%);
   border-radius: 8px;
   padding: 0.42rem 0.5rem;
   display: grid;
@@ -777,7 +777,7 @@ function assignmentNotice(player) {
   font-size: 0.78rem;
   font-weight: 700;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  background: color-mix(in srgb, var(--card) 92%, #f2f7ff 8%);
+  background: color-mix(in srgb, var(--card) 92%, #1b2840 8%);
 }
 
 .team-balance-pill.ok {
@@ -824,7 +824,7 @@ function assignmentNotice(player) {
   padding: 0.48rem 0.58rem;
   border-radius: 8px;
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  background: color-mix(in srgb, var(--card) 92%, #eef5ff 8%);
+  background: color-mix(in srgb, var(--card) 92%, #19253a 8%);
 }
 
 .team-player-main {
@@ -911,7 +911,7 @@ function assignmentNotice(player) {
   min-width: min(26rem, 100%);
   max-width: min(42rem, calc(100vw - 2rem));
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
-  background: color-mix(in srgb, var(--card) 96%, #eef5ff 4%);
+  background: color-mix(in srgb, var(--card) 96%, #19253a 4%);
   border-radius: 10px;
   box-shadow: 0 10px 24px rgba(16, 39, 82, 0.18);
   padding: 0.45rem;

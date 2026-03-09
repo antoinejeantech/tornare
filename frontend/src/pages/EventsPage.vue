@@ -1,13 +1,11 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import { formatOptionsForType } from '../lib/event-format'
-import { formatEventStartDate } from '../lib/dates'
 import EventListItem from '../components/events/EventListItem.vue'
+import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
 const events = ref([])
@@ -15,7 +13,6 @@ const error = ref('')
 const notice = ref('')
 const loadingEvents = ref(false)
 const creatingEvent = ref(false)
-const deletingEventId = ref(null)
 const activeOwnerFilter = ref('all')
 const activeTypeFilter = ref('all')
 const eventSearchQuery = ref('')
@@ -242,12 +239,6 @@ async function loadEvents() {
   }
 }
 
-function openEvent(eventId) {
-  clearError()
-  clearNotice()
-  router.push({ name: 'event', params: { id: eventId } })
-}
-
 function normalizeDateValue(value) {
   if (!value) {
     return null
@@ -259,60 +250,6 @@ function normalizeDateValue(value) {
 
 function getPlayerCount(event) {
   return Array.isArray(event?.players) ? event.players.length : 0
-}
-
-function getEventStatus(event) {
-  const maxPlayers = Number(event?.max_players) || 0
-  const playerCount = getPlayerCount(event)
-  const startAt = normalizeDateValue(event?.start_date)
-
-  if (maxPlayers > 0 && playerCount >= maxPlayers) {
-    return 'Full'
-  }
-
-  if (startAt !== null) {
-    const now = Date.now()
-    if (startAt <= now) {
-      return 'Ongoing'
-    }
-
-    const diff = startAt - now
-    if (diff <= 6 * 60 * 60 * 1000) {
-      return 'Starting Soon'
-    }
-  }
-
-  return 'Open'
-}
-
-function eventStatusClass(event) {
-  const status = getEventStatus(event)
-  if (status === 'Full') {
-    return 'is-full'
-  }
-  if (status === 'Ongoing') {
-    return 'is-ongoing'
-  }
-  if (status === 'Starting Soon') {
-    return 'is-soon'
-  }
-
-  return 'is-open'
-}
-
-function featuredMeta(event) {
-  const startText = formatEventStartDate(event?.start_date)
-  const parts = [
-    String(event?.event_type || 'PUG'),
-    String(event?.format || '5v5'),
-    `${getPlayerCount(event)}/${Number(event?.max_players) || 0} players`,
-  ]
-
-  if (startText) {
-    parts.push(startText)
-  }
-
-  return parts.join(' · ')
 }
 
 function handleGlobalKeyDown(event) {
@@ -351,35 +288,6 @@ async function createEvent() {
     setError(err instanceof Error ? err.message : 'Failed to create event')
   } finally {
     creatingEvent.value = false
-  }
-}
-
-async function deleteEvent(eventId) {
-  if (deletingEventId.value) {
-    return
-  }
-
-  const target = events.value.find((event) => event.id === eventId)
-  const confirmed = window.confirm(`Delete event "${target?.name || eventId}"? This also deletes its matches.`)
-  if (!confirmed) {
-    return
-  }
-
-  deletingEventId.value = eventId
-  try {
-    clearError()
-    clearNotice()
-
-    await apiCall(`/api/events/${eventId}`, {
-      method: 'DELETE'
-    })
-
-    events.value = events.value.filter((event) => event.id !== eventId)
-    setNotice('Event deleted')
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'Failed to delete event')
-  } finally {
-    deletingEventId.value = null
   }
 }
 
@@ -511,19 +419,12 @@ onBeforeUnmount(() => {
     <p v-if="error" class="status status-error">{{ error }}</p>
     <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
-    <section v-if="featuredEvent" class="card featured-event-card reveal-block reveal-2">
-      <div class="featured-event-head">
-        <span class="featured-badge">Featured Tonight</span>
-        <span class="event-status-chip" :class="eventStatusClass(featuredEvent)">{{ getEventStatus(featuredEvent) }}</span>
-      </div>
-      <h2 class="featured-event-title">{{ featuredEvent.name }}</h2>
-      <p class="muted featured-event-meta">{{ featuredMeta(featuredEvent) }}</p>
-      <div class="featured-event-actions">
-        <button type="button" class="btn-primary" @click="openEvent(featuredEvent.id)">
-          Open event
-        </button>
-      </div>
-    </section>
+    <SpotlightEventCard
+      v-if="featuredEvent"
+      class="reveal-block reveal-2"
+      :event="featuredEvent"
+      badge-label="Featured Event"
+    />
 
     <section class="card reveal-block reveal-3">
       <p v-if="loadingEvents">Loading events...</p>
@@ -540,43 +441,10 @@ onBeforeUnmount(() => {
           v-for="(event, index) in sortedEvents"
           :key="event.id"
           :event="event"
-          :show-creator="true"
+          :to="{ name: 'event', params: { id: event.id } }"
           class="events-list-row"
           :style="{ animationDelay: `${index * 45}ms` }"
-          @select="openEvent(event.id)"
-        >
-          <template #actions>
-            <button
-              class="btn-secondary icon-btn"
-              title="Open event"
-              @click="openEvent(event.id)"
-            >
-              <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span>
-              <span class="sr-only">Open event</span>
-            </button>
-            <button
-              v-if="event.is_owner"
-              class="btn-secondary icon-btn"
-              title="Manage event"
-              @click="openEvent(event.id)"
-            >
-              <span class="material-symbols-rounded" aria-hidden="true">edit_note</span>
-              <span class="sr-only">Manage event</span>
-            </button>
-            <button
-              v-if="event.is_owner"
-              class="btn-danger icon-btn"
-              :disabled="deletingEventId === event.id"
-              :title="deletingEventId === event.id ? 'Deleting event' : 'Delete event'"
-              @click="deleteEvent(event.id)"
-            >
-              <span class="material-symbols-rounded" aria-hidden="true">
-                {{ deletingEventId === event.id ? 'hourglass_top' : 'delete' }}
-              </span>
-              <span class="sr-only">{{ deletingEventId === event.id ? 'Deleting event' : 'Delete event' }}</span>
-            </button>
-          </template>
-        </EventListItem>
+        />
       </ul>
     </section>
 
@@ -706,7 +574,7 @@ onBeforeUnmount(() => {
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   border-radius: 12px;
   padding: 0.6rem 0.7rem;
-  background: color-mix(in srgb, var(--card) 90%, #edf5ff 10%);
+  background: color-mix(in srgb, var(--card) 92%, #2a2a2a 8%);
   display: grid;
   gap: 0.2rem;
 }
@@ -731,7 +599,7 @@ onBeforeUnmount(() => {
   gap: 0.35rem;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  background: color-mix(in srgb, var(--card) 92%, #f2f7ff 8%);
+  background: color-mix(in srgb, var(--card) 94%, #2f2f2f 6%);
   padding: 0.28rem 0.55rem;
 }
 
@@ -755,7 +623,7 @@ onBeforeUnmount(() => {
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   border-radius: 999px;
   padding: 0.22rem;
-  background: color-mix(in srgb, var(--card) 92%, #edf5ff 8%);
+  background: color-mix(in srgb, var(--card) 94%, #2f2f2f 6%);
 }
 
 .events-subnav-btn {
@@ -777,7 +645,7 @@ onBeforeUnmount(() => {
 
 .events-subnav-btn.active {
   color: #fff;
-  background: linear-gradient(130deg, #0f4f99, var(--brand-1));
+  background: linear-gradient(130deg, var(--brand-2), var(--brand-1));
 }
 
 .events-sort {
@@ -787,7 +655,7 @@ onBeforeUnmount(() => {
   padding: 0.1rem 0.45rem;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--card) 92%, #edf5ff 8%);
+  background: color-mix(in srgb, var(--card) 94%, #2f2f2f 6%);
 }
 
 .events-sort-label {
@@ -801,78 +669,6 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--ink-1);
   font-weight: 700;
-}
-
-.featured-event-card {
-  display: grid;
-  gap: 0.45rem;
-  border-color: color-mix(in srgb, var(--brand-2) 30%, var(--line) 70%);
-  background:
-    radial-gradient(1200px 90px at 0% 0%, rgba(66, 133, 244, 0.16), transparent 60%),
-    color-mix(in srgb, var(--card) 92%, #f0f6ff 8%);
-}
-
-.featured-event-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.featured-badge {
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--brand-1);
-}
-
-.featured-event-title {
-  margin: 0;
-}
-
-.featured-event-meta {
-  margin: 0;
-}
-
-.featured-event-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.event-status-chip {
-  border-radius: 999px;
-  padding: 0.2rem 0.55rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border: 1px solid transparent;
-}
-
-.event-status-chip.is-open {
-  color: #0b5a1e;
-  background: #daf4e2;
-  border-color: #95d9a9;
-}
-
-.event-status-chip.is-soon {
-  color: #7a3b00;
-  background: #ffe8c9;
-  border-color: #ffc57f;
-}
-
-.event-status-chip.is-full {
-  color: #7a2a0a;
-  background: #ffd9ce;
-  border-color: #ffad95;
-}
-
-.event-status-chip.is-ongoing {
-  color: #fff;
-  background: linear-gradient(130deg, #0f4f99, var(--brand-1));
-  border-color: color-mix(in srgb, #0f4f99 75%, var(--brand-1) 25%);
 }
 
 .events-empty-state {

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
-import overwatchLogo from '../assets/branding/overwatch-logo.png'
+import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { useAuthStore } from '../stores/auth'
 
@@ -563,7 +563,7 @@ onMounted(async () => {
   padding: 0.62rem 0.68rem;
   border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-2) 14%);
-  background: color-mix(in srgb, var(--card) 88%, #eef5ff 12%);
+  background: color-mix(in srgb, var(--card) 88%, #19253a 12%);
   box-shadow: 0 6px 14px rgba(19, 53, 116, 0.12);
 }
 
@@ -633,7 +633,7 @@ onMounted(async () => {
   color: var(--meta-ink);
   padding: 0.18rem 0.55rem;
   font-size: 0.74rem;
-  font-family: "Space Mono", ui-monospace, monospace;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -671,9 +671,9 @@ onMounted(async () => {
   font-size: 1rem;
   font-weight: 800;
   color: #fff;
-  background: linear-gradient(130deg, #0f4f99, var(--brand-1));
-  border: 1px solid color-mix(in srgb, var(--brand-2) 44%, #0f4f99 56%);
-  box-shadow: 0 4px 10px rgba(30, 136, 229, 0.26);
+  background: linear-gradient(130deg, var(--brand-2), var(--brand-1));
+  border: 1px solid color-mix(in srgb, var(--brand-2) 66%, var(--brand-1) 34%);
+  box-shadow: 0 4px 10px rgba(78, 52, 7, 0.26);
 }
 
 @media (max-width: 980px) {

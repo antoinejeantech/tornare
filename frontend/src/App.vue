@@ -10,7 +10,7 @@ import AlertHost from './components/AlertHost.vue'
     <RouterView />
     <AlertHost />
     <footer class="app-footer">
-      <div class="app-footer-inner">© 2026 Antoine. All rights reserved.</div>
+      <div class="app-footer-inner">© 2026 Tornare. All rights reserved.</div>
     </footer>
   </div>
 </template>

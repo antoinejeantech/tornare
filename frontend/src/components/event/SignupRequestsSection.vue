@@ -83,7 +83,7 @@ const reviewedRequests = computed(() => {
 .signup-link-box {
   border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-1) 12%);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--card) 90%, #edf5ff 10%);
+  background: color-mix(in srgb, var(--card) 90%, #162033 10%);
   padding: 0.6rem;
   margin-bottom: 0.7rem;
 }
@@ -103,7 +103,7 @@ const reviewedRequests = computed(() => {
 .signup-request-card {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--card) 92%, #eef5ff 8%);
+  background: color-mix(in srgb, var(--card) 92%, #19253a 8%);
   padding: 0.6rem;
 }
 

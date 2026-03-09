@@ -1,11 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { overwatchRanks } from '../lib/ranks'
 import { formatEventStartDate } from '../lib/dates'
 import { useEventStore } from '../stores/event'
 
 const route = useRoute()
+const router = useRouter()
 const eventStore = useEventStore()
 
 const loading = ref(false)
@@ -91,6 +92,12 @@ async function submitRequest() {
       role: playerRole.value,
       rank: playerRank.value,
     })
+
+    const destinationEventId = signupInfo.value?.event_id
+    if (destinationEventId) {
+      await router.push({ name: 'event', params: { id: String(destinationEventId) } })
+      return
+    }
 
     if (signupInfo.value) {
       signupInfo.value = {

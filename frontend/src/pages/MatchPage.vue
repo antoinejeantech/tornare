@@ -232,7 +232,7 @@ onMounted(loadMatch)
 .team-roster-card {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--card) 92%, #eef5ff 8%);
+  background: color-mix(in srgb, var(--card) 92%, #19253a 8%);
   padding: 0.6rem;
 }
 

@@ -109,8 +109,8 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
   gap: 0.55rem;
   border-color: color-mix(in srgb, var(--brand-2) 34%, var(--line) 66%);
   background:
-    radial-gradient(1000px 130px at 0% 0%, rgba(66, 133, 244, 0.16), transparent 60%),
-    color-mix(in srgb, var(--card) 92%, #edf5ff 8%);
+    radial-gradient(1000px 130px at 0% 0%, rgba(74, 109, 164, 0.18), transparent 60%),
+    color-mix(in srgb, var(--card) 92%, #162033 8%);
 }
 
 .news-hero h2,
@@ -145,7 +145,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
   color: var(--meta-ink);
   padding: 0.18rem 0.58rem;
   font-size: 0.74rem;
-  font-family: "Space Mono", ui-monospace, monospace;
+  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
   font-weight: 700;
 }
 
@@ -179,7 +179,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 .news-category-chip {
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-1) 16%);
-  background: color-mix(in srgb, var(--card) 90%, #edf4ff 10%);
+  background: color-mix(in srgb, var(--card) 90%, #182337 10%);
   color: var(--ink-2);
   padding: 0.14rem 0.5rem;
   font-size: 0.72rem;
@@ -227,7 +227,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 .news-item {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--card) 92%, #eef5ff 8%);
+  background: color-mix(in srgb, var(--card) 92%, #19253a 8%);
   padding: 0.62rem 0.7rem;
   display: grid;
   gap: 0.35rem;
