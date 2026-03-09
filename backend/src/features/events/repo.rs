@@ -664,16 +664,29 @@ pub async fn set_featured_event_state(
     event_id: Uuid,
     featured: bool,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query(
-        "UPDATE events
-         SET is_featured = CASE WHEN id = $1 THEN $2 ELSE FALSE END
-         WHERE id = $1 OR is_featured = TRUE",
-    )
-    .bind(event_id)
-    .bind(featured)
-    .execute(pool)
-    .await
-    .map_err(internal_error)?;
+    let mut tx = pool.begin().await.map_err(internal_error)?;
+
+    if featured {
+        sqlx::query("UPDATE events SET is_featured = FALSE WHERE is_featured = TRUE AND id <> $1")
+            .bind(event_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(internal_error)?;
+
+        sqlx::query("UPDATE events SET is_featured = TRUE WHERE id = $1")
+            .bind(event_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(internal_error)?;
+    } else {
+        sqlx::query("UPDATE events SET is_featured = FALSE WHERE id = $1")
+            .bind(event_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(internal_error)?;
+    }
+
+    tx.commit().await.map_err(internal_error)?;
 
     Ok(())
 }
