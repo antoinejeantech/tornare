@@ -113,6 +113,7 @@ pub struct Event {
     pub start_date: Option<String>,
     pub event_type: EventType,
     pub format: EventFormat,
+    pub is_featured: bool,
     pub is_owner: bool,
     pub creator_id: Option<Uuid>,
     pub creator_name: Option<String>,
@@ -127,6 +128,11 @@ pub struct Event {
 #[derive(Deserialize)]
 pub struct SetEventPublicSignupInput {
     pub enabled: bool,
+}
+
+#[derive(Deserialize)]
+pub struct SetEventFeaturedInput {
+    pub featured: bool,
 }
 
 #[derive(Deserialize)]

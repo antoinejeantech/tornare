@@ -14,7 +14,7 @@ use crate::{
             CreateEventInput, CreateEventMatchInput, CreateEventSignupRequestInput,
             CreateEventTeamInput, Event, EventSignupLinkResponse, EventSignupRequest, Match,
             GenerateTourneyBracketInput, PublicEventSignupInfo, ReportMatchWinnerInput,
-            SetEventPublicSignupInput,
+            SetEventFeaturedInput, SetEventPublicSignupInput,
             SetMatchupInput, UpdateEventInput,
             UpdateEventPlayerInput, UpdateEventTeamInput,
         },
@@ -286,6 +286,18 @@ pub async fn set_event_public_signup(
 ) -> ApiResult<Event> {
     let user_id = require_authenticated_user_id(&state, &headers)?;
     service::set_event_public_signup_for_user(&state, user_id, event_id, payload.enabled)
+        .await
+        .map(Json)
+}
+
+pub async fn set_event_featured(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<SetEventFeaturedInput>,
+) -> ApiResult<Event> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::set_featured_event_for_user(&state, user_id, event_id, payload.featured)
         .await
         .map(Json)
 }
