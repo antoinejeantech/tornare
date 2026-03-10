@@ -19,7 +19,7 @@ import ConfirmHost from './components/ConfirmHost.vue'
           <RouterLink to="/terms">Terms of Service</RouterLink>
           <RouterLink to="/faq">FAQ</RouterLink>
           <RouterLink to="/support">Support</RouterLink>
-          <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub</a>
         </nav>
       </div>
     </footer>

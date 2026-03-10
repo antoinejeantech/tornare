@@ -294,7 +294,7 @@ async function createEvent() {
     clearError()
     clearNotice()
 
-    const created = await apiCall('/api/events', {
+    await apiCall('/api/events', {
       method: 'POST',
       body: JSON.stringify({
         name: newEventName.value.trim(),
@@ -307,8 +307,15 @@ async function createEvent() {
       })
     })
 
-    events.value.unshift(created)
-    await loadFeaturedEvent()
+    const shouldLoadPageDirectly = currentPage.value === 1
+    currentPage.value = 1
+
+    await Promise.all([
+      shouldLoadPageDirectly ? loadEvents() : Promise.resolve(),
+      loadEventsKpis(),
+      loadFeaturedEvent(),
+    ])
+
     resetCreateForm()
     showCreateModal.value = false
     setNotice('Event created successfully')
