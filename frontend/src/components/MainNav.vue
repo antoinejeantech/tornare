@@ -92,9 +92,9 @@ onMounted(() => {
 <template>
   <nav class="top-nav">
     <div class="top-nav-inner">
-      <RouterLink class="brand-link" to="/">
-        <img class="brand-logo" :src="tornareLogo" alt="Tornare logo" />
-        <span>Tornare</span>
+      <RouterLink class="brand-link" to="/" aria-label="Tornare">
+        <img class="brand-logo" :src="tornareLogo" alt="" aria-hidden="true" />
+        <span class="brand-wordmark">ornare</span>
       </RouterLink>
       <button
         class="top-nav-mobile-toggle icon-btn"
@@ -204,14 +204,15 @@ onMounted(() => {
 .brand-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.42rem;
+  gap: 0.18rem;
   text-decoration: none;
   color: var(--brand-1);
-  font-size: 1.1rem;
-  font-weight: 800;
+  font-size: 0.9rem;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.22);
+  line-height: 1;
 }
 
 .brand-link:hover {
@@ -219,10 +220,20 @@ onMounted(() => {
 }
 
 .brand-logo {
-  width: 20px;
-  height: 20px;
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  transform: translateY(-0.01em);
   object-fit: contain;
   filter: drop-shadow(0 2px 6px rgba(154, 114, 50, 0.28));
+}
+
+.brand-wordmark {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  transform: translateY(0.1em);
 }
 
 .top-nav-links {
