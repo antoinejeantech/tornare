@@ -1,8 +1,8 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { formatEventStartDate } from '../../lib/dates'
-import tracerImage from '../../assets/branding/tracer.png'
+import testBackground from '../../assets/branding/test.jpg'
+import ActionCtaButton from '../ui/ActionCtaButton.vue'
 
 const props = defineProps({
   event: {
@@ -13,47 +13,58 @@ const props = defineProps({
     type: String,
     default: 'Spotlight Event',
   },
-  artSrc: {
-    type: String,
-    default: '',
-  },
-  artAlt: {
-    type: String,
-    default: '',
-  },
 })
 
 const eventLink = computed(() => {
   return { name: 'event', params: { id: props.event.id } }
 })
 
-const publicJoinRoute = computed(() => {
-  const isPublic = Boolean(props.event?.public_signup_enabled)
-  if (!isPublic) {
-    return null
+const eventDateText = computed(() => {
+  const value = props.event?.start_date
+  if (!value) {
+    return 'Date TBD'
   }
 
-  const token = String(props.event?.public_signup_token || '').trim()
-  if (!token) {
-    return eventLink.value
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return 'Date TBD'
   }
 
-  return { name: 'join-event', params: { token } }
+  return parsed.toLocaleDateString([], {
+    month: 'short',
+    day: '2-digit',
+    year: 'numeric',
+  })
 })
 
-const metaText = computed(() => {
-  const startText = formatEventStartDate(props.event?.start_date)
-  const parts = [
-    String(props.event?.event_type || 'PUG'),
-    String(props.event?.format || '5v5'),
-    `${getPlayerCount(props.event)}/${Number(props.event?.max_players) || 0} players`,
-  ]
+const eventTypeText = computed(() => {
+  return String(props.event?.event_type || 'PUG')
+})
 
-  if (startText) {
-    parts.push(startText)
+const eventFormatText = computed(() => {
+  return String(props.event?.format || '5v5')
+})
+
+const eventModeText = computed(() => {
+  return `${eventTypeText.value} ${eventFormatText.value}`
+})
+
+const spotlightCardStyle = computed(() => {
+  return {
+    backgroundImage: [
+      'radial-gradient(700px 110px at 0% 0%, rgba(255, 255, 255, 0.08), transparent 62%)',
+      'radial-gradient(360px 170px at 92% 52%, rgba(0, 0, 0, 0.24), transparent 72%)',
+      'linear-gradient(90deg, rgba(14, 18, 30, 0.78) 0%, rgba(16, 20, 34, 0.7) 62%, rgba(14, 18, 30, 0.82) 100%)',
+      `url(${testBackground})`,
+    ].join(', '),
+    backgroundSize: 'auto, auto, auto, cover',
+    backgroundPosition: '0 0, 92% 52%, 0 0, center',
+    backgroundRepeat: 'no-repeat',
   }
+})
 
-  return parts.join(' · ')
+const eventPlayersText = computed(() => {
+  return `${getPlayerCount(props.event)}/${Number(props.event?.max_players) || 0} players`
 })
 
 function getPlayerCount(event) {
@@ -62,14 +73,7 @@ function getPlayerCount(event) {
 </script>
 
 <template>
-  <section class="card spotlight-event-card">
-    <RouterLink class="spotlight-open-link" :to="eventLink">
-      <span>View Event</span>
-      <svg viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>
-    </RouterLink>
-
+  <section class="card spotlight-event-card" :style="spotlightCardStyle">
     <div class="spotlight-head">
       <span class="spotlight-badge">{{ badgeLabel }}</span>
     </div>
@@ -77,10 +81,24 @@ function getPlayerCount(event) {
     <h2 class="spotlight-title">
       <RouterLink class="spotlight-title-link" :to="eventLink">{{ event.name }}</RouterLink>
     </h2>
-    <p class="muted spotlight-meta">{{ metaText }}</p>
-    <RouterLink v-if="event?.public_signup_enabled" class="btn-primary spotlight-cta" :to="publicJoinRoute || eventLink">Sign up now</RouterLink>
-
-    <img class="spotlight-art" :src="artSrc || tracerImage" :alt="artAlt || 'Tracer spotlight art'" />
+    <p class="spotlight-meta" aria-label="Event details">
+      <span class="spotlight-meta-item spotlight-meta-badge">
+        <span class="material-symbols-rounded spotlight-meta-icon" aria-hidden="true">calendar_month</span>
+        <span>{{ eventDateText }}</span>
+      </span>
+      <span class="spotlight-meta-item spotlight-meta-badge">
+        <span class="material-symbols-rounded spotlight-meta-icon" aria-hidden="true">trophy</span>
+        <span>{{ eventModeText }}</span>
+      </span>
+      <span class="spotlight-meta-item spotlight-meta-badge">
+        <span class="material-symbols-rounded spotlight-meta-icon" aria-hidden="true">group</span>
+        <span>{{ eventPlayersText }}</span>
+      </span>
+    </p>
+    <div class="spotlight-cta-stack">
+      <ActionCtaButton class="spotlight-cta" :to="eventLink">SIGN UP NOW</ActionCtaButton>
+      <p class="spotlight-cta-note">LIMITED SLOTS AVAILABLE</p>
+    </div>
   </section>
 </template>
 
@@ -91,17 +109,10 @@ function getPlayerCount(event) {
   display: grid;
   gap: 0.38rem;
   min-height: 136px;
-  padding-right: clamp(9.8rem, 27vw, 18rem);
+  padding: 1.25rem 1.25rem 1.4rem;
+  padding-right: 1.25rem;
   border-color: color-mix(in srgb, var(--brand-1) 40%, var(--line) 60%);
-  background:
-    radial-gradient(700px 110px at 0% 0%, rgba(255, 255, 255, 0.08), transparent 62%),
-    radial-gradient(360px 170px at 92% 52%, rgba(0, 0, 0, 0.24), transparent 72%),
-    linear-gradient(90deg, color-mix(in srgb, var(--card) 94%, #232323 6%) 0%, color-mix(in srgb, var(--card) 96%, #2a2a2a 4%) 68%, color-mix(in srgb, #181818 72%, var(--card) 28%) 100%);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--brand-1) 20%, transparent 80%),
-    0 0 14px color-mix(in srgb, #dbe8ff 28%, transparent 72%),
-    0 10px 22px rgba(27, 82, 160, 0.2),
-    0 2px 8px rgba(21, 44, 88, 0.12);
+  box-shadow: none;
 }
 
 .spotlight-head {
@@ -109,6 +120,7 @@ function getPlayerCount(event) {
   align-items: center;
   justify-content: flex-start;
   gap: 0.5rem;
+  margin-bottom: var(--space-1);
   z-index: 2;
 }
 
@@ -128,104 +140,84 @@ function getPlayerCount(event) {
 }
 
 .spotlight-title-link {
+  display: block;
+  max-width: 16ch;
   text-decoration: none;
   color: inherit;
 }
 
 .spotlight-title-link:hover {
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .spotlight-cta {
   text-decoration: none;
-}
-
-.spotlight-open-link {
-  position: absolute;
-  top: 0.7rem;
-  right: 0.95rem;
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.26rem;
-  text-decoration: none;
-  padding: 0;
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--brand-1);
-  border: 0;
-}
-
-.spotlight-open-link svg {
-  width: 0.78rem;
-  height: 0.78rem;
-  transition: transform 180ms ease;
-}
-
-.spotlight-open-link:hover {
-  color: color-mix(in srgb, var(--brand-1) 80%, #fff 20%);
-  text-decoration: underline;
-}
-
-.spotlight-open-link:hover svg {
-  transform: translateX(2px);
 }
 
 .spotlight-title {
-  font-size: clamp(1.45rem, 0.8vw + 1.05rem, 2rem);
+  font-size: clamp(1.7rem, 1.1vw + 1.2rem, 2.3rem);
+  margin-bottom: var(--space-2);
 }
 
 .spotlight-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.36rem 0.62rem;
   line-height: 1.3;
   font-size: 0.86rem;
+  color: white;
 }
 
-.spotlight-cta {
+.spotlight-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.spotlight-meta-badge {
+  padding: 0.26rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--card) 48%, transparent 52%);
+}
+
+.spotlight-meta-icon {
+  font-size: 0.9rem;
+  color: color-mix(in srgb, white 92%, var(--brand-1) 8%);
+}
+
+.spotlight-cta-stack {
   position: absolute;
   right: 1rem;
-  bottom: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
   z-index: 2;
-  font-size: 1.05rem;
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 8px;
-  padding: 0.56rem 1.02rem;
-  box-shadow: 0 10px 22px rgba(123, 89, 30, 0.36);
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
 }
 
-.spotlight-art {
-  position: absolute;
-  right: 0.72rem;
-  bottom: 0;
-  width: clamp(124px, 19vw, 210px);
-  max-height: 96%;
-  object-fit: contain;
-  pointer-events: none;
-  opacity: 0.92;
-  filter: drop-shadow(0 6px 16px rgba(9, 18, 38, 0.34));
-  z-index: 1;
+.spotlight-cta-note {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--brand-1) 90%, white 10%);
 }
 
 @media (max-width: 980px) {
   .spotlight-event-card {
-    padding-right: 1.15rem;
-    padding-bottom: 7.2rem;
+    padding: 1rem;
+    padding-right: 1rem;
+    padding-bottom: 1rem;
   }
 
-  .spotlight-art {
-    right: 50%;
-    transform: translateX(50%);
-    width: clamp(120px, 40vw, 190px);
-    opacity: 0.72;
-  }
-
-  .spotlight-cta {
+  .spotlight-cta-stack {
     right: 50%;
     transform: translateX(50%);
     bottom: 0.78rem;
-    font-size: 0.88rem;
+    top: auto;
   }
 }
 </style>

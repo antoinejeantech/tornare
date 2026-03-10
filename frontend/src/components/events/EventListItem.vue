@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import overwatchLogo from '../../assets/branding/overwatch-logo-gold.png'
 import { formatEventStartDate } from '../../lib/dates'
+import StatusPill from '../ui/StatusPill.vue'
 
 const props = defineProps({
   event: {
@@ -64,18 +65,15 @@ const statusLabel = computed(() => {
   return 'Open'
 })
 
-const statusClass = computed(() => {
+const statusForPill = computed(() => {
   if (statusLabel.value === 'Full') {
-    return 'is-full'
+    return 'Full'
   }
   if (statusLabel.value === 'Ongoing') {
-    return 'is-ongoing'
-  }
-  if (statusLabel.value === 'Starting Soon') {
-    return 'is-soon'
+    return 'Progress'
   }
 
-  return 'is-open'
+  return 'Open'
 })
 
 </script>
@@ -112,7 +110,7 @@ const statusClass = computed(() => {
     </div>
 
     <div class="event-status-col" aria-label="Status">
-      <span class="event-status-chip" :class="statusClass">{{ statusLabel }}</span>
+      <StatusPill :status="statusForPill" :label="statusLabel" />
     </div>
 
     <div class="event-list-side">
@@ -185,40 +183,6 @@ const statusClass = computed(() => {
   height: 16px;
   object-fit: contain;
   flex: 0 0 auto;
-}
-
-.event-status-chip {
-  border-radius: 999px;
-  padding: 0.2rem 0.62rem;
-  font-size: 0.74rem;
-  font-weight: 620;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border: 1px solid transparent;
-}
-
-.event-status-chip.is-open {
-  color: #9ce9b8;
-  background: #123224;
-  border-color: #2e7a4f;
-}
-
-.event-status-chip.is-soon {
-  color: #7a3b00;
-  background: #ffe8c9;
-  border-color: #ffc57f;
-}
-
-.event-status-chip.is-full {
-  color: #ffb9a2;
-  background: #3c1b16;
-  border-color: #8b4433;
-}
-
-.event-status-chip.is-ongoing {
-  color: #c4dcff;
-  background: #1c2f4b;
-  border-color: #3f5f8d;
 }
 
 .event-list-side {
