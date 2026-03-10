@@ -3,8 +3,8 @@ import { apiCall } from '../lib/api'
 
 export const useEventStore = defineStore('event', {
   actions: {
-    fetchEvent(eventId) {
-      return apiCall(`/api/events/${eventId}`)
+    fetchEvent(eventId, options = {}) {
+      return apiCall(`/api/events/${eventId}`, options)
     },
     updateEvent(eventId, payload) {
       return apiCall(`/api/events/${eventId}`, {

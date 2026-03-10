@@ -1,18 +1,42 @@
 <script setup>
 import { RouterLink } from 'vue-router'
+import { computed } from 'vue'
 
 const props = defineProps({
   to: {
     type: [String, Object],
-    required: true,
+    default: null,
+  },
+  type: {
+    type: String,
+    default: 'button',
+  },
+  disabled: {
+    type: Boolean,
+    default: false,
+  },
+  title: {
+    type: String,
+    default: '',
   },
 })
+
+const emit = defineEmits(['click'])
+
+const isLink = computed(() => props.to !== null && props.to !== undefined)
+
+function handleClick(event) {
+  emit('click', event)
+}
 </script>
 
 <template>
-  <RouterLink :to="props.to" class="action-cta-button">
+  <RouterLink v-if="isLink" :to="props.to" class="action-cta-button">
     <slot />
   </RouterLink>
+  <button v-else :type="type" class="action-cta-button" :disabled="disabled" :title="title" @click="handleClick">
+    <slot />
+  </button>
 </template>
 
 <style scoped>
@@ -47,5 +71,12 @@ const props = defineProps({
 .action-cta-button:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 60%, white 40%);
   outline-offset: 2px;
+}
+
+.action-cta-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+  box-shadow: none;
 }
 </style>

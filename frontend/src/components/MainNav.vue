@@ -95,14 +95,9 @@ onMounted(() => {
   authStore.initialize()
 
   if (typeof window !== 'undefined') {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
-    if (stored === 'light' || stored === 'dark') {
-      applyTheme(stored)
-      return
-    }
-
-    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
-    applyTheme(prefersLight ? 'light' : 'dark')
+    // Never auto-switch to browser light preference.
+    applyTheme('dark')
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'dark')
     return
   }
 
@@ -127,7 +122,7 @@ onBeforeUnmount(() => {
     <div class="top-nav-inner">
       <RouterLink class="brand-link" to="/" aria-label="Tornare">
         <img class="brand-logo" :src="tornareLogo" alt="" aria-hidden="true" />
-        <span class="brand-wordmark">ornare</span>
+        <span class="brand-wordmark">tornare</span>
       </RouterLink>
       <button
         class="top-nav-mobile-toggle icon-btn"
@@ -211,7 +206,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <button class="top-nav-link top-nav-theme-toggle top-nav-theme-toggle-compact" type="button" :title="themeLabel()" @click="toggleTheme">
+        <button class="top-nav-link top-nav-theme-toggle top-nav-theme-toggle-compact" type="button" :title="themeLabel()" :disabled="true" aria-disabled="true" @click="toggleTheme">
           <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon() }}</span>
           <span class="sr-only">{{ themeLabel() }}</span>
         </button>
@@ -313,6 +308,11 @@ onBeforeUnmount(() => {
 
 .top-nav-theme-toggle {
   cursor: pointer;
+}
+
+.top-nav-theme-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .top-nav-theme-toggle-compact {

@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import testBackground from '../../assets/branding/test.jpg'
+import spotlightEventBackground from '../../assets/branding/spotlight-event-bg.jpg'
 import ActionCtaButton from '../ui/ActionCtaButton.vue'
 
 const props = defineProps({
@@ -55,7 +55,7 @@ const spotlightCardStyle = computed(() => {
       'radial-gradient(700px 110px at 0% 0%, rgba(255, 255, 255, 0.08), transparent 62%)',
       'radial-gradient(360px 170px at 92% 52%, rgba(0, 0, 0, 0.24), transparent 72%)',
       'linear-gradient(90deg, rgba(14, 18, 30, 0.78) 0%, rgba(16, 20, 34, 0.7) 62%, rgba(14, 18, 30, 0.82) 100%)',
-      `url(${testBackground})`,
+      `url(${spotlightEventBackground})`,
     ].join(', '),
     backgroundSize: 'auto, auto, auto, cover',
     backgroundPosition: '0 0, 92% 52%, 0 0, center',
@@ -109,8 +109,8 @@ function getPlayerCount(event) {
   display: grid;
   gap: 0.38rem;
   min-height: 136px;
-  padding: 1.25rem 1.25rem 1.4rem;
-  padding-right: 1.25rem;
+  padding: 1.55rem 1.6rem 1.7rem;
+  padding-right: 1.6rem;
   border-color: color-mix(in srgb, var(--brand-1) 40%, var(--line) 60%);
   box-shadow: none;
 }
@@ -181,9 +181,9 @@ function getPlayerCount(event) {
   background: color-mix(in srgb, var(--card) 48%, transparent 52%);
 }
 
-.spotlight-meta-icon {
+.spotlight-event-card .spotlight-meta-icon.material-symbols-rounded {
   font-size: 0.9rem;
-  color: color-mix(in srgb, white 92%, var(--brand-1) 8%);
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%) !important;
 }
 
 .spotlight-cta-stack {
@@ -208,9 +208,9 @@ function getPlayerCount(event) {
 
 @media (max-width: 980px) {
   .spotlight-event-card {
-    padding: 1rem;
-    padding-right: 1rem;
-    padding-bottom: 1rem;
+    padding: 1.2rem;
+    padding-right: 1.2rem;
+    padding-bottom: 1.2rem;
   }
 
   .spotlight-cta-stack {

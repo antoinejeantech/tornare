@@ -13,7 +13,7 @@ import TeamsSection from '../components/event/TeamsSection.vue'
 import MatchesSection from '../components/event/MatchesSection.vue'
 import OverviewSection from '../components/event/OverviewSection.vue'
 import SignupRequestsSection from '../components/event/SignupRequestsSection.vue'
-import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
+import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -73,10 +73,18 @@ const validSections = ['overview', 'roster', 'teams', 'matches', 'requests', 'se
 const activeSection = ref('overview')
 const nowTick = ref(Date.now())
 let startsInTimer = null
+let latestEventLoadRequestId = 0
+let eventLoadController = null
 
 const eventId = computed(() => String(route.params.id || ''))
 const canManageEvent = computed(() => Boolean(event.value?.is_owner))
 const isAppAdmin = computed(() => String(authStore.user?.role || '').toLowerCase() === 'admin')
+const authIdentityKey = computed(() => {
+  const initialized = authStore.initialized ? '1' : '0'
+  const authenticated = authStore.isAuthenticated ? '1' : '0'
+  const userId = String(authStore.user?.id || '')
+  return `${initialized}:${authenticated}:${userId}`
+})
 const isTourneyEvent = computed(() => String(event.value?.event_type || '').toUpperCase() === 'TOURNEY')
 const eventStartsInLabel = computed(() => {
   const raw = String(event.value?.start_date || '').trim()
@@ -113,6 +121,24 @@ const eventStartsInLabel = computed(() => {
 
   const readable = parts.slice(0, 2).join(' ')
   return diffMs > 0 ? `Starts in ${readable}` : `Started ${readable} ago`
+})
+const eventStartDateTimeLabel = computed(() => {
+  const raw = String(event.value?.start_date || '').trim()
+  if (!raw) {
+    return ''
+  }
+
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) {
+    return ''
+  }
+
+  const day = String(parsed.getDate()).padStart(2, '0')
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const year = String(parsed.getFullYear())
+  const hours = String(parsed.getHours()).padStart(2, '0')
+  const minutes = String(parsed.getMinutes()).padStart(2, '0')
+  return `${day}/${month}/${year} ${hours}:${minutes}`
 })
 const headerJoinRoute = computed(() => {
   if (!event.value?.public_signup_enabled) {
@@ -231,10 +257,24 @@ async function loadEvent() {
     return
   }
 
+  if (eventLoadController) {
+    eventLoadController.abort()
+  }
+  eventLoadController = new AbortController()
+  const requestId = ++latestEventLoadRequestId
+
   loadingEvent.value = true
   try {
     lastBalanceSummary.value = ''
-    event.value = await eventStore.fetchEvent(eventId.value)
+    const nextEvent = await eventStore.fetchEvent(eventId.value, {
+      signal: eventLoadController.signal,
+    })
+
+    if (requestId !== latestEventLoadRequestId) {
+      return
+    }
+
+    event.value = nextEvent
     syncEventEditDraftFromEvent()
     hydrateSelections()
     if (event.value?.is_owner) {
@@ -244,10 +284,18 @@ async function loadEvent() {
       signupRequests.value = []
     }
   } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return
+    }
+    if (requestId !== latestEventLoadRequestId) {
+      return
+    }
     event.value = null
     setError(err instanceof Error ? err.message : 'Failed to load event')
   } finally {
-    loadingEvent.value = false
+    if (requestId === latestEventLoadRequestId) {
+      loadingEvent.value = false
+    }
   }
 }
 
@@ -1211,7 +1259,8 @@ watch(
   () => route.params.id,
   () => {
     loadEvent()
-  }
+  },
+  { immediate: true }
 )
 
 watch(
@@ -1241,14 +1290,32 @@ watch(
   }
 )
 
+watch(
+  authIdentityKey,
+  () => {
+    if (!authStore.initialized) {
+      return
+    }
+
+    if (!eventId.value) {
+      return
+    }
+
+    loadEvent()
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
-  loadEvent()
   startsInTimer = window.setInterval(() => {
     nowTick.value = Date.now()
   }, 30 * 1000)
 })
 
 onBeforeUnmount(() => {
+  if (eventLoadController) {
+    eventLoadController.abort()
+  }
   if (startsInTimer) {
     window.clearInterval(startsInTimer)
   }
@@ -1331,41 +1398,14 @@ provide('eventCtx', proxyRefs({
 
 <template>
   <main class="app-shell event-shell">
-    <header class="page-header">
-      <h1 class="page-title">Event Setup</h1>
-    </header>
-
-    <section v-if="loadingEvent" class="card">
+    <section v-if="loadingEvent" class="event-loading-state">
       <p>Loading event...</p>
     </section>
 
-    <section v-else-if="event" class="card event-workspace-card">
-      <div class="event-header-row">
-        <div class="event-title-stack">
-          <img class="event-logo" :src="overwatchLogo" alt="Overwatch" />
-          <div class="event-title-row">
-            <h2>{{ event.name }}</h2>
-            <p v-if="eventStartsInLabel" class="event-starts-in muted">{{ eventStartsInLabel }}</p>
-          </div>
-        </div>
-        <div class="event-header-actions">
-          <button
-            v-if="isAppAdmin"
-            class="btn-secondary"
-            :disabled="updatingFeaturedEvent"
-            type="button"
-            @click="setFeaturedEvent(!event.is_featured)"
-          >
-            {{ updatingFeaturedEvent ? 'Updating...' : (event.is_featured ? 'Remove spotlight' : 'Set as spotlight') }}
-          </button>
-          <RouterLink v-if="headerJoinRoute" class="btn-primary event-join-header-btn" :to="headerJoinRoute">
-            Join event
-          </RouterLink>
-        </div>
-      </div>
-
+    <section v-else-if="event" class="event-workspace-card">
       <div class="event-layout">
         <aside class="event-left-nav" aria-label="Event sections">
+          <p class="event-left-nav-kicker">Navigation</p>
           <button class="left-nav-item" :class="{ active: activeSection === 'overview' }" @click="openSection('overview')">
             <span class="left-nav-label">
               <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">dashboard</span>
@@ -1374,19 +1414,19 @@ provide('eventCtx', proxyRefs({
           </button>
           <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="openSection('roster')">
             <span class="left-nav-label">
-              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">groups</span>
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">group</span>
               <span>Players</span>
             </span>
           </button>
           <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="openSection('teams')">
             <span class="left-nav-label">
-              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">shield</span>
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">verified_user</span>
               <span>Teams</span>
             </span>
           </button>
           <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="openSection('matches')">
             <span class="left-nav-label">
-              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">sports_score</span>
+              <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">swords</span>
               <span>Matches</span>
             </span>
           </button>
@@ -1407,17 +1447,57 @@ provide('eventCtx', proxyRefs({
           </button>
         </aside>
 
-        <section class="event-panel">
-          <OverviewSection v-if="activeSection === 'overview'" />
-          <RosterSection v-else-if="activeSection === 'roster'" />
-          <TeamsSection v-else-if="activeSection === 'teams'" />
-          <MatchesSection v-else-if="activeSection === 'matches'" />
-          <SignupRequestsSection v-else-if="activeSection === 'requests' && canManageEvent" />
-          <section v-else-if="activeSection === 'settings' && canManageEvent" class="event-settings-section">
-            <h3 class="section-title">
-              <span class="material-symbols-rounded section-title-icon" aria-hidden="true">settings</span>
-              <span>Settings</span>
-            </h3>
+        <section class="event-main-column">
+          <div class="card event-header-row event-header-card">
+            <div class="event-title-stack">
+              <span class="event-logo" aria-hidden="true">
+                <span class="material-symbols-rounded event-logo-icon" aria-hidden="true">trophy</span>
+              </span>
+              <div class="event-title-row">
+                <h2>{{ event.name }}</h2>
+                <div v-if="eventStartsInLabel || eventStartDateTimeLabel" class="event-starts-in muted">
+                  <span v-if="eventStartsInLabel" class="event-start-meta">
+                    <span class="material-symbols-rounded" aria-hidden="true">timer</span>
+                    <span>{{ eventStartsInLabel }}</span>
+                  </span>
+                  <span v-if="eventStartsInLabel && eventStartDateTimeLabel" class="event-start-separator" aria-hidden="true">|</span>
+                  <span v-if="eventStartDateTimeLabel" class="event-start-meta">
+                    <span class="material-symbols-rounded" aria-hidden="true">calendar_month</span>
+                    <span>{{ eventStartDateTimeLabel }}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="event-header-actions">
+              <button
+                v-if="isAppAdmin"
+                class="btn-secondary"
+                :disabled="updatingFeaturedEvent"
+                type="button"
+                @click="setFeaturedEvent(!event.is_featured)"
+              >
+                {{ updatingFeaturedEvent ? 'Updating...' : (event.is_featured ? 'Remove spotlight' : 'Set as spotlight') }}
+              </button>
+              <ActionCtaButton v-if="headerJoinRoute" :to="headerJoinRoute">Join event</ActionCtaButton>
+            </div>
+          </div>
+
+          <section class="event-panel">
+            <OverviewSection v-if="activeSection === 'overview'" />
+            <RosterSection v-else-if="activeSection === 'roster'" />
+            <TeamsSection v-else-if="activeSection === 'teams'" />
+            <MatchesSection v-else-if="activeSection === 'matches'" />
+            <SignupRequestsSection v-else-if="activeSection === 'requests' && canManageEvent" />
+            <section v-else-if="activeSection === 'settings' && canManageEvent" class="event-settings-section">
+            <div class="section-heading-block">
+              <div class="section-header-row">
+                <h3 class="section-title">
+                  <span class="material-symbols-rounded section-title-icon" aria-hidden="true">settings</span>
+                  <span>Settings</span>
+                </h3>
+              </div>
+              <div class="section-title-divider" aria-hidden="true"></div>
+            </div>
 
             <div class="event-registration-toggle-box" :class="event.public_signup_enabled ? 'is-public' : 'is-private'">
               <div class="event-registration-header">
@@ -1492,14 +1572,15 @@ provide('eventCtx', proxyRefs({
                 </button>
               </div>
             </form>
+            </section>
+            <OverviewSection v-else />
           </section>
-          <OverviewSection v-else />
         </section>
       </div>
 
     </section>
 
-    <section v-else class="card">
+    <section v-else class="event-not-found-state">
       <h2>Event not found</h2>
       <p class="muted">This event may have been deleted.</p>
       <button class="btn-secondary" @click="navigateToHome">Back to events</button>
@@ -1513,7 +1594,11 @@ provide('eventCtx', proxyRefs({
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.7rem;
+  margin-bottom: 0;
+}
+
+.event-header-card {
+  padding: 1.35rem 1.15rem;
 }
 
 .event-shell {
@@ -1525,6 +1610,11 @@ provide('eventCtx', proxyRefs({
 .event-workspace-card {
   display: flex;
   flex-direction: column;
+}
+
+.event-loading-state,
+.event-not-found-state {
+  padding: 0.2rem 0;
 }
 
 .event-header-row h2 {
@@ -1544,29 +1634,64 @@ provide('eventCtx', proxyRefs({
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.55rem;
+  gap: 0.65rem;
   min-width: 0;
   grid-column: 2;
   grid-row: 1;
 }
 
+.event-title-row h2 {
+  margin: 0;
+  font-size: clamp(2rem, 1.3vw + 1.3rem, 2.8rem);
+  line-height: 1.05;
+}
+
 .event-starts-in {
   margin: 0;
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.event-start-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+}
+
+.event-start-separator {
+  color: var(--ink-muted);
+  opacity: 0.75;
+}
+
+.event-start-meta .material-symbols-rounded {
+  font-size: 0.92rem;
+  color: var(--ink-muted);
 }
 
 .event-logo {
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 8px;
-  object-fit: contain;
-  background: color-mix(in srgb, var(--card) 74%, #19253a 26%);
-  box-shadow: 0 3px 10px rgba(17, 52, 112, 0.16);
-  padding: 0.2rem;
+  width: 5.35rem;
+  height: 5.35rem;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--brand-1) 72%, #ffd869 28%);
+  background: color-mix(in srgb, var(--brand-1) 14%, transparent 86%);
+  box-shadow: none;
+  padding: 0.5rem;
   grid-column: 1;
   grid-row: 1;
   align-self: stretch;
+}
+
+.event-logo-icon {
+  font-size: 3.15rem;
+  line-height: 1;
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
 }
 
 .event-header-actions {
@@ -1575,20 +1700,6 @@ provide('eventCtx', proxyRefs({
   align-items: center;
   align-self: center;
   flex-wrap: wrap;
-}
-
-.event-join-header-btn {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.05rem;
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 8px;
-  padding: 0.56rem 1.02rem;
-  box-shadow: 0 10px 22px rgba(123, 89, 30, 0.36);
 }
 
 .event-edit-form {
@@ -1612,19 +1723,15 @@ provide('eventCtx', proxyRefs({
   border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-2) 28%);
   border-radius: 14px;
   padding: 0.82rem;
-  background:
-    radial-gradient(140px 90px at 100% 0%, color-mix(in srgb, var(--brand-2) 18%, transparent 82%), transparent 72%),
-    linear-gradient(160deg, color-mix(in srgb, var(--card) 90%, #eef5ff 10%), color-mix(in srgb, var(--card) 96%, #f7faff 4%));
+  background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
   display: grid;
   gap: 0.62rem;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: none;
 }
 
 .event-registration-toggle-box.is-private {
   border-color: color-mix(in srgb, #e36b55 26%, var(--line) 74%);
-  background:
-    radial-gradient(120px 85px at 100% 0%, rgba(227, 107, 85, 0.13), transparent 72%),
-    linear-gradient(160deg, color-mix(in srgb, var(--card) 90%, #fff0ec 10%), color-mix(in srgb, var(--card) 96%, #fff8f6 4%));
+  background: color-mix(in srgb, var(--card) 66%, #3a1f1a 34%);
 }
 
 .event-registration-header {
@@ -1713,23 +1820,48 @@ provide('eventCtx', proxyRefs({
 }
 
 .section-title {
-  margin: 0;
+  margin: 0 0 0.3rem;
   display: inline-flex;
   align-items: center;
   gap: 0.42rem;
 }
 
+.section-heading-block {
+  display: block;
+}
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.section-title-divider {
+  width: 100%;
+  height: 1px;
+  background: color-mix(in srgb, var(--line) 84%, var(--brand-1) 16%);
+  margin: 0.42rem 0 0.72rem;
+}
+
 .section-title-icon {
-  font-size: 1.12rem;
+  font-size: 1.26rem;
   line-height: 1;
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
 }
 
 .event-layout {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   gap: 0.75rem;
   align-items: start;
   margin-bottom: 0;
+}
+
+.event-main-column {
+  display: grid;
+  gap: 1.2rem;
+  min-width: 0;
 }
 
 .event-left-nav {
@@ -1737,17 +1869,23 @@ provide('eventCtx', proxyRefs({
   top: 5.1rem;
   display: grid;
   gap: 0.34rem;
-  border: 1px solid color-mix(in srgb, var(--brand-1) 30%, var(--line) 70%);
-  border-radius: 14px;
-  padding: 0.52rem;
-  background:
-    radial-gradient(180px 80px at 8% 0%, color-mix(in srgb, var(--brand-2) 14%, transparent 86%), transparent 72%),
-    linear-gradient(180deg, color-mix(in srgb, var(--card) 88%, #edf4ff 12%), color-mix(in srgb, var(--card) 96%, #f4f8ff 4%));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 6px 16px rgba(16, 39, 82, 0.12);
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
   align-self: start;
   height: fit-content;
+}
+
+.event-left-nav-kicker {
+  margin: 0 0 0.2rem;
+  padding-left: calc(0.62rem + 1.45rem + 0.38rem);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
 }
 
 .left-nav-item {
@@ -1759,8 +1897,8 @@ provide('eventCtx', proxyRefs({
   justify-content: space-between;
   gap: 0.5rem;
   text-align: left;
-  border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  background: color-mix(in srgb, var(--card) 92%, #f4f8ff 8%);
+  border: 0;
+  background: transparent;
   color: var(--ink-2);
   border-radius: 10px;
   padding: 0.55rem 0.62rem;
@@ -1788,9 +1926,9 @@ provide('eventCtx', proxyRefs({
   width: 1.45rem;
   height: 1.45rem;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--line) 74%, var(--brand-2) 26%);
-  background: color-mix(in srgb, var(--card) 88%, #eff5ff 12%);
-  color: color-mix(in srgb, var(--brand-1) 72%, var(--ink-1) 28%);
+  border: 0;
+  background: transparent;
+  color: currentColor;
   font-size: 0.95rem;
   line-height: 1;
   transition:
@@ -1802,14 +1940,12 @@ provide('eventCtx', proxyRefs({
 
 .left-nav-item:hover {
   color: var(--ink-1);
-  border-color: color-mix(in srgb, var(--brand-2) 42%, var(--line) 58%);
-  background: color-mix(in srgb, var(--brand-2) 10%, var(--card) 90%);
+  background: color-mix(in srgb, var(--brand-1) 7%, transparent 93%);
   transform: translateX(2px);
 }
 
 .left-nav-item:hover .left-nav-icon {
-  border-color: color-mix(in srgb, var(--brand-2) 56%, var(--line) 44%);
-  background: color-mix(in srgb, var(--brand-2) 20%, var(--card) 80%);
+  background: transparent;
   color: color-mix(in srgb, var(--ink-1) 88%, var(--brand-1) 12%);
   transform: translateY(-1px);
 }
@@ -1820,27 +1956,25 @@ provide('eventCtx', proxyRefs({
 }
 
 .left-nav-item.active {
-  background: linear-gradient(130deg, color-mix(in srgb, var(--brand-2) 24%, var(--card) 76%), color-mix(in srgb, var(--brand-1) 18%, var(--card) 82%));
-  color: color-mix(in srgb, var(--ink-1) 92%, white 8%);
-  border-color: color-mix(in srgb, var(--brand-2) 62%, var(--line) 38%);
-  box-shadow: 0 8px 18px rgba(31, 97, 183, 0.2);
+  background: color-mix(in srgb, var(--brand-1) 14%, transparent 86%);
+  color: color-mix(in srgb, var(--brand-1) 88%, var(--ink-1) 12%);
+  box-shadow: none;
 }
 
 .left-nav-item.active::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 6px;
-  bottom: 6px;
+  top: 4px;
+  bottom: 4px;
   width: 3px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--brand-1) 84%, #fff 16%);
 }
 
 .left-nav-item.active .left-nav-icon {
-  border-color: color-mix(in srgb, var(--brand-1) 68%, var(--line) 32%);
-  background: color-mix(in srgb, var(--brand-1) 28%, var(--card) 72%);
-  color: color-mix(in srgb, var(--ink-1) 96%, #fff 4%);
+  background: transparent;
+  color: color-mix(in srgb, var(--brand-1) 92%, #ffe08f 8%);
 }
 
 .left-nav-badge {
@@ -1860,16 +1994,26 @@ provide('eventCtx', proxyRefs({
 }
 
 .event-panel {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--card);
-  box-shadow:
-    0 10px 26px rgba(21, 44, 88, 0.08),
-    0 2px 8px rgba(21, 44, 88, 0.08);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   animation: rise-in 360ms ease-out;
-  padding: 0.78rem;
+  padding: 0;
   display: grid;
-  gap: 0.6rem;
+  gap: 1.25rem;
+}
+
+.event-shell :deep(.card) {
+  border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
+  background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
+  background-image: none;
+  box-shadow: none;
+  border-radius: 10px;
+}
+
+.event-panel :deep(.card) {
+  padding: 1.85rem;
 }
 
 @media (max-width: 900px) {
@@ -1906,11 +2050,15 @@ provide('eventCtx', proxyRefs({
   }
 
   .event-logo {
-    width: 3.4rem;
-    height: 3.4rem;
+    width: 4.2rem;
+    height: 4.2rem;
     grid-column: 1;
     grid-row: 1;
     align-self: start;
+  }
+
+  .event-logo-icon {
+    font-size: 2.45rem;
   }
 
   .event-title-row {

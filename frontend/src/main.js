@@ -13,6 +13,10 @@ import NewsPage from './pages/NewsPage.vue'
 import AuthPage from './pages/AuthPage.vue'
 import JoinEventPage from './pages/JoinEventPage.vue'
 import ProfilePage from './pages/ProfilePage.vue'
+import PrivacyPage from './pages/PrivacyPage.vue'
+import TermsPage from './pages/TermsPage.vue'
+import FaqPage from './pages/FaqPage.vue'
+import SupportPage from './pages/SupportPage.vue'
 import NotFoundPage from './pages/NotFoundPage.vue'
 
 const pinia = createPinia()
@@ -24,6 +28,10 @@ const router = createRouter({
 		{ path: '/events', name: 'events', component: EventsPage, meta: { title: 'Events | Tornare' } },
 		{ path: '/about', name: 'about', component: AboutPage, meta: { title: 'About | Tornare' } },
 		{ path: '/news', name: 'news', component: NewsPage, meta: { title: 'News | Tornare' } },
+		{ path: '/privacy', name: 'privacy', component: PrivacyPage, meta: { title: 'Privacy Policy | Tornare' } },
+		{ path: '/terms', name: 'terms', component: TermsPage, meta: { title: 'Terms Of Service | Tornare' } },
+		{ path: '/faq', name: 'faq', component: FaqPage, meta: { title: 'FAQ | Tornare' } },
+		{ path: '/support', name: 'support', component: SupportPage, meta: { title: 'Support | Tornare' } },
 		{ path: '/auth', name: 'auth', component: AuthPage, meta: { title: 'Sign In | Tornare' } },
 		{ path: '/events/:id', name: 'event', component: EventPage, meta: { title: 'Event Setup | Tornare' } },
 		{ path: '/join/:token', name: 'join-event', component: JoinEventPage, meta: { title: 'Join Event | Tornare' } },

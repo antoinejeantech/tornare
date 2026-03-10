@@ -4,23 +4,53 @@ import { computed, inject } from 'vue'
 const ctx = inject('eventCtx')
 const isPublicRegistration = computed(() => Boolean(ctx.event?.public_signup_enabled))
 
+function toTimestamp(value) {
+  if (!value) {
+    return null
+  }
+
+  const parsed = Date.parse(String(value))
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+function oldestFirst(requests) {
+  const copy = [...requests]
+  const hasDateField = copy.some((request) => {
+    return toTimestamp(request?.created_at) !== null || toTimestamp(request?.updated_at) !== null
+  })
+
+  if (hasDateField) {
+    return copy.sort((a, b) => {
+      const aTs = toTimestamp(a?.created_at) ?? toTimestamp(a?.updated_at) ?? 0
+      const bTs = toTimestamp(b?.created_at) ?? toTimestamp(b?.updated_at) ?? 0
+      return aTs - bTs
+    })
+  }
+
+  // Backend currently returns newest first; reversing shows oldest first.
+  return copy.reverse()
+}
+
 const pendingRequests = computed(() => {
   const requests = Array.isArray(ctx.signupRequests) ? ctx.signupRequests : []
-  return requests.filter((request) => request.status === 'pending')
+  return oldestFirst(requests.filter((request) => request.status === 'pending'))
 })
 
 const reviewedRequests = computed(() => {
   const requests = Array.isArray(ctx.signupRequests) ? ctx.signupRequests : []
-  return requests.filter((request) => request.status !== 'pending')
+  return oldestFirst(requests.filter((request) => request.status !== 'pending'))
 })
 </script>
 
 <template>
   <section>
-    <h3 class="section-title">
-      <span class="material-symbols-rounded section-title-icon" aria-hidden="true">mail</span>
-      <span>Signup Requests</span>
-    </h3>
+    <div class="section-header-row">
+      <h3 class="section-title">
+        <span class="material-symbols-rounded section-title-icon" aria-hidden="true">mail</span>
+        <span>Signup Requests</span>
+      </h3>
+    </div>
+    <div class="section-title-divider" aria-hidden="true"></div>
 
     <div class="signup-link-box">
       <div class="signup-visibility-row">
@@ -108,9 +138,24 @@ const reviewedRequests = computed(() => {
   gap: 0.42rem;
 }
 
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.section-title-divider {
+  width: 100%;
+  height: 1px;
+  background: color-mix(in srgb, var(--line) 84%, var(--brand-1) 16%);
+  margin: 0.42rem 0 0.72rem;
+}
+
 .section-title-icon {
-  font-size: 1.12rem;
+  font-size: 1.26rem;
   line-height: 1;
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
 }
 
 .signup-link-box {

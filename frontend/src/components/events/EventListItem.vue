@@ -1,8 +1,6 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import overwatchLogo from '../../assets/branding/overwatch-logo-gold.png'
-import { formatEventStartDate } from '../../lib/dates'
 import StatusPill from '../ui/StatusPill.vue'
 
 const props = defineProps({
@@ -16,8 +14,39 @@ const props = defineProps({
   },
 })
 
-const formattedStartDate = computed(() => {
-  return formatEventStartDate(props.event?.start_date) || ''
+const startDateDisplay = computed(() => {
+  const value = props.event?.start_date
+  if (!value) {
+    return '--/--/----'
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return '--/--/----'
+  }
+
+  const day = String(parsed.getDate()).padStart(2, '0')
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const year = String(parsed.getFullYear())
+  return `${day}/${month}/${year}`
+})
+
+const startTimeDisplay = computed(() => {
+  const value = props.event?.start_date
+  if (!value) {
+    return '--:--'
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return '--:--'
+  }
+
+  return parsed.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 })
 
 const playerCount = computed(() => {
@@ -81,22 +110,25 @@ const statusForPill = computed(() => {
 <template>
   <li class="event-list-item">
     <div class="event-list-main">
-      <RouterLink class="event-list-title-link" :to="to">
-        <span class="event-list-title-wrap">
-          <img class="event-list-logo" :src="overwatchLogo" alt="Overwatch logo" />
-          <span class="event-list-title">{{ event.name }}</span>
+      <span class="event-list-title-wrap">
+        <span class="material-symbols-rounded event-list-trophy" aria-hidden="true">trophy</span>
+        <span class="event-list-text-block">
+          <RouterLink class="event-list-title-link" :to="to">
+            <span class="event-list-title">{{ event.name }}</span>
+          </RouterLink>
+          <span class="muted event-list-meta-row">
+            by
+            <RouterLink v-if="creatorProfileRoute" class="event-creator-link" :to="creatorProfileRoute">
+              {{ event.creator_name || 'Unknown' }}
+            </RouterLink>
+            <span v-else>{{ event.creator_name || 'Unknown' }}</span>
+          </span>
         </span>
-      </RouterLink>
-      <span class="muted event-list-meta-row">
-        by
-        <RouterLink v-if="creatorProfileRoute" class="event-creator-link" :to="creatorProfileRoute">
-          {{ event.creator_name || 'Unknown' }}
-        </RouterLink>
-        <span v-else>{{ event.creator_name || 'Unknown' }}</span>
       </span>
     </div>
 
     <div class="event-format-col" aria-label="Event format">
+      <span class="event-col-label muted">Format</span>
       <strong class="event-format-value">{{ event.event_type || 'PUG' }} ({{ eventFormat }})</strong>
     </div>
 
@@ -105,15 +137,17 @@ const statusForPill = computed(() => {
       <strong>{{ playerCount }}/{{ maxPlayers || event.max_players }}</strong>
     </div>
 
-    <div class="event-date-col" aria-label="Start date">
-      <strong>{{ formattedStartDate || 'No date' }}</strong>
+    <div class="event-date-col" aria-label="Date and time">
+      <span class="event-col-label muted">Date &amp; Time</span>
+      <strong class="event-date-value">
+        <span>{{ startDateDisplay }}</span>
+        <span class="event-date-dot material-symbols-rounded" aria-hidden="true">fiber_manual_record</span>
+        <span>{{ startTimeDisplay }}</span>
+      </strong>
     </div>
 
-    <div class="event-status-col" aria-label="Status">
+    <div class="event-actions-col" aria-label="Status and actions">
       <StatusPill :status="statusForPill" :label="statusLabel" />
-    </div>
-
-    <div class="event-list-side">
       <RouterLink class="event-details-btn" :to="to">Details</RouterLink>
     </div>
   </li>
@@ -121,24 +155,30 @@ const statusForPill = computed(() => {
 
 <style scoped>
 .event-list-item {
-  border: 1px solid color-mix(in srgb, var(--line) 92%, var(--brand-1) 8%);
-  background: color-mix(in srgb, var(--card) 90%, #f1f5ff 10%);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
+  background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
   border-radius: 10px;
-  padding: 0.54rem 0.62rem;
+  padding: 1.02rem 0.95rem;
   display: grid;
-  grid-template-columns: minmax(0, 2.1fr) minmax(0, 0.8fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 0.85fr) minmax(0, 0.95fr) minmax(0, 1.3fr) auto;
   align-items: center;
-  gap: 0.62rem;
+  gap: 0.85rem;
 }
 
 .event-list-main {
   display: grid;
-  gap: 0.1rem;
+  gap: 0;
   min-width: 0;
 }
 
 .event-list-title-link {
   text-decoration: none;
+  min-width: 0;
+}
+
+.event-list-text-block {
+  display: grid;
+  gap: 0.14rem;
   min-width: 0;
 }
 
@@ -156,56 +196,55 @@ const statusForPill = computed(() => {
   text-decoration: none;
 }
 
-.event-creator-link:hover {
-  text-decoration: underline;
-}
-
 .event-list-title-link:hover .event-list-title {
-  color: var(--brand-1);
+  color: #fff;
 }
 
 .event-list-title {
-  font-weight: 680;
-  color: var(--ink-1);
+  font-weight: 600;
+  color: #fff;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   font-size: 0.9rem;
 }
 
 .event-list-title-wrap {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 0.34rem;
+  gap: 0.5rem;
 }
 
-.event-list-logo {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
-  flex: 0 0 auto;
-}
-
-.event-list-side {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.36rem;
-  flex-shrink: 0;
+.event-list-trophy {
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
+  font-size: 1.35rem;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
+  border-radius: 10px;
+  padding: 0.4rem;
+  background: color-mix(in srgb, var(--bg-1) 66%, var(--card) 34%);
 }
 
 .event-format-col {
   display: grid;
   justify-items: center;
-  gap: 0.06rem;
+  gap: 0.16rem;
   min-width: 0;
   width: 100%;
   padding: 0.16rem 0.32rem;
   border-radius: 8px;
 }
 
+.event-col-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
 .event-format-value {
-  font-size: 0.88rem;
+  font-size: 0.82rem;
   line-height: 1;
-  color: var(--brand-1);
+  color: color-mix(in srgb, var(--brand-1) 86%, #ffe08f 14%);
 }
 
 .event-players-col {
@@ -224,57 +263,65 @@ const statusForPill = computed(() => {
 
 .event-players-col .material-symbols-rounded {
   font-size: 1rem;
-  color: var(--ink-2);
-}
-
-.event-status-col {
-  min-width: 0;
-  width: 100%;
-  display: inline-flex;
-  justify-content: center;
+  color: var(--ink-muted) !important;
 }
 
 .event-date-col {
+  display: grid;
+  justify-items: center;
+  gap: 0.16rem;
   min-width: 0;
   width: 100%;
-  display: inline-flex;
-  justify-content: center;
-  color: var(--ink-2);
-  font-size: 0.84rem;
 }
 
-.event-date-col strong {
-  font-weight: 640;
+.event-date-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  color: #fff;
+  font-size: 0.84rem;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.event-date-value .event-date-dot.material-symbols-rounded {
+  font-size: 0.5rem;
+  color: #fff !important;
+}
+
+.event-actions-col {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.46rem;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
 .event-details-btn {
-  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-2) 18%);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--card) 96%, var(--bg-1) 4%) 0%,
-    color-mix(in srgb, var(--card) 90%, var(--bg-1) 10%) 100%
-  );
-  color: var(--ink-1);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 82%, white 18%);
+  background: color-mix(in srgb, var(--grey-900) 74%, black 26%);
+  color: white;
   border-radius: 8px;
   text-decoration: none;
-  padding: 0.34rem 0.62rem;
-  font-size: 0.8rem;
-  font-weight: 400;
+  padding: 0.28rem 0.56rem;
+  font-size: 0.68rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .event-details-btn:hover {
-  border-color: color-mix(in srgb, var(--brand-1) 46%, var(--line) 54%);
-  color: color-mix(in srgb, var(--brand-1) 72%, var(--ink-1) 28%);
+  border-color: color-mix(in srgb, var(--line-strong) 72%, white 28%);
+  background: color-mix(in srgb, var(--grey-900) 68%, black 32%);
+  color: white;
 }
 
 @media (max-width: 920px) {
   .event-list-item {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   }
 
   .event-format-col {
@@ -285,8 +332,8 @@ const statusForPill = computed(() => {
     display: none;
   }
 
-  .event-status-col {
-    min-width: 80px;
+  .event-actions-col {
+    min-width: 98px;
   }
 }
 </style>

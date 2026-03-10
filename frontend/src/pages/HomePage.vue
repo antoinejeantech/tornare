@@ -12,6 +12,13 @@ import EventActionButton from '../components/ui/EventActionButton.vue'
 
 const events = ref([])
 const loadingEvents = ref(false)
+const featuredEventFromApi = ref(null)
+const kpis = ref({
+  total_events: 0,
+  total_signups: 0,
+  upcoming_events_this_week: 0,
+  upcoming_tourneys_this_week: 0,
+})
 
 const sortedEvents = computed(() => {
   const next = [...events.value]
@@ -34,7 +41,7 @@ const sortedEvents = computed(() => {
   return next
 })
 
-const featuredEvent = computed(() => {
+const fallbackFeaturedEvent = computed(() => {
   const manuallyFeatured = sortedEvents.value.find((event) => Boolean(event?.is_featured))
   if (manuallyFeatured) {
     return manuallyFeatured
@@ -49,6 +56,8 @@ const featuredEvent = computed(() => {
   return nextUpcoming || sortedEvents.value[0] || null
 })
 
+const featuredEvent = computed(() => featuredEventFromApi.value || fallbackFeaturedEvent.value)
+
 const latestEvents = computed(() => {
   if (!featuredEvent.value) {
     return sortedEvents.value.slice(0, 4)
@@ -57,23 +66,9 @@ const latestEvents = computed(() => {
   return sortedEvents.value.filter((event) => event.id !== featuredEvent.value.id).slice(0, 4)
 })
 
-const totalEvents = computed(() => events.value.length)
-
-const totalSignups = computed(() => {
-  return events.value.reduce((sum, event) => {
-    return sum + (Array.isArray(event?.players) ? event.players.length : 0)
-  }, 0)
-})
-
-const upcomingThisWeek = computed(() => {
-  const now = Date.now()
-  const weekEnd = now + 7 * 24 * 60 * 60 * 1000
-
-  return events.value.filter((event) => {
-    const start = normalizeDate(event?.start_date)
-    return start !== null && start >= now && start <= weekEnd
-  }).length
-})
+const totalEvents = computed(() => Number(kpis.value.total_events) || 0)
+const totalSignups = computed(() => Number(kpis.value.total_signups) || 0)
+const upcomingThisWeek = computed(() => Number(kpis.value.upcoming_events_this_week) || 0)
 
 const countdownEvents = computed(() => {
   const now = Date.now()
@@ -186,8 +181,9 @@ function activityPlayersFill(players, maxPlayers) {
 async function loadLatestEvents() {
   loadingEvents.value = true
   try {
-    const loadedEvents = await apiCall('/api/events')
-    events.value = Array.isArray(loadedEvents) ? loadedEvents : []
+    const response = await apiCall('/api/events?sort=newest&limit=8')
+    const loadedEvents = Array.isArray(response?.items) ? response.items : []
+    events.value = loadedEvents
   } catch {
     events.value = []
   } finally {
@@ -195,7 +191,37 @@ async function loadLatestEvents() {
   }
 }
 
-onMounted(loadLatestEvents)
+async function loadFeaturedEvent() {
+  try {
+    const featured = await apiCall('/api/events/featured')
+    featuredEventFromApi.value = featured || null
+  } catch {
+    featuredEventFromApi.value = null
+  }
+}
+
+async function loadEventsKpis() {
+  try {
+    const response = await apiCall('/api/events/kpi')
+    kpis.value = {
+      total_events: Number(response?.total_events) || 0,
+      total_signups: Number(response?.total_signups) || 0,
+      upcoming_events_this_week: Number(response?.upcoming_events_this_week) || 0,
+      upcoming_tourneys_this_week: Number(response?.upcoming_tourneys_this_week) || 0,
+    }
+  } catch {
+    kpis.value = {
+      total_events: 0,
+      total_signups: 0,
+      upcoming_events_this_week: 0,
+      upcoming_tourneys_this_week: 0,
+    }
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([loadLatestEvents(), loadFeaturedEvent(), loadEventsKpis()])
+})
 </script>
 
 <template>
