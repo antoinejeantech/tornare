@@ -5,11 +5,19 @@ export const rolePriority = {
 }
 
 export function getRoleIcon(role) {
-  if (role === 'Tank') {
+  const normalizedRole = String(role || '').trim().toLowerCase()
+
+  if (normalizedRole === 'tank') {
     return 'shield'
   }
-  if (role === 'Support') {
-    return 'medical_services'
+  if (normalizedRole === 'dps') {
+    return 'swords'
+  }
+  if (normalizedRole === 'flex') {
+    return 'sync'
+  }
+  if (normalizedRole === 'support') {
+    return 'health_cross'
   }
   return 'swords'
 }

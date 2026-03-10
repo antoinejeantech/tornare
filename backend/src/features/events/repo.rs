@@ -1,4 +1,4 @@
-use sqlx::{PgPool, Row, Transaction};
+use sqlx::{Postgres, QueryBuilder, PgPool, Row, Transaction};
 use uuid::Uuid;
 
 use crate::shared::errors::{bad_request, internal_error, not_found};
@@ -9,19 +9,228 @@ use crate::features::events::models::{
     PublicEventSignupInfo,
 };
 
-pub async fn list_visible_event_ids(
+#[derive(Clone, Copy)]
+pub enum EventListSort {
+    Soonest,
+    Newest,
+    Players,
+    Name,
+}
+
+pub struct ListVisibleEventsOptions {
+    pub search: Option<String>,
+    pub event_type: Option<String>,
+    pub owner_only_user_id: Option<Uuid>,
+    pub sort: EventListSort,
+    pub limit: u32,
+    pub offset: u32,
+}
+
+pub struct ListVisibleEventsResult {
+    pub event_ids: Vec<Uuid>,
+    pub total: u64,
+}
+
+pub struct EventsKpiRow {
+    pub total_events: i64,
+    pub total_signups: i64,
+    pub upcoming_events_this_week: i64,
+    pub upcoming_tourneys_this_week: i64,
+}
+
+pub async fn load_events_kpis(
     pool: &PgPool,
-) -> Result<Vec<Uuid>, crate::shared::errors::ApiError> {
-    let rows = sqlx::query(
-        "SELECT e.id
-         FROM events e
-         ORDER BY e.id DESC",
+) -> Result<EventsKpiRow, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT
+            (SELECT COUNT(*) FROM events) AS total_events,
+            (SELECT COUNT(*) FROM event_players) AS total_signups,
+            (
+                SELECT COUNT(*)
+                FROM events e
+                WHERE e.start_date IS NOT NULL
+                  AND e.start_date::timestamptz >= NOW()
+                  AND e.start_date::timestamptz <= NOW() + INTERVAL '7 days'
+            ) AS upcoming_events_this_week,
+            (
+                SELECT COUNT(*)
+                FROM events e
+                WHERE e.event_type = 'TOURNEY'
+                  AND e.start_date IS NOT NULL
+                  AND e.start_date::timestamptz >= NOW()
+                  AND e.start_date::timestamptz <= NOW() + INTERVAL '7 days'
+            ) AS upcoming_tourneys_this_week",
     )
-    .fetch_all(pool)
+    .fetch_one(pool)
     .await
     .map_err(internal_error)?;
 
-    Ok(rows.into_iter().map(|row| row.get("id")).collect())
+    Ok(EventsKpiRow {
+        total_events: row.get("total_events"),
+        total_signups: row.get("total_signups"),
+        upcoming_events_this_week: row.get("upcoming_events_this_week"),
+        upcoming_tourneys_this_week: row.get("upcoming_tourneys_this_week"),
+    })
+}
+
+pub async fn featured_event_id(
+    pool: &PgPool,
+) -> Result<Option<Uuid>, crate::shared::errors::ApiError> {
+    let featured = sqlx::query(
+        "SELECT id
+         FROM events
+         WHERE is_featured = TRUE
+         ORDER BY start_date IS NULL, start_date ASC, id DESC
+         LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    if let Some(row) = featured {
+        return Ok(Some(row.get("id")));
+    }
+
+    let upcoming = sqlx::query(
+        "SELECT id
+         FROM events
+         WHERE start_date IS NOT NULL
+           AND start_date::timestamptz >= NOW()
+         ORDER BY start_date ASC, id DESC
+         LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    if let Some(row) = upcoming {
+        return Ok(Some(row.get("id")));
+    }
+
+    let fallback = sqlx::query(
+        "SELECT id
+         FROM events
+         ORDER BY start_date IS NULL, start_date ASC, id DESC
+         LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(fallback.map(|row| row.get("id")))
+}
+
+pub async fn list_visible_event_ids(
+    pool: &PgPool,
+    options: ListVisibleEventsOptions,
+) -> Result<ListVisibleEventsResult, crate::shared::errors::ApiError> {
+    let mut count_query_builder: QueryBuilder<'_, Postgres> = QueryBuilder::new(
+        "SELECT COUNT(*) AS total
+         FROM events e
+         WHERE 1=1",
+    );
+
+    apply_event_list_filters(&mut count_query_builder, &options);
+
+    let total_row = count_query_builder
+        .build()
+        .fetch_one(pool)
+        .await
+        .map_err(internal_error)?;
+    let total_i64: i64 = total_row.get("total");
+    let total = if total_i64 < 0 { 0 } else { total_i64 as u64 };
+
+    let mut query_builder: QueryBuilder<'_, Postgres> = QueryBuilder::new(
+        "SELECT e.id
+         FROM events e
+         WHERE 1=1",
+    );
+
+    apply_event_list_filters(&mut query_builder, &options);
+
+    match options.sort {
+        EventListSort::Newest => {
+            query_builder.push(" ORDER BY e.start_date IS NULL, e.start_date DESC, e.id DESC");
+        }
+        EventListSort::Players => {
+            query_builder.push(
+                " ORDER BY (
+                    SELECT COUNT(*)
+                    FROM event_players ep
+                    WHERE ep.event_id = e.id
+                ) DESC, e.start_date IS NULL, e.start_date ASC, e.id DESC",
+            );
+        }
+        EventListSort::Name => {
+            query_builder.push(" ORDER BY LOWER(e.name) ASC, e.id DESC");
+        }
+        EventListSort::Soonest => {
+            query_builder.push(" ORDER BY e.start_date IS NULL, e.start_date ASC, e.id DESC");
+        }
+    }
+
+    query_builder.push(" LIMIT ");
+    query_builder.push_bind(options.limit as i64);
+    query_builder.push(" OFFSET ");
+    query_builder.push_bind(options.offset as i64);
+
+    let rows = query_builder
+        .build()
+        .fetch_all(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(ListVisibleEventsResult {
+        event_ids: rows.into_iter().map(|row| row.get("id")).collect(),
+        total,
+    })
+}
+
+fn apply_event_list_filters(
+    query_builder: &mut QueryBuilder<'_, Postgres>,
+    options: &ListVisibleEventsOptions,
+) {
+    if let Some(event_type) = options.event_type.as_ref() {
+        query_builder.push(" AND e.event_type = ");
+        query_builder.push_bind(event_type.clone());
+    }
+
+    if let Some(owner_user_id) = options.owner_only_user_id {
+        query_builder.push(
+            " AND EXISTS (
+                SELECT 1
+                FROM event_memberships em
+                WHERE em.event_id = e.id
+                  AND em.user_id = ",
+        );
+        query_builder.push_bind(owner_user_id);
+        query_builder.push(" AND em.role = 'owner')");
+    }
+
+    if let Some(search) = options.search.as_ref() {
+        let like_pattern = format!("%{search}%");
+        query_builder.push(" AND (");
+        query_builder.push("e.name ILIKE ");
+        query_builder.push_bind(like_pattern.clone());
+        query_builder.push(" OR e.description ILIKE ");
+        query_builder.push_bind(like_pattern.clone());
+        query_builder.push(
+            " OR EXISTS (
+                SELECT 1
+                FROM event_memberships ems
+                INNER JOIN users u ON u.id = ems.user_id
+                WHERE ems.event_id = e.id
+                  AND ems.role = 'owner'
+                  AND (
+                    COALESCE(u.username, '') ILIKE ",
+        );
+        query_builder.push_bind(like_pattern.clone());
+        query_builder.push(" OR COALESCE(u.display_name, '') ILIKE ");
+        query_builder.push_bind(like_pattern);
+        query_builder.push(")");
+        query_builder.push(")");
+        query_builder.push(")");
+    }
 }
 
 pub async fn event_exists(

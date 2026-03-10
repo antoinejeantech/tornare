@@ -2,6 +2,7 @@
 import { computed, inject } from 'vue'
 import { RouterLink } from 'vue-router'
 import { formatEventStartDate } from '../../lib/dates'
+import PlayerCard from './PlayerCard.vue'
 
 const ctx = inject('eventCtx')
 
@@ -63,6 +64,14 @@ const largestTeams = computed(() => {
     .slice(0, 3)
 })
 
+const featuredPlayers = computed(() => {
+  if (!ctx.event) {
+    return []
+  }
+
+  return [...ctx.event.players].slice(0, 3)
+})
+
 function matchupLabel(match) {
   if (!match.team_a_name || !match.team_b_name) {
     return 'Matchup not set'
@@ -84,17 +93,24 @@ function readinessLabel() {
 
   return 'Operations Ready'
 }
+
+function sectionRoute(section) {
+  return {
+    name: 'event',
+    params: { id: String(ctx.event?.id || '') },
+    query: { section },
+  }
+}
 </script>
 
 <template>
-  <section>
+  <section class="overview-section">
     <header class="overview-hero">
       <div class="overview-hero-head">
         <h3 class="section-title">
-          <span class="material-symbols-rounded section-title-icon" aria-hidden="true">insights</span>
+          <span class="material-symbols-rounded section-title-icon" aria-hidden="true">dashboard</span>
           <span>Event Snapshot</span>
         </h3>
-        <span class="overview-readiness">{{ readinessLabel() }}</span>
       </div>
 
       <div class="overview-meta-row">
@@ -105,6 +121,13 @@ function readinessLabel() {
           by {{ ctx.event.creator_name || 'Unknown' }}
         </RouterLink>
         <span v-else class="overview-chip">by {{ ctx.event.creator_name || 'Unknown' }}</span>
+        <span class="overview-readiness" :aria-label="`Status ${readinessLabel()}`">
+          <span class="overview-readiness-copy">
+            <span class="overview-readiness-kicker">STATUS</span>
+            <span class="overview-readiness-value">{{ readinessLabel() }}</span>
+          </span>
+          <span class="overview-readiness-dot" aria-hidden="true"></span>
+        </span>
       </div>
 
       <p v-if="ctx.event.description" class="overview-description muted">{{ ctx.event.description }}</p>
@@ -127,6 +150,7 @@ function readinessLabel() {
         <p class="overview-kpi-label">Teams</p>
         <p class="overview-kpi-value">{{ teamCount }}</p>
         <p class="muted overview-kpi-meta">{{ unassignedCount }} unassigned</p>
+        <span class="overview-kpi-track" aria-hidden="true"><span class="overview-kpi-fill" :style="{ width: `${assignmentPercent}%` }"></span></span>
       </article>
       <article class="overview-kpi">
         <p class="overview-kpi-label">Matches</p>
@@ -137,33 +161,64 @@ function readinessLabel() {
 
     <div class="overview-grid">
       <article class="overview-card">
-        <h4>Players</h4>
-        <p class="muted">{{ assignedCount }} assigned to teams · {{ unassignedCount }} unassigned</p>
-        <button class="btn-secondary" @click="ctx.openSection('roster')">Open players</button>
-      </article>
-
-      <article class="overview-card">
-        <h4>Teams</h4>
-        <p v-if="largestTeams.length === 0" class="muted">No teams yet.</p>
-        <ul v-else class="overview-list">
-          <li v-for="team in largestTeams" :key="team.id">
-            <span>{{ team.name }}</span>
-            <span class="muted">{{ team.player_ids.length }} players</span>
+        <div class="overview-card-head">
+          <h4>Players</h4>
+          <span class="material-symbols-rounded overview-card-icon" aria-hidden="true">group</span>
+        </div>
+        <ul v-if="featuredPlayers.length > 0" class="overview-player-list">
+          <li v-for="player in featuredPlayers" :key="player.id">
+            <PlayerCard :player="player" :clickable="false" />
           </li>
         </ul>
-        <button class="btn-secondary" @click="ctx.openSection('teams')">Open teams</button>
+        <p v-else class="muted">No players yet.</p>
+        <p class="muted overview-card-meta">{{ assignedCount }} assigned to teams • {{ unassignedCount }} unassigned</p>
+        <RouterLink class="overview-open-btn" :to="sectionRoute('roster')">
+          <span>Open players</span>
+          <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span>
+        </RouterLink>
       </article>
 
       <article class="overview-card">
-        <h4>Latest Matches</h4>
-        <p v-if="latestMatches.length === 0" class="muted">No matches created yet.</p>
+        <div class="overview-card-head">
+          <h4>Teams</h4>
+          <span class="material-symbols-rounded overview-card-icon" aria-hidden="true">verified_user</span>
+        </div>
+        <p v-if="largestTeams.length === 0" class="muted">No teams yet.</p>
+        <ul v-else class="overview-team-list">
+          <li v-for="(team, index) in largestTeams" :key="team.id" class="overview-team-row">
+            <span class="overview-team-tag">T{{ index + 1 }}</span>
+            <span class="overview-team-name">{{ team.name }}</span>
+            <span class="overview-team-size">{{ team.player_ids.length }} players</span>
+          </li>
+        </ul>
+        <RouterLink class="overview-open-btn" :to="sectionRoute('teams')">
+          <span>Open teams</span>
+          <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span>
+        </RouterLink>
+      </article>
+
+      <article class="overview-card">
+        <div class="overview-card-head">
+          <h4>Latest Matches</h4>
+          <span class="material-symbols-rounded overview-card-icon" aria-hidden="true">swords</span>
+        </div>
+        <div v-if="latestMatches.length === 0" class="overview-empty-state">
+          <span class="overview-empty-icon-wrap" aria-hidden="true">
+            <span class="material-symbols-rounded overview-empty-icon">schedule</span>
+          </span>
+          <p class="overview-empty-title">No matches created yet</p>
+          <p class="muted overview-empty-copy">The bracket is currently being generated by the administrator. Check back soon.</p>
+        </div>
         <ul v-else class="overview-list">
           <li v-for="match in latestMatches" :key="match.id">
             <span>{{ match.title }}</span>
             <span class="muted">{{ matchupLabel(match) }}</span>
           </li>
         </ul>
-        <button class="btn-secondary" @click="ctx.openSection('matches')">Open matches</button>
+        <RouterLink class="overview-open-btn" :to="sectionRoute('matches')">
+          <span>Open matches</span>
+          <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span>
+        </RouterLink>
       </article>
     </div>
   </section>
@@ -172,9 +227,9 @@ function readinessLabel() {
 <style scoped>
 .overview-kpis {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.72rem;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-bottom: 0.7rem;
+  margin: 0 0 0.9rem;
 }
 
 .section-title {
@@ -185,45 +240,44 @@ function readinessLabel() {
 }
 
 .section-title-icon {
-  font-size: 1.12rem;
+  font-size: 1.26rem;
   line-height: 1;
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
 }
 
 .overview-hero {
-  border: 1px solid color-mix(in srgb, var(--line) 76%, var(--brand-2) 24%);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
   border-radius: 12px;
-  padding: 0.82rem;
-  margin-bottom: 0.68rem;
-  background:
-    radial-gradient(560px 180px at 0% 0%, color-mix(in srgb, var(--brand-2) 24%, transparent 76%), transparent 72%),
-    radial-gradient(420px 160px at 95% 0%, color-mix(in srgb, #8fb3ee 18%, transparent 82%), transparent 74%),
-    linear-gradient(145deg, color-mix(in srgb, var(--card) 90%, #121b2a 10%), var(--card));
+  padding: 1.1rem 1.15rem;
+  margin-bottom: 0.9rem;
+  background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
   display: grid;
-  gap: 0.5rem;
+  gap: 0.3rem;
 }
 
 .overview-hero-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.55rem;
 }
 
 .overview-meta-row {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 0.38rem;
+  gap: 0.32rem;
 }
 
 .overview-chip {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--line) 80%, var(--brand-1) 20%);
-  background: color-mix(in srgb, var(--accent) 18%, var(--meta-bg) 82%);
-  color: var(--meta-ink);
-  padding: 0.14rem 0.52rem;
-  font-size: 0.73rem;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, var(--bg-1) 14%);
+  background: color-mix(in srgb, var(--card) 78%, var(--bg-1) 22%);
+  color: color-mix(in srgb, white 94%, var(--ink-1) 6%);
+  padding: 0.16rem 0.5rem;
+  font-size: 0.68rem;
   font-family: "Space Mono", ui-monospace, monospace;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -231,38 +285,73 @@ function readinessLabel() {
 }
 
 .overview-chip-link {
-  color: color-mix(in srgb, var(--brand-1) 72%, var(--meta-ink) 28%);
+  color: color-mix(in srgb, white 92%, var(--ink-1) 8%);
   text-decoration: none;
 }
 
 .overview-chip-link:hover {
-  text-decoration: underline;
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffe08f 10%);
+  text-decoration: none;
 }
 
 .overview-readiness {
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--brand-2) 44%, var(--line) 56%);
-  background: color-mix(in srgb, var(--brand-2) 16%, var(--card) 84%);
-  color: color-mix(in srgb, var(--ink-1) 92%, #fff 8%);
-  padding: 0.16rem 0.56rem;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--bg-0) 12%);
+  background: color-mix(in srgb, var(--card) 76%, var(--bg-1) 24%);
+  padding: 0.66rem 1rem 0.64rem;
+  margin-left: auto;
+}
+
+.overview-readiness-copy {
+  display: grid;
+  justify-items: end;
+  line-height: 1.05;
+}
+
+.overview-readiness-kicker {
+  font-size: 0.58rem;
   font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
+}
+
+.overview-readiness-value {
+  margin-top: 0.04rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: color-mix(in srgb, white 94%, var(--ink-1) 6%);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.overview-readiness-dot {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand-1) 74%, #ffd869 26%);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--brand-1) 14%, transparent 86%),
+    0 0 10px color-mix(in srgb, var(--brand-1) 30%, transparent 70%);
 }
 
 .overview-description {
   margin: 0;
   white-space: pre-wrap;
+  color: color-mix(in srgb, var(--ink-2) 90%, white 10%);
 }
 
 .overview-kpi {
-  border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
-  background: color-mix(in srgb, var(--card) 89%, #132038 11%);
+  border: 1px solid var(--surface-card-border);
+  background: var(--surface-card-bg);
   border-radius: 10px;
-  padding: 0.5rem 0.58rem;
+  padding: 0.88rem 0.92rem;
   display: grid;
-  gap: 0.14rem;
+  gap: 0.24rem;
+  box-shadow: none;
 }
 
 .overview-kpi-label {
@@ -277,7 +366,7 @@ function readinessLabel() {
 .overview-kpi-value {
   margin: 0.15rem 0 0;
   color: var(--ink-1);
-  font-size: 1.28rem;
+  font-size: 1.52rem;
   font-weight: 800;
 }
 
@@ -288,8 +377,9 @@ function readinessLabel() {
 
 .overview-kpi-track {
   height: 5px;
+  margin-top: 0.32rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--line) 86%, #10203a 14%);
+  background: color-mix(in srgb, var(--line) 85%, var(--bg-1) 15%);
   overflow: hidden;
 }
 
@@ -297,31 +387,160 @@ function readinessLabel() {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--brand-2) 76%, #fff 24%), color-mix(in srgb, var(--brand-1) 70%, #fff 30%));
+  background: color-mix(in srgb, var(--brand-1) 86%, #ffd869 14%);
 }
 
 .overview-grid {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.72rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .overview-card {
-  border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
-  background: color-mix(in srgb, var(--card) 92%, #f0f6ff 8%);
+  border: 1px solid var(--surface-card-border);
+  background: var(--surface-card-bg);
   border-radius: 10px;
-  padding: 0.55rem 0.62rem;
+  padding: 0.96rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.42rem;
+  gap: 0.55rem;
+  box-shadow: none;
 }
 
-.overview-card .btn-secondary {
+.overview-card-meta {
+  margin: 0;
+  text-align: center;
+}
+
+.overview-open-btn {
   margin-top: auto;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  padding: 0.46rem 0.72rem;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 82%, white 18%);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--grey-900) 74%, black 26%);
+  color: white;
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.overview-open-btn .material-symbols-rounded {
+  font-size: 0.95rem;
+  color: white;
+}
+
+.overview-open-btn:hover {
+  color: white;
+  border-color: color-mix(in srgb, var(--line-strong) 72%, white 28%);
+  background: color-mix(in srgb, var(--grey-900) 68%, black 32%);
+  text-decoration: none;
+}
+
+.overview-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .overview-card h4 {
   margin: 0 0 0.28rem;
+}
+
+.overview-player-list,
+.overview-team-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.overview-team-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.16rem 0;
+}
+
+.overview-team-tag {
+  min-width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: color-mix(in srgb, white 90%, var(--ink-1) 10%);
+  background: color-mix(in srgb, var(--bg-1) 84%, var(--card) 16%);
+}
+
+.overview-team-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-team-size {
+  font-size: 0.88rem;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.overview-empty-state {
+  flex: 1;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  text-align: center;
+  gap: 0.56rem;
+  padding: 0.95rem 0.35rem;
+}
+
+.overview-empty-icon-wrap {
+  width: 5.2rem;
+  height: 5.2rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bg-1) 84%, transparent 16%);
+}
+
+.overview-empty-icon {
+  font-size: 2.25rem;
+  color: var(--ink-muted);
+}
+
+.overview-empty-title {
+  margin: 0;
+  font-size: 1.04rem;
+  font-weight: 700;
+  color: var(--ink-1);
+}
+
+.overview-empty-copy {
+  margin: 0;
+  max-width: 27ch;
+}
+
+.overview-card-icon {
+  font-size: 1.08rem;
+  line-height: 1;
+  color: color-mix(in srgb, var(--ink-2) 80%, var(--brand-1) 20%);
 }
 
 .overview-list {

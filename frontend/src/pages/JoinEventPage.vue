@@ -197,6 +197,14 @@ onMounted(loadSignupInfo)
   width: min(95vw, 940px);
 }
 
+.page-header {
+  justify-content: center;
+}
+
+.page-title {
+  text-align: center;
+}
+
 .join-card {
   max-width: 860px;
   margin: 0 auto;

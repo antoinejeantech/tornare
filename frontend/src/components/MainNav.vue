@@ -1,14 +1,15 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import tornareLogo from '../assets/branding/tornare-logo.svg'
+import tornareLogo from '../assets/branding/tornare-logo-pulse.svg'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
+const notificationsOpen = ref(false)
 const themeMode = ref('dark')
 const THEME_STORAGE_KEY = 'tornare_theme'
 
@@ -40,6 +41,25 @@ function closeMobileMenu() {
   mobileMenuOpen.value = false
 }
 
+function toggleNotifications() {
+  notificationsOpen.value = !notificationsOpen.value
+}
+
+function closeNotifications() {
+  notificationsOpen.value = false
+}
+
+function handleDocumentClick(event) {
+  const target = event?.target
+  if (!(target instanceof Element)) {
+    return
+  }
+
+  if (!target.closest('.top-nav-notification')) {
+    closeNotifications()
+  }
+}
+
 function applyTheme(mode) {
   if (typeof document === 'undefined') {
     return
@@ -68,33 +88,41 @@ function themeLabel() {
 
 watch(() => route.fullPath, () => {
   closeMobileMenu()
+  closeNotifications()
 })
 
 onMounted(() => {
   authStore.initialize()
 
   if (typeof window !== 'undefined') {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
-    if (stored === 'light' || stored === 'dark') {
-      applyTheme(stored)
-      return
-    }
-
-    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
-    applyTheme(prefersLight ? 'light' : 'dark')
+    // Never auto-switch to browser light preference.
+    applyTheme('dark')
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'dark')
     return
   }
 
   applyTheme('dark')
+})
+
+onMounted(() => {
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', handleDocumentClick)
+  }
+})
+
+onBeforeUnmount(() => {
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('click', handleDocumentClick)
+  }
 })
 </script>
 
 <template>
   <nav class="top-nav">
     <div class="top-nav-inner">
-      <RouterLink class="brand-link" to="/">
-        <img class="brand-logo" :src="tornareLogo" alt="Tornare logo" />
-        <span>Tornare</span>
+      <RouterLink class="brand-link" to="/" aria-label="Tornare">
+        <img class="brand-logo" :src="tornareLogo" alt="" aria-hidden="true" />
+        <span class="brand-wordmark">tornare</span>
       </RouterLink>
       <button
         class="top-nav-mobile-toggle icon-btn"
@@ -124,10 +152,6 @@ onMounted(() => {
           <span class="material-symbols-rounded" aria-hidden="true">article</span>
           <span>News</span>
         </RouterLink>
-        <button v-if="!authStore.isAuthenticated" class="top-nav-link top-nav-theme-toggle" type="button" :title="themeLabel()" @click="toggleTheme">
-          <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon() }}</span>
-          <span>{{ themeLabel() }}</span>
-        </button>
         <div class="top-nav-fake-search" aria-hidden="true">
           <span class="material-symbols-rounded" aria-hidden="true">search</span>
           <span>Search</span>
@@ -137,6 +161,22 @@ onMounted(() => {
           <span>Login</span>
         </RouterLink>
         <div v-else class="top-nav-user-controls desktop-only">
+          <div class="top-nav-notification">
+            <button
+              class="top-nav-link top-nav-notification-btn"
+              type="button"
+              title="Notifications"
+              aria-controls="top-nav-notifications-panel"
+              :aria-expanded="notificationsOpen ? 'true' : 'false'"
+              @click="toggleNotifications"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">notifications</span>
+              <span class="sr-only">Notifications</span>
+            </button>
+            <div v-if="notificationsOpen" id="top-nav-notifications-panel" class="top-nav-notifications-panel" role="dialog" aria-label="Notifications panel">
+              <p class="top-nav-notifications-empty">No notifications right now.</p>
+            </div>
+          </div>
           <div class="top-nav-user-menu" tabindex="0">
             <button class="top-nav-user-trigger" type="button">
               <span>{{ authLabel }}</span>
@@ -153,10 +193,6 @@ onMounted(() => {
               </button>
             </div>
           </div>
-          <button class="top-nav-link top-nav-theme-toggle top-nav-theme-toggle-compact" type="button" :title="themeLabel()" @click="toggleTheme">
-            <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon() }}</span>
-            <span class="sr-only">{{ themeLabel() }}</span>
-          </button>
         </div>
 
         <div v-if="authStore.isAuthenticated" class="top-nav-mobile-user mobile-only">
@@ -164,15 +200,16 @@ onMounted(() => {
             <span class="material-symbols-rounded" aria-hidden="true">person</span>
             <span>Profile</span>
           </RouterLink>
-          <button class="top-nav-link top-nav-theme-toggle" type="button" :title="themeLabel()" @click="toggleTheme">
-            <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon() }}</span>
-            <span>{{ themeLabel() }}</span>
-          </button>
           <button class="top-nav-link top-nav-mobile-logout" type="button" @click="logout">
             <span class="material-symbols-rounded" aria-hidden="true">logout</span>
             <span>Logout</span>
           </button>
         </div>
+
+        <button class="top-nav-link top-nav-theme-toggle top-nav-theme-toggle-compact" type="button" :title="themeLabel()" :disabled="true" aria-disabled="true" @click="toggleTheme">
+          <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon() }}</span>
+          <span class="sr-only">{{ themeLabel() }}</span>
+        </button>
       </div>
     </div>
   </nav>
@@ -184,10 +221,9 @@ onMounted(() => {
   top: 0;
   z-index: 50;
   border-bottom: 1px solid color-mix(in srgb, var(--brand-1) 20%, var(--line) 80%);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--card) 82%, var(--nav-mix) 18%), color-mix(in srgb, var(--card) 90%, var(--nav-mix) 10%));
+  background: var(--bg-0);
   backdrop-filter: blur(10px);
-  box-shadow: 0 8px 22px rgba(14, 32, 72, 0.15);
+  box-shadow: none;
 }
 
 .top-nav-inner {
@@ -204,14 +240,15 @@ onMounted(() => {
 .brand-link {
   display: inline-flex;
   align-items: center;
-  gap: 0.42rem;
+  gap: 0.18rem;
   text-decoration: none;
   color: var(--brand-1);
-  font-size: 1.1rem;
-  font-weight: 800;
+  font-size: 0.9rem;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.22);
+  line-height: 1;
 }
 
 .brand-link:hover {
@@ -219,10 +256,20 @@ onMounted(() => {
 }
 
 .brand-logo {
-  width: 20px;
-  height: 20px;
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  transform: translateY(-0.01em);
   object-fit: contain;
   filter: drop-shadow(0 2px 6px rgba(154, 114, 50, 0.28));
+}
+
+.brand-wordmark {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  transform: translateY(0.1em);
 }
 
 .top-nav-links {
@@ -253,7 +300,7 @@ onMounted(() => {
   border-radius: 999px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--ink-muted);
+  color: var(--ink-2);
   font-weight: 620;
   letter-spacing: 0.01em;
   transition: box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
@@ -263,10 +310,23 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.top-nav-theme-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .top-nav-theme-toggle-compact {
   min-width: 2.25rem;
   padding: 0.38rem 0.52rem;
   justify-content: center;
+}
+
+.top-nav-theme-toggle-compact span:not(.sr-only) {
+  display: inline-flex;
+}
+
+.top-nav-theme-toggle-compact > :not(.material-symbols-rounded):not(.sr-only) {
+  display: none;
 }
 
 .top-nav-theme-toggle-compact .material-symbols-rounded {
@@ -280,6 +340,9 @@ onMounted(() => {
 
 .top-nav-link:hover {
   color: var(--ink-1);
+  background: color-mix(in srgb, var(--card) 82%, var(--bg-1) 18%);
+  border-color: var(--line-strong);
+  border-radius: 999px;
   transform: none;
 }
 
@@ -293,10 +356,11 @@ onMounted(() => {
 }
 
 .top-nav-link.router-link-active {
-  color: #fff;
-  border-color: color-mix(in srgb, var(--brand-2) 70%, var(--brand-1) 30%);
-  background: linear-gradient(130deg, var(--brand-2), var(--brand-1));
-  box-shadow: 0 8px 18px rgba(78, 52, 7, 0.3);
+  color: var(--ink-1);
+  border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--card) 74%, var(--bg-1) 26%);
+  border-radius: 999px;
+  box-shadow: none;
 }
 
 .top-nav-link.router-link-active .material-symbols-rounded {
@@ -374,6 +438,37 @@ onMounted(() => {
   font-size: 1rem;
 }
 
+.top-nav-notification-btn {
+  color: var(--ink-muted);
+}
+
+.top-nav-notification-btn .material-symbols-rounded {
+  color: currentColor;
+}
+
+.top-nav-notification {
+  position: relative;
+}
+
+.top-nav-notifications-panel {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  width: min(280px, 70vw);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-1) 16%);
+  background: var(--card);
+  box-shadow: 0 12px 26px rgba(3, 8, 18, 0.42);
+  z-index: 70;
+}
+
+.top-nav-notifications-empty {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+}
+
 .top-nav-user-dropdown {
   position: absolute;
   top: 100%;
@@ -381,7 +476,7 @@ onMounted(() => {
   min-width: 140px;
   padding: 0.32rem;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--brand-2) 34%, var(--line) 66%);
+  border: 1px solid var(--line-strong);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--card) 90%, #18253a 10%) 0%, color-mix(in srgb, var(--card) 96%, #101828 4%) 100%);
   box-shadow: 0 12px 26px rgba(3, 8, 18, 0.42);
@@ -406,7 +501,7 @@ onMounted(() => {
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: var(--brand-1);
+  color: var(--ink-2);
   text-align: left;
   text-decoration: none;
   padding: 0.46rem 0.56rem;
@@ -415,7 +510,7 @@ onMounted(() => {
 }
 
 .top-nav-user-action + .top-nav-user-action {
-  border-top: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
+  border-top: 1px solid var(--line);
 }
 
 .top-nav-user-action .material-symbols-rounded {
@@ -423,8 +518,8 @@ onMounted(() => {
 }
 
 .top-nav-user-action:hover {
-  background: color-mix(in srgb, var(--brand-2) 16%, var(--card) 84%);
-  color: color-mix(in srgb, var(--brand-1) 86%, #fff 14%);
+  background: color-mix(in srgb, var(--card-soft) 82%, var(--bg-1) 18%);
+  color: var(--ink-1);
 }
 
 .top-nav-current {
@@ -470,6 +565,13 @@ onMounted(() => {
     justify-content: flex-start;
     border-radius: 10px;
     padding: 0.52rem 0.62rem;
+  }
+
+  .top-nav-theme-toggle-compact {
+    width: auto;
+    justify-content: center;
+    justify-self: end;
+    padding: 0.42rem 0.52rem;
   }
 
   .desktop-only {

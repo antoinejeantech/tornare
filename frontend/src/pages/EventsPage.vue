@@ -5,10 +5,18 @@ import { useAuthStore } from '../stores/auth'
 import { formatOptionsForType } from '../lib/event-format'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
+import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
 
 const authStore = useAuthStore()
 
 const events = ref([])
+const featuredEvent = ref(null)
+const kpis = ref({
+  total_events: 0,
+  total_signups: 0,
+  upcoming_events_this_week: 0,
+  upcoming_tourneys_this_week: 0,
+})
 const error = ref('')
 const notice = ref('')
 const loadingEvents = ref(false)
@@ -18,6 +26,13 @@ const activeTypeFilter = ref('all')
 const eventSearchQuery = ref('')
 const activeSort = ref('soonest')
 const showCreateModal = ref(false)
+const searchDebounceTimer = ref(null)
+let latestLoadRequestId = 0
+let eventsRequestController = null
+const SEARCH_DEBOUNCE_MS = 350
+const PAGE_SIZE = 12
+const currentPage = ref(1)
+const totalEventsAvailable = ref(0)
 
 const newEventName = ref('')
 const newEventDescription = ref('')
@@ -58,110 +73,17 @@ watch(newEventType, () => {
   }
 })
 
-const filteredEvents = computed(() => {
-  let next = events.value
+const sortedEvents = computed(() => events.value)
 
-  if (activeOwnerFilter.value === 'mine') {
-    next = next.filter((event) => Boolean(event?.is_owner))
-  }
+const totalEventsCount = computed(() => Number(kpis.value.total_events) || 0)
 
-  if (activeTypeFilter.value !== 'all') {
-    next = next.filter((event) => String(event.event_type || '').toUpperCase() === activeTypeFilter.value)
-  }
-
-  if (normalizedSearchQuery.value) {
-    next = next.filter((event) => {
-      const name = String(event.name || '').toLowerCase()
-      const description = String(event.description || '').toLowerCase()
-      const creator = String(event.creator_name || '').toLowerCase()
-      return (
-        name.includes(normalizedSearchQuery.value) ||
-        description.includes(normalizedSearchQuery.value) ||
-        creator.includes(normalizedSearchQuery.value)
-      )
-    })
-  }
-
-  return next
+const totalPages = computed(() => {
+  const total = Number(totalEventsAvailable.value) || 0
+  return Math.max(1, Math.ceil(total / PAGE_SIZE))
 })
 
-const sortedEvents = computed(() => {
-  const next = [...filteredEvents.value]
-
-  const sortBySoonest = (a, b) => {
-    const aStart = normalizeDateValue(a?.start_date)
-    const bStart = normalizeDateValue(b?.start_date)
-
-    if (aStart === null && bStart === null) {
-      return String(a?.name || '').localeCompare(String(b?.name || ''))
-    }
-    if (aStart === null) {
-      return 1
-    }
-    if (bStart === null) {
-      return -1
-    }
-
-    return aStart - bStart
-  }
-
-  if (activeSort.value === 'newest') {
-    next.sort((a, b) => sortBySoonest(b, a))
-    return next
-  }
-
-  if (activeSort.value === 'players') {
-    next.sort((a, b) => getPlayerCount(b) - getPlayerCount(a))
-    return next
-  }
-
-  if (activeSort.value === 'name') {
-    next.sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
-    return next
-  }
-
-  next.sort(sortBySoonest)
-  return next
-})
-
-const totalEventsCount = computed(() => events.value.length)
-
-const totalPlayersSignedUp = computed(() => {
-  return events.value.reduce((sum, event) => sum + getPlayerCount(event), 0)
-})
-
-const weeklyTourneyCount = computed(() => {
-  const now = Date.now()
-  const weekEnd = now + 7 * 24 * 60 * 60 * 1000
-
-  return events.value.filter((event) => {
-    const startAt = normalizeDateValue(event?.start_date)
-    const isTourney = String(event?.event_type || '').toUpperCase() === 'TOURNEY'
-    if (!isTourney || startAt === null) {
-      return false
-    }
-
-    return startAt >= now && startAt <= weekEnd
-  }).length
-})
-
-const featuredEvent = computed(() => {
-  const manuallyFeatured = sortedEvents.value.find((event) => Boolean(event?.is_featured))
-  if (manuallyFeatured) {
-    return manuallyFeatured
-  }
-
-  const upcoming = sortedEvents.value.find((event) => {
-    const startAt = normalizeDateValue(event?.start_date)
-    return startAt !== null && startAt >= Date.now()
-  })
-
-  if (upcoming) {
-    return upcoming
-  }
-
-  return sortedEvents.value[0] || null
-})
+const totalPlayersSignedUp = computed(() => Number(kpis.value.total_signups) || 0)
+const weeklyTourneyCount = computed(() => Number(kpis.value.upcoming_tourneys_this_week) || 0)
 
 const hasActiveFilters = computed(() => {
   return (
@@ -234,15 +156,87 @@ function closeCreateModal() {
 }
 
 async function loadEvents() {
+  if (eventsRequestController) {
+    eventsRequestController.abort()
+  }
+  eventsRequestController = new AbortController()
+
+  const requestId = ++latestLoadRequestId
   loadingEvents.value = true
   try {
     clearError()
     clearNotice()
-    events.value = await apiCall('/api/events')
+    const params = new URLSearchParams()
+    if (activeOwnerFilter.value !== 'all') {
+      params.set('owner', activeOwnerFilter.value)
+    }
+    if (activeTypeFilter.value !== 'all') {
+      params.set('type', activeTypeFilter.value)
+    }
+    if (normalizedSearchQuery.value) {
+      params.set('search', normalizedSearchQuery.value)
+    }
+    if (activeSort.value !== 'soonest') {
+      params.set('sort', activeSort.value)
+    }
+    params.set('page', String(currentPage.value))
+    params.set('per_page', String(PAGE_SIZE))
+
+    const query = params.toString()
+    const path = query ? `/api/events?${query}` : '/api/events'
+    const response = await apiCall(path, { signal: eventsRequestController.signal })
+
+    if (requestId !== latestLoadRequestId) {
+      return
+    }
+
+    events.value = Array.isArray(response?.items) ? response.items : []
+    totalEventsAvailable.value = Number(response?.total) || 0
+
+    if (currentPage.value > totalPages.value) {
+      currentPage.value = totalPages.value
+      return
+    }
   } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return
+    }
+    if (requestId !== latestLoadRequestId) {
+      return
+    }
     setError(err instanceof Error ? err.message : 'Failed to load events')
   } finally {
-    loadingEvents.value = false
+    if (requestId === latestLoadRequestId) {
+      loadingEvents.value = false
+    }
+  }
+}
+
+async function loadFeaturedEvent() {
+  try {
+    const featured = await apiCall('/api/events/featured')
+    featuredEvent.value = featured || null
+  } catch {
+    featuredEvent.value = null
+  }
+}
+
+async function loadEventsKpis() {
+  try {
+    const response = await apiCall('/api/events/kpi')
+    kpis.value = {
+      total_events: Number(response?.total_events) || 0,
+      total_signups: Number(response?.total_signups) || 0,
+      upcoming_events_this_week: Number(response?.upcoming_events_this_week) || 0,
+      upcoming_tourneys_this_week: Number(response?.upcoming_tourneys_this_week) || 0,
+    }
+  } catch {
+    kpis.value = {
+      total_events: 0,
+      total_signups: 0,
+      upcoming_events_this_week: 0,
+      upcoming_tourneys_this_week: 0,
+    }
   }
 }
 
@@ -257,6 +251,31 @@ function normalizeDateValue(value) {
 
 function getPlayerCount(event) {
   return Array.isArray(event?.players) ? event.players.length : 0
+}
+
+function formatKpiValue(value) {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) {
+    return '00'
+  }
+
+  if (numericValue >= 0 && numericValue < 10) {
+    return `0${Math.floor(numericValue)}`
+  }
+
+  return String(Math.floor(numericValue))
+}
+
+function goToPrevPage() {
+  if (currentPage.value > 1) {
+    currentPage.value -= 1
+  }
+}
+
+function goToNextPage() {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value += 1
+  }
 }
 
 function handleGlobalKeyDown(event) {
@@ -275,7 +294,7 @@ async function createEvent() {
     clearError()
     clearNotice()
 
-    const created = await apiCall('/api/events', {
+    await apiCall('/api/events', {
       method: 'POST',
       body: JSON.stringify({
         name: newEventName.value.trim(),
@@ -288,7 +307,15 @@ async function createEvent() {
       })
     })
 
-    events.value.unshift(created)
+    const shouldLoadPageDirectly = currentPage.value === 1
+    currentPage.value = 1
+
+    await Promise.all([
+      shouldLoadPageDirectly ? loadEvents() : Promise.resolve(),
+      loadEventsKpis(),
+      loadFeaturedEvent(),
+    ])
+
     resetCreateForm()
     showCreateModal.value = false
     setNotice('Event created successfully')
@@ -300,56 +327,95 @@ async function createEvent() {
 }
 
 onMounted(() => {
+  loadEventsKpis()
+  loadFeaturedEvent()
   loadEvents()
   window.addEventListener('keydown', handleGlobalKeyDown)
 })
 
+watch([activeOwnerFilter, activeTypeFilter, activeSort], () => {
+  currentPage.value = 1
+  loadEvents()
+})
+
+watch(eventSearchQuery, () => {
+  if (searchDebounceTimer.value) {
+    window.clearTimeout(searchDebounceTimer.value)
+  }
+  searchDebounceTimer.value = window.setTimeout(() => {
+    currentPage.value = 1
+    loadEvents()
+  }, SEARCH_DEBOUNCE_MS)
+})
+
+watch(currentPage, () => {
+  loadEvents()
+})
+
 onBeforeUnmount(() => {
+  if (searchDebounceTimer.value) {
+    window.clearTimeout(searchDebounceTimer.value)
+  }
+  if (eventsRequestController) {
+    eventsRequestController.abort()
+  }
   window.removeEventListener('keydown', handleGlobalKeyDown)
 })
 </script>
 
 <template>
   <main class="app-shell events-shell">
-    <header class="page-header">
-      <h1 class="page-title">Find Your Next Overwatch Event</h1>
-    </header>
+    <SpotlightEventCard
+      v-if="featuredEvent"
+      class="reveal-block reveal-1"
+      :event="featuredEvent"
+      badge-label="Featured Event"
+    />
 
-    <section class="card events-toolbar reveal-block reveal-1">
-      <div class="events-toolbar-top">
-        <div class="events-toolbar-title-wrap">
-          <h2>Events</h2>
-          <p class="muted">Browse all public events and quickly narrow the list.</p>
-        </div>
-        <button
-          class="btn-primary events-create-btn"
-          :disabled="!authStore.isAuthenticated"
-          :title="authStore.isAuthenticated ? 'Create a new event' : 'Sign in to create an event'"
-          @click="openCreateModal"
-        >
-          <span class="material-symbols-rounded" aria-hidden="true">add</span>
-          <span>Create event</span>
-        </button>
-      </div>
-
-      <section class="events-stats-grid" aria-label="Event highlights">
-        <article class="events-stat-card">
+    <section class="events-stats-grid reveal-block reveal-2" aria-label="Event highlights">
+      <article class="events-stat-card">
+        <span class="material-symbols-rounded events-stat-icon" aria-hidden="true">space_dashboard</span>
+        <div class="events-stat-copy">
           <span class="events-stat-label">Live board</span>
-          <strong class="events-stat-value">{{ totalEventsCount }}</strong>
+          <strong class="events-stat-value">{{ formatKpiValue(totalEventsCount) }}</strong>
           <span class="muted">Active listings</span>
-        </article>
-        <article class="events-stat-card">
+        </div>
+      </article>
+      <article class="events-stat-card">
+        <span class="material-symbols-rounded events-stat-icon" aria-hidden="true">groups</span>
+        <div class="events-stat-copy">
           <span class="events-stat-label">Signups</span>
-          <strong class="events-stat-value">{{ totalPlayersSignedUp }}</strong>
+          <strong class="events-stat-value">{{ formatKpiValue(totalPlayersSignedUp) }}</strong>
           <span class="muted">Players currently registered</span>
-        </article>
-        <article class="events-stat-card">
+        </div>
+      </article>
+      <article class="events-stat-card">
+        <span class="material-symbols-rounded events-stat-icon" aria-hidden="true">event_upcoming</span>
+        <div class="events-stat-copy">
           <span class="events-stat-label">This week</span>
-          <strong class="events-stat-value">{{ weeklyTourneyCount }}</strong>
+          <strong class="events-stat-value">{{ formatKpiValue(weeklyTourneyCount) }}</strong>
           <span class="muted">Upcoming tourneys</span>
-        </article>
-      </section>
+        </div>
+      </article>
+    </section>
 
+    <section class="events-header reveal-block reveal-2">
+      <div class="events-toolbar-title-wrap">
+        <h2>UPCOMING EVENTS</h2>
+        <p class="muted">Browse public competitive lobbies and claim your spot on the ladder.</p>
+      </div>
+      <ActionCtaButton
+        class="events-create-btn"
+        :disabled="!authStore.isAuthenticated"
+        :title="authStore.isAuthenticated ? 'Create a new event' : 'Sign in to create an event'"
+        @click="openCreateModal"
+      >
+        <span class="material-symbols-rounded" aria-hidden="true">add</span>
+        <span>Create event</span>
+      </ActionCtaButton>
+    </section>
+
+    <section class="card events-toolbar reveal-block reveal-2">
       <div class="events-filter-row">
         <label class="events-search">
           <span class="sr-only">Search events</span>
@@ -415,11 +481,12 @@ onBeforeUnmount(() => {
 
         <button
           type="button"
-          class="btn-secondary"
+          class="events-clear-link"
           :disabled="!hasActiveFilters"
           @click="clearFilters"
         >
-          Clear filters
+          <span class="material-symbols-rounded" aria-hidden="true">refresh</span>
+          <span>Clear filters</span>
         </button>
       </div>
     </section>
@@ -427,21 +494,14 @@ onBeforeUnmount(() => {
     <p v-if="error" class="status status-error">{{ error }}</p>
     <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
-    <SpotlightEventCard
-      v-if="featuredEvent"
-      class="reveal-block reveal-2"
-      :event="featuredEvent"
-      badge-label="Featured Event"
-    />
-
-    <section class="card reveal-block reveal-3">
+    <section class="card events-list-shell reveal-block reveal-3">
       <p v-if="loadingEvents">Loading events...</p>
       <div v-else-if="sortedEvents.length === 0" class="events-empty-state">
         <h2>No events match your filters</h2>
         <p class="muted">Try widening your filters or create a new event for your community.</p>
         <div class="events-empty-actions">
           <button type="button" class="btn-secondary" :disabled="!hasActiveFilters" @click="clearFilters">Clear filters</button>
-          <button type="button" class="btn-primary" :disabled="!authStore.isAuthenticated" @click="openCreateModal">Create event</button>
+          <ActionCtaButton :disabled="!authStore.isAuthenticated" @click="openCreateModal">Create event</ActionCtaButton>
         </div>
       </div>
       <ul v-else class="home-events-list">
@@ -454,6 +514,12 @@ onBeforeUnmount(() => {
           :style="{ animationDelay: `${index * 45}ms` }"
         />
       </ul>
+
+      <div v-if="totalPages > 1" class="events-pagination" role="navigation" aria-label="Events pagination">
+        <button type="button" class="btn-secondary" :disabled="currentPage <= 1" @click="goToPrevPage">Previous</button>
+        <p class="events-pagination-meta muted">Page {{ currentPage }} of {{ totalPages }}</p>
+        <button type="button" class="btn-secondary" :disabled="currentPage >= totalPages" @click="goToNextPage">Next</button>
+      </div>
     </section>
 
     <div
@@ -514,9 +580,9 @@ onBeforeUnmount(() => {
             <input v-model.number="newEventMaxPlayers" min="2" max="99" type="number" />
           </label>
           <div class="events-modal-actions">
-            <button type="submit" class="btn-primary" :disabled="!canCreateEvent || creatingEvent">
+            <ActionCtaButton type="submit" :disabled="!canCreateEvent || creatingEvent">
               {{ creatingEvent ? 'Creating...' : 'Create event' }}
-            </button>
+            </ActionCtaButton>
             <button type="button" class="btn-secondary" :disabled="creatingEvent" @click="closeCreateModal">
               Cancel
             </button>
@@ -539,16 +605,27 @@ onBeforeUnmount(() => {
   letter-spacing: -0.01em;
 }
 
-.events-toolbar {
-  display: grid;
-  gap: 0.8rem;
-}
-
-.events-toolbar-top {
+.events-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.7rem;
+}
+
+.events-toolbar {
+  padding: 0.72rem;
+  border: 1px solid var(--surface-card-border);
+  background: var(--surface-card-bg);
+  border-radius: 10px;
+  box-shadow: none;
+  margin-bottom: 0.85rem;
+}
+
+.events-list-shell {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
 }
 
 .events-toolbar-title-wrap {
@@ -582,16 +659,35 @@ onBeforeUnmount(() => {
 .events-stats-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 1rem;
+  margin-bottom: 0.95rem;
 }
 
 .events-stat-card {
-  border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  border-radius: 12px;
-  padding: 0.6rem 0.7rem;
-  background: color-mix(in srgb, var(--card) 92%, #2a2a2a 8%);
+  border: 1px solid var(--surface-card-border);
+  border-radius: 10px;
+  padding: 1.25rem 1.2rem;
+  background: var(--surface-card-bg);
   display: grid;
-  gap: 0.2rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.9rem;
+  box-shadow: none;
+}
+
+.events-stat-copy {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.events-stat-icon {
+  font-size: 2rem;
+  line-height: 1;
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
+}
+
+.events-shell :deep(.spotlight-event-card) {
+  margin-bottom: 0.5rem;
 }
 
 .events-stat-label {
@@ -614,7 +710,7 @@ onBeforeUnmount(() => {
   gap: 0.35rem;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  background: color-mix(in srgb, var(--card) 94%, #2f2f2f 6%);
+  background: color-mix(in srgb, var(--bg-0) 74%, black 26%);
   padding: 0.28rem 0.55rem;
 }
 
@@ -638,7 +734,7 @@ onBeforeUnmount(() => {
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   border-radius: 999px;
   padding: 0.22rem;
-  background: color-mix(in srgb, var(--card) 94%, #2f2f2f 6%);
+  background: color-mix(in srgb, var(--bg-0) 72%, black 28%);
 }
 
 .events-subnav-btn {
@@ -660,7 +756,7 @@ onBeforeUnmount(() => {
 .events-subnav-btn.active {
   color: #fff;
   font-weight: 680;
-  background: linear-gradient(130deg, var(--brand-2), var(--brand-1));
+  background: color-mix(in srgb, var(--brand-1) 34%, var(--card) 66%);
 }
 
 .events-sort {
@@ -670,7 +766,7 @@ onBeforeUnmount(() => {
   padding: 0.1rem 0.45rem;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--card) 94%, #2f2f2f 6%);
+  background: color-mix(in srgb, var(--bg-0) 72%, black 28%);
 }
 
 .events-sort-label {
@@ -684,6 +780,36 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--ink-1);
   font-weight: 700;
+}
+
+.events-clear-link {
+  border: 0;
+  background: transparent;
+  color: color-mix(in srgb, white 92%, var(--ink-1) 8%);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.1rem;
+  cursor: pointer;
+  transition: color 0.16s ease, transform 0.16s ease;
+}
+
+.events-clear-link .material-symbols-rounded {
+  font-size: 0.92rem;
+}
+
+.events-clear-link:hover {
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.events-clear-link:disabled {
+  color: var(--ink-muted);
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.7;
 }
 
 .events-empty-state {
@@ -700,6 +826,20 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+}
+
+.events-pagination {
+  margin-top: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.events-pagination-meta {
+  margin: 0;
+  min-width: 7.2rem;
+  text-align: center;
 }
 
 .home-events-list {
@@ -776,7 +916,7 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 840px) {
-  .events-toolbar-top {
+  .events-header {
     flex-wrap: wrap;
   }
 

@@ -41,7 +41,7 @@ pub use matches::{
     generate_tourney_bracket_for_user, report_match_winner_for_user,
     set_matchup_for_user,
 };
-pub use public::{get_event_public, list_events_public};
+pub use public::{get_event_public, get_events_kpis_public, get_featured_event_public, list_events_public};
 pub use events_admin::{
     create_event_for_user, delete_event_for_user, set_featured_event_for_user,
     update_event_for_user,

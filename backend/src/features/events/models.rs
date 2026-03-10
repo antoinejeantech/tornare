@@ -135,6 +135,34 @@ pub struct SetEventFeaturedInput {
     pub featured: bool,
 }
 
+#[derive(Deserialize, Default)]
+pub struct ListEventsQuery {
+    pub search: Option<String>,
+    pub owner: Option<String>,
+    #[serde(rename = "type")]
+    pub event_type: Option<String>,
+    pub sort: Option<String>,
+    pub page: Option<u32>,
+    pub per_page: Option<u32>,
+    pub limit: Option<u32>,
+}
+
+#[derive(Serialize)]
+pub struct PaginatedEventsResponse {
+    pub items: Vec<Event>,
+    pub total: u64,
+    pub page: u32,
+    pub per_page: u32,
+}
+
+#[derive(Serialize)]
+pub struct EventsKpiResponse {
+    pub total_events: u64,
+    pub total_signups: u64,
+    pub upcoming_events_this_week: u64,
+    pub upcoming_tourneys_this_week: u64,
+}
+
 #[derive(Deserialize)]
 pub struct CreateEventInput {
     pub name: String,

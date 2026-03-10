@@ -57,6 +57,14 @@ pub fn build_app(state: AppState) -> Router {
             get(events::list_events).post(events::create_event),
         )
         .route(
+            "/api/events/kpi",
+            get(events::get_events_kpis),
+        )
+        .route(
+            "/api/events/featured",
+            get(events::get_featured_event),
+        )
+        .route(
             "/api/events/{event_id}",
             get(events::get_event)
                 .put(events::update_event)

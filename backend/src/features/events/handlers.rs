@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
     Json,
 };
@@ -13,7 +13,7 @@ use crate::{
             AddPlayerInput, AssignEventPlayerTeamInput, AutoBalanceTeamsResponse,
             CreateEventInput, CreateEventMatchInput, CreateEventSignupRequestInput,
             CreateEventTeamInput, Event, EventSignupLinkResponse, EventSignupRequest, Match,
-            GenerateTourneyBracketInput, PublicEventSignupInfo, ReportMatchWinnerInput,
+            EventsKpiResponse, GenerateTourneyBracketInput, ListEventsQuery, PaginatedEventsResponse, PublicEventSignupInfo, ReportMatchWinnerInput,
             SetEventFeaturedInput, SetEventPublicSignupInput,
             SetMatchupInput, UpdateEventInput,
             UpdateEventPlayerInput, UpdateEventTeamInput,
@@ -27,9 +27,10 @@ use super::service;
 pub async fn list_events(
     State(state): State<AppState>,
     headers: HeaderMap,
-) -> ApiResult<Vec<Event>> {
+    Query(query): Query<ListEventsQuery>,
+) -> ApiResult<PaginatedEventsResponse> {
     let viewer_user_id = maybe_authenticated_user_id(&state, &headers);
-    service::list_events_public(&state, viewer_user_id)
+    service::list_events_public(&state, viewer_user_id, query)
         .await
         .map(Json)
 }
@@ -41,6 +42,24 @@ pub async fn get_event(
 ) -> ApiResult<Event> {
     let viewer_user_id = maybe_authenticated_user_id(&state, &headers);
     service::get_event_public(&state, event_id, viewer_user_id)
+        .await
+        .map(Json)
+}
+
+pub async fn get_featured_event(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Option<Event>> {
+    let viewer_user_id = maybe_authenticated_user_id(&state, &headers);
+    service::get_featured_event_public(&state, viewer_user_id)
+        .await
+        .map(Json)
+}
+
+pub async fn get_events_kpis(
+    State(state): State<AppState>,
+) -> ApiResult<EventsKpiResponse> {
+    service::get_events_kpis_public(&state)
         .await
         .map(Json)
 }
