@@ -232,19 +232,6 @@ function sectionRoute(section) {
   margin: 0 0 0.9rem;
 }
 
-.section-title {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-}
-
-.section-title-icon {
-  font-size: 1.26rem;
-  line-height: 1;
-  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
-}
-
 .overview-hero {
   border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
   border-radius: 12px;
