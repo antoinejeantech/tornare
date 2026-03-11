@@ -25,7 +25,7 @@ const props = defineProps({
 
 const renderAsLink = computed(() => {
   if (props.as === 'link') {
-    return true
+    return Boolean(props.to)
   }
   if (props.as === 'text') {
     return false
