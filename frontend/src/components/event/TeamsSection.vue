@@ -1,5 +1,5 @@
 <script setup>
-import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { averagePlayersElo } from '../../lib/elo'
 import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
 import PlayerCard from './PlayerCard.vue'
@@ -8,6 +8,11 @@ const ctx = inject('eventCtx')
 const assignmentSearchByTeam = reactive({})
 const teamPickerTeamId = ref('')
 const teamPickerBusyPlayerId = ref('')
+const teamPickerDialogRef = ref(null)
+const teamPickerCloseButtonRef = ref(null)
+let previouslyFocusedElement = null
+
+const isTeamPickerOpen = computed(() => Boolean(teamPickerTeamId.value))
 
 const isOneVOneFormat = computed(() => {
   return String(ctx.event?.format || '').trim().toLowerCase() === '1v1'
@@ -95,6 +100,26 @@ const teamPickerTarget = computed(() => {
   }
 
   return orderedTeams.value.find((team) => team.id === targetId) || null
+})
+
+const teamMatchCountById = computed(() => {
+  const counts = Object.create(null)
+  const matches = ctx.event?.matches || []
+
+  for (const match of matches) {
+    const teamAId = String(match?.team_a_id || '')
+    const teamBId = String(match?.team_b_id || '')
+
+    if (teamAId) {
+      counts[teamAId] = (counts[teamAId] || 0) + 1
+    }
+
+    if (teamBId) {
+      counts[teamBId] = (counts[teamBId] || 0) + 1
+    }
+  }
+
+  return counts
 })
 
 function normalizeSearch(value) {
@@ -256,6 +281,16 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
+
+  if (typeof document !== 'undefined') {
+    document.body.style.overflow = ''
+  }
+
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', onTeamPickerKeydown)
+  }
+
+  restoreTeamPickerFocus()
 })
 
 function openTeamPicker(teamId) {
@@ -281,6 +316,117 @@ async function assignUnassignedPlayerToPickedTeam(playerId) {
     teamPickerBusyPlayerId.value = ''
   }
 }
+
+function teamPickerFocusableElements() {
+  if (!teamPickerDialogRef.value) {
+    return []
+  }
+
+  const selectors = [
+    'button:not([disabled])',
+    '[href]',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+  ]
+
+  return Array.from(teamPickerDialogRef.value.querySelectorAll(selectors.join(', '))).filter((el) => {
+    return el.getAttribute('aria-hidden') !== 'true'
+  })
+}
+
+function focusInitialTeamPickerElement() {
+  nextTick(() => {
+    if (teamPickerCloseButtonRef.value) {
+      teamPickerCloseButtonRef.value.focus()
+      return
+    }
+
+    if (teamPickerDialogRef.value) {
+      teamPickerDialogRef.value.focus()
+    }
+  })
+}
+
+function restoreTeamPickerFocus() {
+  if (previouslyFocusedElement && typeof previouslyFocusedElement.focus === 'function') {
+    previouslyFocusedElement.focus()
+  }
+
+  previouslyFocusedElement = null
+}
+
+function onTeamPickerKeydown(event) {
+  if (!isTeamPickerOpen.value) {
+    return
+  }
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeTeamPicker()
+    return
+  }
+
+  if (event.key !== 'Tab') {
+    return
+  }
+
+  const focusableElements = teamPickerFocusableElements()
+  if (focusableElements.length === 0) {
+    event.preventDefault()
+    if (teamPickerDialogRef.value) {
+      teamPickerDialogRef.value.focus()
+    }
+    return
+  }
+
+  const first = focusableElements[0]
+  const last = focusableElements[focusableElements.length - 1]
+  const active = document.activeElement
+
+  if (!teamPickerDialogRef.value?.contains(active)) {
+    event.preventDefault()
+    first.focus()
+    return
+  }
+
+  if (event.shiftKey && active === first) {
+    event.preventDefault()
+    last.focus()
+    return
+  }
+
+  if (!event.shiftKey && active === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+watch(isTeamPickerOpen, (open) => {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  document.body.style.overflow = open ? 'hidden' : ''
+
+  if (typeof window !== 'undefined') {
+    if (open) {
+      const active = document.activeElement
+      if (active instanceof HTMLElement) {
+        previouslyFocusedElement = active
+      } else {
+        previouslyFocusedElement = null
+      }
+
+      window.addEventListener('keydown', onTeamPickerKeydown)
+      focusInitialTeamPickerElement()
+    } else {
+      window.removeEventListener('keydown', onTeamPickerKeydown)
+      restoreTeamPickerFocus()
+    }
+  }
+})
 
 function filteredPlayersAssignableToTeam(teamId) {
   const players = playersAssignableToTeam(teamId)
@@ -313,9 +459,14 @@ function cancelEditTeam() {
 }
 
 function formatTeamAverageElo(teamId) {
-  const average = Number(averagePlayersElo(playersForTeam(teamId)))
+  const rawAverage = averagePlayersElo(playersForTeam(teamId))
+  if (rawAverage === null || rawAverage === undefined) {
+    return 'N/A'
+  }
+
+  const average = Number(rawAverage)
   if (!Number.isFinite(average)) {
-    return '-'
+    return 'N/A'
   }
 
   return Math.round(average).toLocaleString('en-US')
@@ -358,13 +509,7 @@ function teamRankTierClass(rank) {
 }
 
 function teamMatchesCount(teamId) {
-  if (!ctx.event?.matches) {
-    return 0
-  }
-
-  return ctx.event.matches.filter((match) => {
-    return match.team_a_id === teamId || match.team_b_id === teamId
-  }).length
+  return Number(teamMatchCountById.value[String(teamId)] || 0)
 }
 
 function formatTeamModified(team) {
@@ -642,10 +787,17 @@ function formatTeamModified(team) {
     </div>
 
     <div v-if="teamPickerTeamId" class="team-picker-backdrop" @click.self="closeTeamPicker">
-      <section class="team-picker-modal" role="dialog" aria-modal="true" aria-label="Assign unassigned player">
+      <section
+        ref="teamPickerDialogRef"
+        class="team-picker-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Assign unassigned player"
+        tabindex="-1"
+      >
         <div class="team-picker-header">
           <h4>Add unassigned player</h4>
-          <button class="btn-secondary icon-btn" title="Close picker" @click="closeTeamPicker">
+          <button ref="teamPickerCloseButtonRef" class="btn-secondary icon-btn" title="Close picker" @click="closeTeamPicker">
             <span class="material-symbols-rounded" aria-hidden="true">close</span>
             <span class="sr-only">Close picker</span>
           </button>
