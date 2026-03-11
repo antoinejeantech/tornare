@@ -289,6 +289,7 @@ const statusForPill = computed(() => {
 .event-date-value .event-date-dot.material-symbols-rounded {
   font-size: 0.5rem;
   color: #fff !important;
+  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 24;
 }
 
 .event-actions-col {

@@ -9,6 +9,7 @@ import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
 import StatusPill from '../components/ui/StatusPill.vue'
 import EventActionButton from '../components/ui/EventActionButton.vue'
+import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
 
 const events = ref([])
 const loadingEvents = ref(false)
@@ -350,34 +351,19 @@ onMounted(async () => {
       <RouterLink class="home-jump-card" to="/events" data-watermark="trophy">
         <h2><span class="material-symbols-rounded home-jump-icon" aria-hidden="true">trophy</span>Event Hub</h2>
         <p class="muted">Create events, configure formats, and manage signups from one operational view.</p>
-        <span class="home-jump-link">
-          <span>Go To Events</span>
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </span>
+        <InlineArrowLink class="home-jump-link" as="text" label="Go To Events" />
       </RouterLink>
 
       <RouterLink class="home-jump-card" to="/news" data-watermark="campaign">
         <h2><span class="material-symbols-rounded home-jump-icon" aria-hidden="true">campaign</span>Latest Updates</h2>
         <p class="muted">Broadcast patch notes, rule changes, and league news to everyone in one feed.</p>
-        <span class="home-jump-link">
-          <span>Read News</span>
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </span>
+        <InlineArrowLink class="home-jump-link" as="text" label="Read News" />
       </RouterLink>
 
       <RouterLink class="home-jump-card" to="/about" data-watermark="description">
         <h2><span class="material-symbols-rounded home-jump-icon" aria-hidden="true">description</span>Project Story</h2>
         <p class="muted">See the roadmap and mission behind Tornare and where the platform is headed next.</p>
-        <span class="home-jump-link">
-          <span>About Tornare</span>
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </span>
+        <InlineArrowLink class="home-jump-link" as="text" label="About Tornare" />
       </RouterLink>
     </section>
 
@@ -387,12 +373,7 @@ onMounted(async () => {
           <p class="home-latest-kicker">UPCOMING ROSTER</p>
           <h2>LATEST EVENTS</h2>
         </div>
-        <RouterLink class="home-inline-link home-inline-link-action" to="/events">
-          <span>View all events</span>
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </RouterLink>
+        <InlineArrowLink to="/events" label="View all events" />
       </div>
       <p v-if="loadingEvents" class="muted">Loading events...</p>
       <p v-else-if="latestEvents.length === 0" class="muted">No additional events yet. Open Event Hub to create one.</p>
@@ -817,8 +798,7 @@ onMounted(async () => {
 .home-countdown:not(.home-countdown-upnext) .home-countdown-label,
 .home-countdown:not(.home-countdown-upnext) .home-countdown-value,
 .home-countdown:not(.home-countdown-upnext) .home-countdown-title,
-.home-countdown:not(.home-countdown-upnext) .home-countdown-icon,
-.home-countdown:not(.home-countdown-upnext) .home-inline-link {
+.home-countdown:not(.home-countdown-upnext) .home-countdown-icon {
   color: var(--ink-muted);
 }
 
@@ -869,48 +849,6 @@ onMounted(async () => {
 .home-banner h2 {
   margin: 0;
   color: color-mix(in srgb, var(--brand-1) 84%, white 16%);
-}
-
-.home-inline-link {
-  color: var(--brand-1);
-  font-weight: 800;
-  text-decoration: none;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 0.82rem;
-}
-
-.home-inline-link:hover {
-  text-decoration: underline;
-}
-
-.home-inline-link-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.26rem;
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  text-transform: none;
-}
-
-.home-latest-head .home-inline-link-action {
-  color: var(--ink-muted);
-}
-
-.home-inline-link-action svg {
-  width: 0.78rem;
-  height: 0.78rem;
-  transition: transform 180ms ease;
-}
-
-.home-inline-link-action:hover svg {
-  transform: translateX(2px);
-}
-
-.home-latest-head .home-inline-link-action:hover {
-  color: var(--ink-2);
-  text-decoration: none;
 }
 
 .home-banner {
@@ -1085,22 +1023,12 @@ onMounted(async () => {
   font-weight: 700;
 }
 
-.home-jump-link svg {
-  width: 0.78rem;
-  height: 0.78rem;
-  transition: transform 180ms ease;
-}
-
 .home-jump-card:hover {
   border-color: color-mix(in srgb, var(--brand-2) 52%, var(--line) 48%);
 }
 
 .home-jump-card:hover .home-jump-link {
   color: color-mix(in srgb, white 90%, var(--brand-1) 10%);
-}
-
-.home-jump-card:hover .home-jump-link svg {
-  transform: translateX(2px);
 }
 
 .reveal-block {
