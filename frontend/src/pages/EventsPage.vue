@@ -698,7 +698,7 @@ onBeforeUnmount(() => {
 }
 
 .events-stat-value {
-  font-size: 1.35rem;
+  font-size: 1.48rem;
   line-height: 1;
 }
 
@@ -710,7 +710,7 @@ onBeforeUnmount(() => {
   gap: 0.35rem;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  background: color-mix(in srgb, var(--bg-0) 74%, black 26%);
+  background: var(--surface-card-bg);
   padding: 0.28rem 0.55rem;
 }
 
@@ -734,7 +734,7 @@ onBeforeUnmount(() => {
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   border-radius: 999px;
   padding: 0.22rem;
-  background: color-mix(in srgb, var(--bg-0) 72%, black 28%);
+  background: var(--surface-card-bg);
 }
 
 .events-subnav-btn {
@@ -766,7 +766,7 @@ onBeforeUnmount(() => {
   padding: 0.1rem 0.45rem;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--bg-0) 72%, black 28%);
+  background: var(--surface-card-bg);
 }
 
 .events-sort-label {

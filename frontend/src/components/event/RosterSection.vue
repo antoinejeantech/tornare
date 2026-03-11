@@ -166,20 +166,6 @@ function padRosterCount(value) {
 </template>
 
 <style scoped>
-.section-title {
-  margin: 0 0 0.3rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-}
-
-.section-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-}
-
 .section-total {
   margin: 0;
   display: inline-flex;
@@ -196,25 +182,12 @@ function padRosterCount(value) {
   color: color-mix(in srgb, white 92%, var(--ink-1) 8%);
 }
 
-.section-title-divider {
-  width: 100%;
-  height: 1px;
-  background: color-mix(in srgb, var(--line) 84%, var(--brand-1) 16%);
-  margin: 0.42rem 0 0.72rem;
-}
-
-.section-title-icon {
-  font-size: 1.26rem;
-  line-height: 1;
-  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
-}
-
 .player-form {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.9fr) minmax(0, 1fr) auto;
   align-items: end;
   gap: 0.62rem;
-  margin: 1.1rem 0 1.35rem;
+  margin: 0 0 1.35rem;
   padding: 1.02rem 1.08rem;
   border: 1px solid var(--surface-card-border);
   border-radius: 10px;
