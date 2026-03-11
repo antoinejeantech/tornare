@@ -92,8 +92,6 @@ watch(() => route.fullPath, () => {
 })
 
 onMounted(() => {
-  authStore.initialize()
-
   if (typeof window !== 'undefined') {
     // Never auto-switch to browser light preference.
     applyTheme('dark')
