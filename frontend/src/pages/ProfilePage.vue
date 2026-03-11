@@ -291,7 +291,6 @@ watch(
 )
 
 onMounted(async () => {
-  await authStore.initialize()
   await loadProfile()
 })
 </script>
