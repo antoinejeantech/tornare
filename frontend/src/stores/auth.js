@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { apiCall, clearAccessToken, getAccessToken, setAccessToken } from '../lib/api'
 
 const REFRESH_TOKEN_STORAGE_KEY = 'tornare_refresh_token'
+let initializePromise = null
 
 function getStoredRefreshToken() {
   if (typeof window === 'undefined') {
@@ -34,6 +35,10 @@ export const useAuthStore = defineStore('auth', {
     isAuthenticated: (state) => Boolean(state.accessToken),
   },
   actions: {
+    syncTokensFromStorage() {
+      this.accessToken = getAccessToken()
+      this.refreshToken = getStoredRefreshToken()
+    },
     setSession(payload) {
       this.user = payload.user
       this.accessToken = payload.access_token
@@ -67,10 +72,13 @@ export const useAuthStore = defineStore('auth', {
     async fetchMe() {
       const me = await apiCall('/api/auth/me')
       this.user = me
+      this.syncTokensFromStorage()
       return me
     },
     async refreshAccessToken() {
-      const refreshToken = this.refreshToken || getStoredRefreshToken()
+      this.syncTokensFromStorage()
+
+      const refreshToken = getStoredRefreshToken() || this.refreshToken
       if (!refreshToken) {
         throw new Error('No refresh token')
       }
@@ -84,7 +92,9 @@ export const useAuthStore = defineStore('auth', {
     },
     async logout() {
       try {
-        const refreshToken = this.refreshToken || getStoredRefreshToken()
+        this.syncTokensFromStorage()
+
+        const refreshToken = getStoredRefreshToken() || this.refreshToken
         if (refreshToken) {
           await apiCall('/api/auth/logout', {
             method: 'POST',
@@ -100,25 +110,38 @@ export const useAuthStore = defineStore('auth', {
         return
       }
 
-      if (!this.accessToken && this.refreshToken) {
-        try {
-          await this.refreshAccessToken()
-        } catch {
-          this.clearSession()
-        }
+      if (initializePromise) {
+        return initializePromise
       }
 
-      if (this.accessToken) {
-        try {
-          await this.fetchMe()
-          this.accessToken = getAccessToken()
-          this.refreshToken = getStoredRefreshToken()
-        } catch {
-          this.clearSession()
-        }
-      }
+      initializePromise = (async () => {
+        this.syncTokensFromStorage()
 
-      this.initialized = true
+        if (!this.accessToken && this.refreshToken) {
+          try {
+            await this.refreshAccessToken()
+          } catch {
+            this.clearSession()
+          }
+        }
+
+        if (this.accessToken) {
+          try {
+            await this.fetchMe()
+            this.syncTokensFromStorage()
+          } catch {
+            this.clearSession()
+          }
+        }
+
+        this.initialized = true
+      })()
+
+      try {
+        await initializePromise
+      } finally {
+        initializePromise = null
+      }
     },
   },
 })
