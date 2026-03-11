@@ -811,13 +811,13 @@ function formatTeamModified(team) {
 
         <ul v-else class="team-picker-list">
           <li v-for="player in unassignedPlayers" :key="`picker-player-${player.id}`">
-            <button
+            <PlayerCard
               class="team-picker-item"
-              :disabled="Boolean(teamPickerBusyPlayerId)"
-              @click="assignUnassignedPlayerToPickedTeam(player.id)"
-            >
-              <PlayerCard :player="player" :clickable="false" />
-            </button>
+              :class="{ 'is-disabled': Boolean(teamPickerBusyPlayerId) }"
+              :player="player"
+              :clickable="!teamPickerBusyPlayerId"
+              @select="assignUnassignedPlayerToPickedTeam(player.id)"
+            />
           </li>
         </ul>
       </section>
@@ -1410,18 +1410,13 @@ function formatTeamModified(team) {
 
 .team-picker-item {
   width: 100%;
-  border: 0;
-  background: transparent;
   color: var(--ink-1);
-  font: inherit;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
 }
 
-.team-picker-item:disabled {
+.team-picker-item.is-disabled {
   opacity: 0.62;
   cursor: progress;
+  pointer-events: none;
 }
 
 .team-assign-grid {
