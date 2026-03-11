@@ -34,6 +34,11 @@ export function getStoredAccessToken() {
   return window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || ''
 }
 
+export function syncAccessTokenFromStorage() {
+  accessToken = getStoredAccessToken()
+  return accessToken
+}
+
 function getRefreshToken() {
   if (typeof window === 'undefined') {
     return ''

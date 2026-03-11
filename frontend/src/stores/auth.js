@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { apiCall, clearAccessToken, getAccessToken, getStoredAccessToken, setAccessToken } from '../lib/api'
+import { apiCall, clearAccessToken, getAccessToken, setAccessToken, syncAccessTokenFromStorage } from '../lib/api'
 
 const REFRESH_TOKEN_STORAGE_KEY = 'tornare_refresh_token'
 let initializePromise = null
@@ -36,7 +36,7 @@ export const useAuthStore = defineStore('auth', {
   },
   actions: {
     syncTokensFromStorage() {
-      this.accessToken = getStoredAccessToken()
+      this.accessToken = syncAccessTokenFromStorage()
       this.refreshToken = getStoredRefreshToken()
     },
     setSession(payload) {
