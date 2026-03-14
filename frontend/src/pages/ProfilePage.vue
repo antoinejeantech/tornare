@@ -5,6 +5,8 @@ import { apiCall } from '../lib/api'
 import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { useAuthStore } from '../stores/auth'
+import ProfileHeroCard from '../components/player/profile/ProfileHeroCard.vue'
+import ProfileGamesCard from '../components/player/profile/ProfileGamesCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,9 +36,6 @@ const canEdit = computed(() => authStore.isAuthenticated && profileId.value && v
 const profileInitial = computed(() => {
   const label = String(profile.value?.display_name || profile.value?.username || '').trim()
   return label.length > 0 ? label[0].toUpperCase() : 'A'
-})
-const battletagStateLabel = computed(() => {
-  return profile.value?.battletag ? 'Battletag set' : 'Battletag missing'
 })
 const hasAccountChanges = computed(() => {
   if (!profile.value) {
@@ -99,9 +98,9 @@ const overwatchSummaryRows = computed(() => {
   }
 
   return [
-    { role: 'Tank', rank: profile.value.rank_tank || 'Unranked' },
-    { role: 'DPS', rank: profile.value.rank_dps || 'Unranked' },
-    { role: 'Support', rank: profile.value.rank_support || 'Unranked' },
+    { role: 'Tank', rank: profile.value.rank_tank || 'Unranked', icon: getRankIcon(profile.value.rank_tank || 'Unranked') },
+    { role: 'DPS', rank: profile.value.rank_dps || 'Unranked', icon: getRankIcon(profile.value.rank_dps || 'Unranked') },
+    { role: 'Support', rank: profile.value.rank_support || 'Unranked', icon: getRankIcon(profile.value.rank_support || 'Unranked') },
   ]
 })
 
@@ -297,8 +296,12 @@ onMounted(async () => {
 
 <template>
   <main class="app-shell profile-shell">
-    <header class="page-header">
-      <h1 class="page-title">Profile</h1>
+    <header class="profile-hero-header">
+      <p class="profile-hero-eyebrow">
+        <span class="material-symbols-rounded profile-hero-eyebrow-icon" aria-hidden="true">verified_user</span>
+        <span>Verified Profile</span>
+      </p>
+      <h1 class="profile-hero-title">Profile</h1>
     </header>
 
     <p v-if="error" class="status status-error">{{ error }}</p>
@@ -309,153 +312,97 @@ onMounted(async () => {
     </section>
 
     <section v-else-if="profile" class="profile-layout">
-      <article class="card profile-section account-section">
-        <div class="profile-cover" aria-hidden="true"></div>
-        <div class="profile-header">
-          <div class="profile-identity">
-            <span class="profile-avatar" aria-hidden="true">{{ profileInitial }}</span>
-            <div class="profile-headline">
-              <h2>{{ profile.display_name }}</h2>
-              <p class="muted">{{ profile.username }}</p>
-              <p v-if="profile.battletag" class="muted">{{ profile.battletag }}</p>
-              <div class="profile-stat-chips">
-                <span class="meta-chip">Main game: Overwatch</span>
-                <span class="meta-chip">Role: {{ profile.role || 'user' }}</span>
-                <span class="meta-chip">Roles tracked: 3</span>
-                <span class="meta-chip">{{ battletagStateLabel }}</span>
+      <div class="profile-column profile-column-left">
+        <ProfileHeroCard
+          :profile="profile"
+          :can-edit="canEdit"
+          :editing-account="editingAccount"
+          :profile-initial="profileInitial"
+          @edit-account="startEdit('account')"
+        >
+          <template #account-edit>
+            <form class="profile-form" @submit.prevent="saveProfile">
+              <label>
+                Username
+                <input v-model="editUsername" placeholder="username" @input="markProfileFormTouched" />
+              </label>
+              <label>
+                Display name
+                <input v-model="editDisplayName" placeholder="Your display name" @input="markProfileFormTouched" />
+              </label>
+              <label>
+                Email
+                <input v-model="editEmail" type="email" placeholder="you@example.com" @input="markProfileFormTouched" />
+              </label>
+              <label>
+                New password
+                <input v-model="editPassword" type="password" placeholder="Leave blank to keep current password" @input="markProfileFormTouched" />
+              </label>
+              <label>
+                Confirm new password
+                <input v-model="editPasswordConfirm" type="password" placeholder="Repeat new password" @input="markProfileFormTouched" />
+              </label>
+              <div class="section-actions">
+                <button type="submit" class="btn-primary" :disabled="!canSaveAccountSection">
+                  {{ savingProfile ? 'Saving...' : 'Save account' }}
+                </button>
+                <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditSection('account')">
+                  Cancel
+                </button>
               </div>
-            </div>
-          </div>
-          <button
-            v-if="canEdit && !editingAccount"
-            type="button"
-            class="btn-secondary section-edit-btn"
-            @click="startEdit('account')"
-          >
-            Edit
-          </button>
-        </div>
+            </form>
+          </template>
+        </ProfileHeroCard>
+      </div>
 
-        <form v-if="editingAccount" class="profile-form animated-panel" @submit.prevent="saveProfile">
-          <label>
-            Username
-            <input v-model="editUsername" placeholder="username" @input="markProfileFormTouched" />
-          </label>
-          <label>
-            Display name
-            <input v-model="editDisplayName" placeholder="Your display name" @input="markProfileFormTouched" />
-          </label>
-          <label>
-            Email
-            <input v-model="editEmail" type="email" placeholder="you@example.com" @input="markProfileFormTouched" />
-          </label>
-          <label>
-            New password
-            <input v-model="editPassword" type="password" placeholder="Leave blank to keep current password" @input="markProfileFormTouched" />
-          </label>
-          <label>
-            Confirm new password
-            <input v-model="editPasswordConfirm" type="password" placeholder="Repeat new password" @input="markProfileFormTouched" />
-          </label>
-          <div class="section-actions">
-            <button type="submit" class="btn-primary" :disabled="!canSaveAccountSection">
-              {{ savingProfile ? 'Saving...' : 'Save account' }}
-            </button>
-            <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditSection('account')">
-              Cancel
-            </button>
-          </div>
-        </form>
-
-        <div v-else class="profile-summary-grid animated-panel">
-          <p><strong>Username:</strong> {{ profile.username }}</p>
-          <p><strong>Display name:</strong> {{ profile.display_name }}</p>
-          <p><strong>Role:</strong> {{ profile.role || 'user' }}</p>
-          <p v-if="canEdit"><strong>Email:</strong> {{ profile.email }}</p>
-        </div>
-      </article>
-
-      <article class="card profile-section">
-        <div class="section-header">
-          <h3 class="section-title">
-            <span class="material-symbols-rounded" aria-hidden="true">sports_esports</span>
-            <span>Games</span>
-          </h3>
-          <button
-            v-if="canEdit && !editingOverwatch"
-            type="button"
-            class="btn-secondary section-edit-btn"
-            @click="startEdit('overwatch')"
-          >
-            Edit
-          </button>
-        </div>
-
-        <section class="game-card">
-          <h4 class="game-title">
-            <img class="game-logo" :src="overwatchLogo" alt="Overwatch" />
-            <span>Overwatch</span>
-          </h4>
-
-          <form v-if="editingOverwatch" class="profile-form animated-panel" @submit.prevent="saveProfile">
-            <label>
-              Battletag
-              <input
-                v-model="editBattletag"
-                placeholder="Player#1234"
-                disabled
-              />
-            </label>
-            <p class="muted profile-note">
-              Battletag will be editable via Battle.net OAuth once connected.
-            </p>
-            <div class="profile-ranks-grid">
-              <label>
-                Tank rank
-                <select v-model="editRankTank" @change="markProfileFormTouched">
-                  <option v-for="rank in overwatchRanks" :key="`tank-${rank}`" :value="rank">{{ rank }}</option>
-                </select>
-              </label>
-              <label>
-                DPS rank
-                <select v-model="editRankDps" @change="markProfileFormTouched">
-                  <option v-for="rank in overwatchRanks" :key="`dps-${rank}`" :value="rank">{{ rank }}</option>
-                </select>
-              </label>
-              <label>
-                Support rank
-                <select v-model="editRankSupport" @change="markProfileFormTouched">
-                  <option v-for="rank in overwatchRanks" :key="`support-${rank}`" :value="rank">{{ rank }}</option>
-                </select>
-              </label>
-            </div>
-            <div class="section-actions">
-              <button type="submit" class="btn-primary" :disabled="!canSaveOverwatchSection">
-                {{ savingProfile ? 'Saving...' : 'Save Overwatch' }}
-              </button>
-              <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditSection('overwatch')">
-                Cancel
-              </button>
-            </div>
-          </form>
-
-          <div v-else class="profile-summary-grid animated-panel">
-            <p v-if="profile.battletag"><strong>Battletag:</strong> {{ profile.battletag }}</p>
-            <div v-else class="battletag-empty">
-              <span class="muted">No battletag configured yet. Connect Battle.net (OAuth) to sync it.</span>
-            </div>
-            <div class="summary-rank-list">
-              <article v-for="entry in overwatchSummaryRows" :key="entry.role" class="summary-rank-row">
-                <strong class="summary-rank-role">{{ entry.role }}</strong>
-                <span class="summary-rank-value">
-                  <img class="summary-rank-icon" :src="getRankIcon(entry.rank)" :alt="`${entry.rank} rank`" />
-                  <span>{{ entry.rank }}</span>
-                </span>
-              </article>
-            </div>
-          </div>
-        </section>
-      </article>
+      <div class="profile-column profile-column-right">
+        <ProfileGamesCard
+          :profile="profile"
+          :can-edit="canEdit"
+          :editing-overwatch="editingOverwatch"
+          :overwatch-summary-rows="overwatchSummaryRows"
+          :overwatch-logo="overwatchLogo"
+          @edit-overwatch="startEdit('overwatch')"
+        >
+          <template #overwatch-edit>
+            <form class="profile-form" @submit.prevent="saveProfile">
+              <p class="profile-note-title">Battle.net connection</p>
+              <p class="muted profile-note">
+                Battletag is managed by Battle.net OAuth and cannot be edited manually here.
+              </p>
+              <p class="profile-static-value">{{ profile.battletag || 'Not connected yet' }}</p>
+              <div class="profile-ranks-grid">
+                <label>
+                  Tank rank
+                  <select v-model="editRankTank" @change="markProfileFormTouched">
+                    <option v-for="rank in overwatchRanks" :key="`tank-${rank}`" :value="rank">{{ rank }}</option>
+                  </select>
+                </label>
+                <label>
+                  DPS rank
+                  <select v-model="editRankDps" @change="markProfileFormTouched">
+                    <option v-for="rank in overwatchRanks" :key="`dps-${rank}`" :value="rank">{{ rank }}</option>
+                  </select>
+                </label>
+                <label>
+                  Support rank
+                  <select v-model="editRankSupport" @change="markProfileFormTouched">
+                    <option v-for="rank in overwatchRanks" :key="`support-${rank}`" :value="rank">{{ rank }}</option>
+                  </select>
+                </label>
+              </div>
+              <div class="section-actions">
+                <button type="submit" class="btn-primary" :disabled="!canSaveOverwatchSection">
+                  {{ savingProfile ? 'Saving...' : 'Save Overwatch' }}
+                </button>
+                <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditSection('overwatch')">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </template>
+        </ProfileGamesCard>
+      </div>
     </section>
 
     <section v-else class="card">
@@ -468,240 +415,128 @@ onMounted(async () => {
 
 <style scoped>
 .profile-shell {
-  max-width: 1820px;
-  width: min(96vw, 1820px);
+  max-width: 1260px;
+  width: min(96vw, 1260px);
 }
 
-.profile-card {
+.profile-hero-header {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.18rem;
+}
+
+.profile-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  margin: 0;
+  color: var(--brand-1);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.profile-hero-eyebrow-icon {
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffe7aa 10%);
+  font-size: 0.9rem;
+  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 20;
+}
+
+.profile-hero-title {
+  margin: 0;
+  text-transform: uppercase;
+  font-size: clamp(2.05rem, 1.6rem + 1.75vw, 2.9rem);
+  line-height: 1;
+  letter-spacing: 0.015em;
 }
 
 .profile-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0.8rem;
-  align-items: stretch;
+  gap: 0.9rem;
+  align-items: start;
 }
 
-.profile-section {
-  padding: 1rem 1.15rem;
-  min-height: 420px;
+.profile-shell :deep(.card) {
+  background: transparent;
 }
 
-.account-section {
-  position: relative;
-  overflow: hidden;
+.profile-shell :deep(.muted) {
+  color: color-mix(in srgb, var(--ink-muted) 62%, var(--ink-2) 38%);
 }
 
-.profile-cover {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 130px;
-  background:
-    radial-gradient(640px 130px at 4% 0%, rgba(95, 164, 255, 0.24), transparent 70%),
-    radial-gradient(520px 130px at 100% 0%, rgba(45, 123, 231, 0.2), transparent 72%);
-  pointer-events: none;
+.profile-shell :deep(button) {
+  padding: 0.34rem 0.56rem;
+  font-size: 0.84rem;
+  line-height: 1.2;
+}
+
+.profile-column {
+  min-width: 0;
+  animation: profile-card-in 320ms ease-out both;
+}
+
+.profile-column-right {
+  animation-delay: 80ms;
 }
 
 .profile-form {
   display: grid;
-  gap: 0.55rem;
-  max-width: 960px;
+  gap: 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-1) 18%);
+  border-radius: 12px;
+  padding: 0.85rem;
 }
 
 .profile-form label {
   display: grid;
-  gap: 0.25rem;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.55rem;
-  margin-top: 0.7rem;
-}
-
-.section-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.section-header h3,
-.game-card h4 {
-  margin: 0;
-}
-
-.section-edit-btn {
-  padding: 0.3rem 0.72rem;
+  gap: 0.3rem;
 }
 
 .section-actions {
   display: flex;
-  gap: 0.45rem;
-  align-items: center;
-}
-
-.profile-summary-grid {
-  display: grid;
-  gap: 0.38rem;
-}
-
-.profile-summary-grid p {
-  margin: 0;
-}
-
-.game-card {
-  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-1) 12%);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--card) 94%, #f1f6ff 6%);
-  padding: 0.75rem;
-  display: grid;
-  gap: 0.75rem;
-  min-height: 320px;
-  grid-auto-rows: max-content;
-}
-
-.game-title {
-  display: inline-flex;
-  align-items: center;
   gap: 0.5rem;
-}
-
-.game-logo {
-  width: 1.25rem;
-  height: 1.25rem;
-  object-fit: contain;
-}
-
-.summary-rank-list {
-  display: grid;
-  gap: 0.45rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.summary-rank-row {
-  display: grid;
-  gap: 0.42rem;
-  margin: 0;
-  padding: 0.62rem 0.68rem;
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-2) 14%);
-  background: color-mix(in srgb, var(--card) 88%, #19253a 12%);
-  box-shadow: 0 6px 14px rgba(19, 53, 116, 0.12);
-}
-
-.summary-rank-role {
-  min-width: 0;
-  font-size: 0.84rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.summary-rank-value {
-  display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-weight: 760;
-}
-
-.summary-rank-icon {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
 }
 
 .profile-note {
-  margin: -0.2rem 0 0.1rem;
+  margin: 0;
+  font-size: 0.88rem;
 }
 
 .profile-ranks-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.7rem;
+  gap: 0.72rem;
 }
 
-.profile-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.85rem;
-  margin-bottom: 1rem;
-  position: relative;
-  z-index: 1;
-}
-
-.profile-identity {
-  display: inline-flex;
-  align-items: center;
-  gap: 1.1rem;
-  min-width: 0;
-}
-
-.profile-headline {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.profile-stat-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.meta-chip {
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--brand-1) 35%, var(--line) 65%);
-  background: color-mix(in srgb, var(--accent) 22%, var(--meta-bg) 78%);
-  color: var(--meta-ink);
-  padding: 0.18rem 0.55rem;
+.profile-note-title {
+  margin: 0;
+  color: var(--ink-2);
   font-size: 0.74rem;
-  font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
-  font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.11em;
+  font-weight: 700;
 }
 
-.battletag-empty {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.battletag-cta {
-  padding: 0.28rem 0.62rem;
-}
-
-.animated-panel {
-  animation: rise-in 220ms ease-out;
-}
-
-.profile-headline h2 {
+.profile-static-value {
   margin: 0;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-1) 18%);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  font-weight: 600;
 }
 
-.profile-headline p {
-  margin: 0;
-}
+@keyframes profile-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
 
-.profile-avatar {
-  width: 2.4rem;
-  height: 2.4rem;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  font-weight: 800;
-  color: #fff;
-  background: linear-gradient(130deg, var(--brand-2), var(--brand-1));
-  border: 1px solid color-mix(in srgb, var(--brand-2) 66%, var(--brand-1) 34%);
-  box-shadow: 0 4px 10px rgba(78, 52, 7, 0.26);
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 980px) {
@@ -710,10 +545,6 @@ onMounted(async () => {
   }
 
   .profile-ranks-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .summary-rank-list {
     grid-template-columns: 1fr;
   }
 
