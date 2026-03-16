@@ -71,7 +71,7 @@ function iconFor(type) {
   color: var(--ink-2);
   min-width: 1.8rem;
   min-height: 1.8rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.2rem;
 }
 

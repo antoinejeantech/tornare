@@ -681,7 +681,7 @@ watch(editingMatchups, () => {
   min-height: var(--card-min-height);
   border: 1px solid color-mix(in srgb, var(--line) 85%, var(--brand-2) 15%);
   background: color-mix(in srgb, var(--card) 90%, #f2f6ff 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   padding: 0.62rem 0.58rem;
   display: grid;
   gap: 0.42rem;
@@ -791,7 +791,7 @@ watch(editingMatchups, () => {
   justify-content: space-between;
   gap: 0.42rem;
   border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-2) 12%);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.34rem 0.4rem;
   background: color-mix(in srgb, var(--card) 92%, #ebf2ff 8%);
 }

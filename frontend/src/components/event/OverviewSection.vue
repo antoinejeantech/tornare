@@ -285,7 +285,7 @@ function sectionRoute(section) {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   border: 1px solid color-mix(in srgb, var(--line) 88%, var(--bg-0) 12%);
   background: color-mix(in srgb, var(--card) 76%, var(--bg-1) 24%);
   padding: 0.66rem 1rem 0.64rem;
@@ -322,7 +322,7 @@ function sectionRoute(section) {
   background: color-mix(in srgb, var(--brand-1) 74%, #ffd869 26%);
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--brand-1) 14%, transparent 86%),
-    0 0 10px color-mix(in srgb, var(--brand-1) 30%, transparent 70%);
+    0 0 var(--radius-item) color-mix(in srgb, var(--brand-1) 30%, transparent 70%);
 }
 
 .overview-description {
@@ -334,7 +334,7 @@ function sectionRoute(section) {
 .overview-kpi {
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   padding: 0.88rem 0.92rem;
   display: grid;
   gap: 0.24rem;
@@ -386,7 +386,7 @@ function sectionRoute(section) {
 .overview-card {
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   padding: 0.96rem 1rem;
   display: flex;
   flex-direction: column;
@@ -462,7 +462,7 @@ function sectionRoute(section) {
 .overview-team-tag {
   min-width: 2.1rem;
   height: 2.1rem;
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   display: inline-flex;
   align-items: center;
   justify-content: center;

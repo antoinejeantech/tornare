@@ -343,7 +343,7 @@ onMounted(async () => {
                 Confirm new password
                 <input v-model="editPasswordConfirm" type="password" placeholder="Repeat new password" @input="markProfileFormTouched" />
               </label>
-              <div class="section-actions">
+              <div class="form-actions">
                 <button type="submit" class="btn-primary" :disabled="!canSaveAccountSection">
                   {{ savingProfile ? 'Saving...' : 'Save account' }}
                 </button>
@@ -392,7 +392,7 @@ onMounted(async () => {
                   </select>
                 </label>
               </div>
-              <div class="section-actions">
+              <div class="form-actions">
                 <button type="submit" class="btn-primary" :disabled="!canSaveOverwatchSection">
                   {{ savingProfile ? 'Saving...' : 'Save Overwatch' }}
                 </button>
@@ -484,12 +484,6 @@ onMounted(async () => {
   gap: 0.3rem;
 }
 
-.section-actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
 .profile-note {
   margin: 0;
   font-size: 0.88rem;
@@ -513,7 +507,7 @@ onMounted(async () => {
 .profile-static-value {
   margin: 0;
   border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-1) 18%);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   padding: 0.55rem 0.7rem;
   font-weight: 600;
 }
@@ -537,10 +531,6 @@ onMounted(async () => {
 
   .profile-ranks-grid {
     grid-template-columns: 1fr;
-  }
-
-  .section-actions {
-    flex-wrap: wrap;
   }
 }
 </style>

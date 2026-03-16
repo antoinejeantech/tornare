@@ -131,7 +131,7 @@ defineEmits(['edit-account'])
 
 .hero-edit-btn {
   white-space: nowrap;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.42rem 1rem;
 }
 

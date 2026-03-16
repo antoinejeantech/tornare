@@ -220,7 +220,7 @@ onBeforeUnmount(() => {
   z-index: 50;
   border-bottom: 1px solid color-mix(in srgb, var(--brand-1) 20%, var(--line) 80%);
   background: var(--bg-0);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(var(--radius-item));
   box-shadow: none;
 }
 
@@ -282,7 +282,7 @@ onBeforeUnmount(() => {
   border: 1px solid color-mix(in srgb, var(--brand-2) 44%, var(--line) 56%);
   background: color-mix(in srgb, var(--card) 92%, var(--brand-2) 8%);
   color: var(--ink-1);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
 }
 
 .top-nav-mobile-toggle .material-symbols-rounded {
@@ -518,7 +518,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.4rem;
   width: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: none;
   background: transparent;
   color: var(--ink-2);
@@ -583,7 +583,7 @@ onBeforeUnmount(() => {
   .top-nav-link {
     width: 100%;
     justify-content: flex-start;
-    border-radius: 10px;
+    border-radius: var(--radius-item);
     padding: 0.52rem 0.62rem;
   }
 

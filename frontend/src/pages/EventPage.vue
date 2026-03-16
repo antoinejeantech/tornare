@@ -1602,7 +1602,7 @@ provide('eventCtx', proxyRefs({
 .event-logo {
   width: 5.35rem;
   height: 5.35rem;
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1709,7 +1709,7 @@ provide('eventCtx', proxyRefs({
   border: 0;
   background: transparent;
   color: var(--ink-2);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   padding: 0.55rem 0.62rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -1734,7 +1734,7 @@ provide('eventCtx', proxyRefs({
   justify-content: center;
   width: 1.45rem;
   height: 1.45rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 0;
   background: transparent;
   color: currentColor;
@@ -1818,7 +1818,7 @@ provide('eventCtx', proxyRefs({
   background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
   background-image: none;
   box-shadow: none;
-  border-radius: 10px;
+  border-radius: var(--radius-item);
 }
 
 .event-panel :deep(.card) {
