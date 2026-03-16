@@ -17,24 +17,3 @@
     </section>
   </main>
 </template>
-
-<style scoped>
-.static-page-shell {
-  max-width: 1120px;
-}
-
-.page-subtitle {
-  margin: 0;
-  text-align: right;
-}
-
-.static-page-card {
-  display: grid;
-  gap: 0.7rem;
-}
-
-.static-page-card h2,
-.static-page-card p {
-  margin: 0;
-}
-</style>

@@ -364,7 +364,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="app-shell events-shell">
+  <main class="app-shell app-shell--wide events-shell">
     <SpotlightEventCard
       v-if="featuredEvent"
       class="reveal-block reveal-1"
@@ -595,9 +595,6 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .events-shell {
-  max-width: 1820px;
-  width: min(96vw, 1820px);
-  display: grid;
   gap: 0.88rem;
 }
 
@@ -616,7 +613,7 @@ onBeforeUnmount(() => {
   padding: 0.72rem;
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   box-shadow: none;
   margin-bottom: 0.85rem;
 }
@@ -665,7 +662,7 @@ onBeforeUnmount(() => {
 
 .events-stat-card {
   border: 1px solid var(--surface-card-border);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   padding: 1.25rem 1.2rem;
   background: var(--surface-card-bg);
   display: grid;
@@ -858,7 +855,7 @@ onBeforeUnmount(() => {
 
 .reveal-block {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(var(--radius-item));
   animation: reveal-rise 380ms ease-out forwards;
 }
 

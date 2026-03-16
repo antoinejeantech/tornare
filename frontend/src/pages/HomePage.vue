@@ -226,7 +226,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="app-shell home-shell">
+  <main class="app-shell app-shell--wide home-shell">
     <section class="home-hero">
       <img class="home-hero-art" :src="torbjornImage" alt="Torbjorn hero art" />
       <p class="home-eyebrow">Community Match Ops</p>
@@ -402,9 +402,6 @@ onMounted(async () => {
 
 <style scoped>
 .home-shell {
-  max-width: 1820px;
-  width: min(96vw, 1820px);
-  display: grid;
   gap: 0.82rem;
 }
 

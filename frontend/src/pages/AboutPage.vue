@@ -39,14 +39,14 @@ const roadmap = [
 </script>
 
 <template>
-  <main class="app-shell about-shell">
+  <main class="app-shell app-shell--wide about-shell">
     <header class="page-header">
       <h1 class="page-title">About Tornare</h1>
       <p class="muted page-subtitle">Built for organizers who run serious community game nights.</p>
     </header>
 
     <section class="card about-hero reveal-block reveal-1">
-      <p class="about-eyebrow">Platform Mission</p>
+      <p class="section-kicker">Platform Mission</p>
       <h2>Give Overwatch communities a modern operations cockpit for match nights.</h2>
       <p class="muted">
         Tornare started from a simple friction point: community organizers spending more time on admin than on the game itself.
@@ -106,15 +106,7 @@ const roadmap = [
 
 <style scoped>
 .about-shell {
-  max-width: 1820px;
-  width: min(96vw, 1820px);
-  display: grid;
   gap: 0.88rem;
-}
-
-.page-subtitle {
-  margin: 0;
-  text-align: right;
 }
 
 .about-shell :is(h2, h3) {
@@ -136,16 +128,6 @@ const roadmap = [
 .about-hero h2,
 .about-hero p {
   margin: 0;
-}
-
-.about-eyebrow {
-  margin: 0;
-  color: var(--accent);
-  font-family: "Space Mono", ui-monospace, monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.78rem;
-  font-weight: 700;
 }
 
 .about-hero-actions {
@@ -237,7 +219,7 @@ const roadmap = [
 
 .about-roadmap-item {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   background: color-mix(in srgb, var(--card) 92%, #edf4ff 8%);
   padding: 0.62rem 0.7rem;
   display: grid;
@@ -269,7 +251,7 @@ const roadmap = [
 
 .reveal-block {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(var(--radius-item));
   animation: reveal-rise 380ms ease-out forwards;
 }
 

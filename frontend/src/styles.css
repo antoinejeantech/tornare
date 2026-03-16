@@ -6,6 +6,7 @@
   --space-4: 2rem;
 
   --radius-sm: 8px;
+  --radius-item: 10px;
   --radius-md: 12px;
   --radius-lg: 14px;
 
@@ -462,6 +463,51 @@ textarea:-webkit-autofill:focus {
   object-fit: contain;
 }
 
+
+/* Wide shell modifier — use alongside .app-shell for full-bleed layouts */
+.app-shell--wide {
+  max-width: 1820px;
+  width: min(96vw, 1820px);
+}
+
+/* Static content pages */
+.static-page-shell {
+  max-width: 1120px;
+}
+
+.static-page-card {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.static-page-card h2,
+.static-page-card p {
+  margin: 0;
+}
+
+.page-subtitle {
+  margin: 0;
+  text-align: right;
+}
+
+/* Section / card eyebrow kicker label */
+.section-kicker {
+  margin: 0;
+  color: var(--accent);
+  font-family: "Space Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* Save / cancel action row inside forms */
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
 
 @keyframes rise-in {
   from {
