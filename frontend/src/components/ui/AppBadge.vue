@@ -1,7 +1,9 @@
+<script>
+export const VARIANTS = ['ok', 'warning', 'danger', 'info', 'neutral', 'accent', 'muted']
+</script>
+
 <script setup>
 import { computed } from 'vue'
-
-const VARIANTS = ['ok', 'warning', 'danger', 'info', 'neutral', 'accent', 'muted']
 
 const props = defineProps({
   /** Visual variant: ok | warning | danger | info | neutral | accent | muted */
