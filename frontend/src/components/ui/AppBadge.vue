@@ -1,9 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 const props = defineProps({
-  /**
-   * Visual variant: ok | danger | info | neutral | accent | muted
-   */
+  /** Visual variant: ok | warning | danger | info | neutral | accent | muted */
   variant: {
     type: String,
     default: 'neutral',
@@ -13,11 +11,25 @@ const props = defineProps({
     default: '',
   },
   /**
-   * Border radius override. Accepts a CSS value or a token name:
+   * Border radius override. Token shorthand or raw CSS value:
    * 'sm' | 'item' | 'md' | 'lg' | 'pill' | any CSS value (e.g. '4px')
-   * Defaults to var(--radius-sm).
    */
   radius: {
+    type: String,
+    default: null,
+  },
+  /** Custom background (overrides variant). Any CSS value or token reference. */
+  bg: {
+    type: String,
+    default: null,
+  },
+  /** Custom text color (overrides variant). */
+  color: {
+    type: String,
+    default: null,
+  },
+  /** Custom border color (overrides variant). */
+  border: {
     type: String,
     default: null,
   },
@@ -31,13 +43,16 @@ const RADIUS_TOKENS = {
   pill: 'var(--radius-pill)',
 }
 
-const radiusStyle = computed(() =>
-  props.radius ? { borderRadius: RADIUS_TOKENS[props.radius] ?? props.radius } : {}
-)
+const styleObject = computed(() => ({
+  ...(props.radius ? { borderRadius: RADIUS_TOKENS[props.radius] ?? props.radius } : {}),
+  ...(props.bg     ? { background: props.bg }         : {}),
+  ...(props.color  ? { color: props.color }            : {}),
+  ...(props.border ? { borderColor: props.border }     : {}),
+}))
 </script>
 
 <template>
-  <span class="app-badge" :class="`is-${props.variant}`" :style="radiusStyle">
+  <span class="app-badge" :class="`is-${props.variant}`" :style="styleObject">
     <slot>{{ label }}</slot>
   </span>
 </template>
@@ -74,6 +89,12 @@ const radiusStyle = computed(() =>
   background: var(--info-bg);
   color: var(--info-ink);
   border-color: var(--info-soft);
+}
+
+.app-badge.is-warning {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  border-color: var(--warn-soft);
 }
 
 .app-badge.is-neutral {

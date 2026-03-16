@@ -4,6 +4,7 @@ import { averagePlayersElo } from '../../lib/elo'
 import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
+import AppBadge from '../ui/AppBadge.vue'
 
 const ctx = inject('eventCtx')
 const assignmentSearchByTeam = reactive({})
@@ -601,7 +602,13 @@ function formatTeamModified(team) {
               <span class="material-symbols-rounded balance-helper-info-icon" aria-hidden="true">info</span>
               <p class="balance-helper-title">PUG balance assistant</p>
             </span>
-            <span class="balance-helper-format-badge">FORMAT: {{ effectivePugFormat }}</span>
+            <AppBadge
+              bg="color-mix(in srgb, #f2bf49 20%, var(--card) 80%)"
+              color="#ffdc7a"
+              border="color-mix(in srgb, #f2bf49 70%, var(--line) 30%)"
+              radius="pill"
+              :label="`FORMAT: ${effectivePugFormat}`"
+            />
           </div>
           <p class="balance-helper-summary">
             Current roster supports <span class="balance-helper-summary-highlight">{{ maxBalancedTeamsFromRoster }} fully balanced teams</span> for standard competitive {{ effectivePugFormat }}.
@@ -657,9 +664,9 @@ function formatTeamModified(team) {
                 <span class="team-meta-elo">AVG ELO: {{ formatTeamAverageElo(team.id) }}</span>
               </div>
               <div v-if="ctx.canManageEvent && !ctx.isTourneyEvent" class="team-balance-row">
-                <span class="team-balance-pill" :class="roleStatusClass(team.id, 'Tank')">Tank {{ teamRoleCounts(team.id).Tank }}/{{ pugRoleTargets.Tank }}</span>
-                <span class="team-balance-pill" :class="roleStatusClass(team.id, 'DPS')">DPS {{ teamRoleCounts(team.id).DPS }}/{{ pugRoleTargets.DPS }}</span>
-                <span class="team-balance-pill" :class="roleStatusClass(team.id, 'Support')">Support {{ teamRoleCounts(team.id).Support }}/{{ pugRoleTargets.Support }}</span>
+                <AppBadge :variant="{ ok: 'ok', missing: 'warning', excess: 'danger' }[roleStatusClass(team.id, 'Tank')]" :label="`Tank ${teamRoleCounts(team.id).Tank}/${pugRoleTargets.Tank}`" />
+                <AppBadge :variant="{ ok: 'ok', missing: 'warning', excess: 'danger' }[roleStatusClass(team.id, 'DPS')]" :label="`DPS ${teamRoleCounts(team.id).DPS}/${pugRoleTargets.DPS}`" />
+                <AppBadge :variant="{ ok: 'ok', missing: 'warning', excess: 'danger' }[roleStatusClass(team.id, 'Support')]" :label="`Support ${teamRoleCounts(team.id).Support}/${pugRoleTargets.Support}`" />
               </div>
               <p v-if="ctx.canManageEvent && !ctx.isTourneyEvent && teamBalanceNeeds(team.id)" class="muted team-balance-note">Needs: {{ teamBalanceNeeds(team.id) }}</p>
               <p v-if="ctx.canManageEvent && !ctx.isTourneyEvent && teamBalanceExcess(team.id)" class="muted team-balance-note">Over target: {{ teamBalanceExcess(team.id) }}</p>
@@ -966,21 +973,6 @@ function formatTeamModified(team) {
   font-weight: 760;
 }
 
-.balance-helper-format-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-pill);
-  border: 1px solid color-mix(in srgb, #f2bf49 70%, var(--line) 30%);
-  background: color-mix(in srgb, #f2bf49 20%, var(--card) 80%);
-  color: #ffdc7a;
-  padding: 0.08rem 0.38rem;
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
 .balance-helper-summary {
   margin: 0;
   color: var(--ink-2);
@@ -1111,35 +1103,6 @@ function formatTeamModified(team) {
   flex-wrap: wrap;
   gap: 0.34rem;
   margin-bottom: 0.5rem;
-}
-
-.team-balance-pill {
-  border-radius: var(--radius-sm);
-  padding: 0.12rem 0.42rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  background: color-mix(in srgb, var(--card) 92%, #1b2840 8%);
-}
-
-.team-balance-pill.ok {
-  color: #d7f2e6;
-  border-color: color-mix(in srgb, #1ea672 34%, var(--line) 66%);
-  background: color-mix(in srgb, #123b2c 58%, var(--card) 42%);
-}
-
-.team-balance-pill.missing {
-  color: #f5e5bb;
-  border-color: color-mix(in srgb, #e0a100 34%, var(--line) 66%);
-  background: color-mix(in srgb, #453515 58%, var(--card) 42%);
-}
-
-.team-balance-pill.excess {
-  color: #f4d0d4;
-  border-color: color-mix(in srgb, #d2555d 34%, var(--line) 66%);
-  background: color-mix(in srgb, #4a2327 58%, var(--card) 42%);
 }
 
 .team-balance-note {

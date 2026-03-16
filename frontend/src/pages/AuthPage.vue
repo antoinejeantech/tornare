@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import battlenetLogo from '../assets/branding/bnet-logo.png'
+import AppBadge from '../components/ui/AppBadge.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -132,7 +133,7 @@ function switchMode(nextMode) {
             <img class="btn-bnet-logo" :src="battlenetLogo" alt="Battle.net" />
             <span class="btn-bnet-label">Connect with Battle.net</span>
           </span>
-          <span class="btn-bnet-badge">Coming soon</span>
+          <AppBadge label="Coming soon" radius="pill" bg="linear-gradient(135deg, #ef5f00, #f28b2f)" color="#fff" />
         </button>
         <p class="muted auth-soon-note">Social login is on the roadmap and will arrive in a future update.</p>
       </div>
@@ -256,17 +257,6 @@ function switchMode(nextMode) {
 .btn-bnet-label {
   font-weight: 780;
   letter-spacing: 0.01em;
-}
-
-.btn-bnet-badge {
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #fff;
-  background: linear-gradient(135deg, #ef5f00, #f28b2f);
-  border-radius: var(--radius-pill);
-  padding: 0.18rem 0.5rem;
 }
 
 .auth-soon-note {

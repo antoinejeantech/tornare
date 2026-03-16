@@ -1,6 +1,7 @@
 <script setup>
 import { computed, inject } from 'vue'
 import EventSectionHeader from './EventSectionHeader.vue'
+import AppBadge from '../ui/AppBadge.vue'
 
 const ctx = inject('eventCtx')
 const isPublicRegistration = computed(() => Boolean(ctx.event?.public_signup_enabled))
@@ -117,7 +118,11 @@ const reviewedRequests = computed(() => {
               <strong>{{ request.name }}</strong>
               <span class="muted">{{ request.role }} · {{ request.rank }}</span>
             </div>
-            <span class="status-badge" :class="request.status">{{ request.status }}</span>
+            <AppBadge
+              :variant="request.status === 'accepted' ? 'ok' : 'danger'"
+              :label="request.status"
+              radius="pill"
+            />
           </li>
         </ul>
       </article>
@@ -220,27 +225,6 @@ const reviewedRequests = computed(() => {
 .signup-request-actions .btn-primary,
 .signup-request-actions .btn-danger {
   min-width: 78px;
-}
-
-.status-badge {
-  border-radius: var(--radius-pill);
-  padding: 0.14rem 0.48rem;
-  border: 1px solid var(--line);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.status-badge.accepted {
-  color: var(--ok-ink);
-  background: color-mix(in srgb, var(--ok-bg) 60%, transparent 40%);
-  border-color: color-mix(in srgb, var(--ok-bg) 72%, var(--line) 28%);
-}
-
-.status-badge.declined {
-  color: var(--err-ink);
-  background: color-mix(in srgb, var(--err-bg) 62%, transparent 38%);
-  border-color: color-mix(in srgb, var(--err-bg) 72%, var(--line) 28%);
 }
 
 @media (max-width: 960px) {

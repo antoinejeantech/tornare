@@ -5,6 +5,7 @@ import { overwatchRanks } from '../lib/ranks'
 import { formatEventStartDate } from '../lib/dates'
 import { useEventStore } from '../stores/event'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
+import AppBadge from '../components/ui/AppBadge.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -134,7 +135,13 @@ onMounted(loadSignupInfo)
 
       <template v-else-if="signupInfo">
         <div class="join-head">
-          <p class="join-eyebrow-pill">Public Signup</p>
+          <AppBadge
+            label="Public Signup"
+            radius="pill"
+            bg="color-mix(in srgb, var(--primary-700) 28%, var(--card) 72%)"
+            color="var(--primary-200)"
+            border="color-mix(in srgb, var(--primary-200) 88%, white 12%)"
+          />
           <h2 class="join-event-title">{{ signupInfo.event_name }}</h2>
           <div class="join-event-meta-row">
             <span class="join-event-meta-item">
@@ -289,20 +296,6 @@ onMounted(loadSignupInfo)
   display: grid;
   gap: 0.4rem;
   margin-bottom: 0.25rem;
-}
-
-.join-eyebrow-pill {
-  margin: 0;
-  color: var(--primary-200);
-  border: 1px solid color-mix(in srgb, var(--primary-200) 88%, white 12%);
-  background: color-mix(in srgb, var(--primary-700) 28%, var(--card) 72%);
-  width: fit-content;
-  border-radius: var(--radius-pill);
-  padding: 0.2rem 0.54rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .join-event-title {

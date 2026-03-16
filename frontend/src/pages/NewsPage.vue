@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import AppBadge from '../components/ui/AppBadge.vue'
 
 const placeholderNews = [
   {
@@ -70,7 +71,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
       <section v-if="featuredPost" class="card news-featured reveal-block reveal-2">
         <div class="news-featured-head">
           <span class="news-featured-badge">Featured Story</span>
-          <span class="news-category-chip">{{ featuredPost.category }}</span>
+          <AppBadge :label="featuredPost.category" variant="muted" radius="pill" />
         </div>
         <h2>{{ featuredPost.title }}</h2>
         <p class="muted">{{ featuredPost.summary }}</p>
@@ -102,7 +103,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
         <li v-for="item in remainingPosts" :key="item.id" class="news-item">
           <div class="news-item-header">
             <h3>{{ item.title }}</h3>
-            <span class="news-category-chip">{{ item.category }}</span>
+            <AppBadge :label="item.category" variant="muted" radius="pill" />
           </div>
           <p class="muted">{{ item.summary }}</p>
           <div class="news-item-foot">
@@ -224,16 +225,6 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--brand-1);
-}
-
-.news-category-chip {
-  border-radius: var(--radius-pill);
-  border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-1) 16%);
-  background: color-mix(in srgb, var(--card) 90%, #182337 10%);
-  color: var(--ink-2);
-  padding: 0.14rem 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 800;
 }
 
 .news-impact {

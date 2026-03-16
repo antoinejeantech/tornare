@@ -72,6 +72,9 @@
   --ok-ink: #eaf8ec;
   --ok-soft: #429d46;
   --warn: #ffa000;
+  --warn-bg: #ffa000;
+  --warn-ink: #fff7e0;
+  --warn-soft: #d47e00;
   --danger-bg: #c62828;
   --danger-ink: #ffe7e7;
   --danger-soft: #b33434;
@@ -157,6 +160,9 @@ body.theme-light {
   --ok-ink: #1d6f33;
   --ok-soft: #5f9b6c;
   --warn: #9a6500;
+  --warn-bg: #fff4e0;
+  --warn-ink: #7a4c00;
+  --warn-soft: #c68400;
   --danger-bg: #fde9e9;
   --danger-ink: #a51f1f;
   --danger-soft: #b97676;
