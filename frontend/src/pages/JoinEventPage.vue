@@ -141,6 +141,7 @@ onMounted(loadSignupInfo)
             bg="color-mix(in srgb, var(--primary-700) 28%, var(--card) 72%)"
             color="var(--primary-200)"
             border="color-mix(in srgb, var(--primary-200) 88%, white 12%)"
+            style="justify-self: start"
           />
           <h2 class="join-event-title">{{ signupInfo.event_name }}</h2>
           <div class="join-event-meta-row">
