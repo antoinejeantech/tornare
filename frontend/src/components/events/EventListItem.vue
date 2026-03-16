@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import StatusPill from '../ui/StatusPill.vue'
+import AppBadge from '../ui/AppBadge.vue'
 
 const props = defineProps({
   event: {
@@ -94,15 +94,10 @@ const statusLabel = computed(() => {
   return 'Open'
 })
 
-const statusForPill = computed(() => {
-  if (statusLabel.value === 'Full') {
-    return 'Full'
-  }
-  if (statusLabel.value === 'Ongoing') {
-    return 'Progress'
-  }
-
-  return 'Open'
+const statusVariant = computed(() => {
+  if (statusLabel.value === 'Full') return 'danger'
+  if (statusLabel.value === 'Ongoing') return 'info'
+  return 'ok'
 })
 
 </script>
@@ -147,7 +142,7 @@ const statusForPill = computed(() => {
     </div>
 
     <div class="event-actions-col" aria-label="Status and actions">
-      <StatusPill :status="statusForPill" :label="statusLabel" />
+      <AppBadge :variant="statusVariant" :label="statusLabel" />
       <RouterLink class="event-details-btn" :to="to">Details</RouterLink>
     </div>
   </li>

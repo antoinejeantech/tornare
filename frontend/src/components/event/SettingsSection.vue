@@ -2,6 +2,7 @@
 import { inject } from 'vue'
 import { formatOptionsForType } from '../../lib/event-format'
 import EventSectionHeader from './EventSectionHeader.vue'
+import AppBadge from '../ui/AppBadge.vue'
 
 const ctx = inject('eventCtx')
 </script>
@@ -15,9 +16,10 @@ const ctx = inject('eventCtx')
     <div class="event-registration-toggle-box" :class="ctx.event.public_signup_enabled ? 'is-public' : 'is-private'">
       <div class="event-registration-header">
         <p class="event-registration-kicker">Event registration</p>
-        <span class="event-registration-state-pill" :class="ctx.event.public_signup_enabled ? 'is-public' : 'is-private'">
-          {{ ctx.event.public_signup_enabled ? 'Public' : 'Private' }}
-        </span>
+        <AppBadge
+          :variant="ctx.event.public_signup_enabled ? 'ok' : 'danger'"
+          :label="ctx.event.public_signup_enabled ? 'Public' : 'Private'"
+        />
       </div>
 
       <p class="event-registration-copy">
@@ -135,31 +137,6 @@ const ctx = inject('eventCtx')
   letter-spacing: 0.06em;
   font-weight: 700;
   color: color-mix(in srgb, var(--ink-2) 82%, var(--brand-1) 18%);
-}
-
-.event-registration-state-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  padding: 0.22rem 0.62rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border: 1px solid transparent;
-}
-
-.event-registration-state-pill.is-public {
-  color: #edfdf4;
-  background: color-mix(in srgb, #1c7a4f 82%, #0f2d1f 18%);
-  border-color: color-mix(in srgb, #36b376 58%, #0f2d1f 42%);
-}
-
-.event-registration-state-pill.is-private {
-  color: #fff3f1;
-  background: color-mix(in srgb, #8f3427 84%, #2c1411 16%);
-  border-color: color-mix(in srgb, #d96a57 56%, #2c1411 44%);
 }
 
 .event-registration-copy {

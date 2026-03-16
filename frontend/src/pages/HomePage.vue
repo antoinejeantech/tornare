@@ -7,7 +7,7 @@ import { formatEventStartDate } from '../lib/dates'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
-import StatusPill from '../components/ui/StatusPill.vue'
+import AppBadge from '../components/ui/AppBadge.vue'
 import EventActionButton from '../components/ui/EventActionButton.vue'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
 
@@ -292,7 +292,7 @@ onMounted(async () => {
                 </span>
                 <span class="home-activity-players-value">{{ row.placeholder ? '\u00A0' : row.players }}</span>
               </span>
-              <StatusPill v-if="!row.placeholder" :status="row.status" />
+              <AppBadge v-if="!row.placeholder" :variant="{ Open: 'ok', Full: 'danger', Progress: 'info' }[row.status] || 'neutral'" :label="row.status" />
             </article>
           </div>
         </div>
