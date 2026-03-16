@@ -1779,6 +1779,7 @@ provide('eventCtx', proxyRefs({
   padding: 0;
   display: grid;
   gap: 1.25rem;
+  min-width: 0;
 }
 
 .event-shell :deep(.card) {
@@ -1845,7 +1846,6 @@ provide('eventCtx', proxyRefs({
 
   .event-panel {
     height: auto;
-    overflow: visible;
   }
 }
 </style>

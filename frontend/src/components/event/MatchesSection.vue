@@ -9,7 +9,7 @@ const isTourney = computed(() => Boolean(ctx.isTourneyEvent))
 </script>
 
 <template>
-  <section>
+  <section style="min-width: 0">
     <EventSectionHeader icon="sports_score" title="Matches and Matchups" />
 
     <TourneyEventMatchesSection v-if="isTourney" />

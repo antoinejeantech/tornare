@@ -687,6 +687,7 @@ watch(editingMatchups, () => {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  min-width: 0;
 }
 
 /* ── Toolbar ──────────────────────────────────── */
@@ -731,9 +732,12 @@ watch(editingMatchups, () => {
   margin: 0;
 }
 
-/* ── Bracket scroll wrapper  ──────────────────── */
+/* ── Bracket scroll wrapper  ─────────────────── */
 .tourney-bracket-wrap {
   overflow-x: auto;
+  /* Explicitly constrain width so the scroll container is bounded.
+     min-width:0 on the root makes this resolve to the available space. */
+  width: 100%;
   padding-bottom: 0.25rem;
 }
 
@@ -1077,6 +1081,23 @@ watch(editingMatchups, () => {
 
 /* ── Responsive ───────────────────────────────── */
 @media (max-width: 900px) {
+  .tourney-toolbar {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .tourney-toolbar-actions {
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    padding-right: 0;
+    padding-bottom: 0.75rem;
+    width: 100%;
+  }
+
+  .tourney-toolbar-hint {
+    min-width: 0;
+  }
+
   .tourney-bracket {
     grid-template-columns: repeat(var(--rounds), minmax(180px, 1fr));
     --col-gap: 12px;
