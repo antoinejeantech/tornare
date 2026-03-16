@@ -1,10 +1,14 @@
 <script setup>
 import { computed } from 'vue'
+
+const VARIANTS = ['ok', 'warning', 'danger', 'info', 'neutral', 'accent', 'muted']
+
 const props = defineProps({
   /** Visual variant: ok | warning | danger | info | neutral | accent | muted */
   variant: {
     type: String,
     default: 'neutral',
+    validator: (v) => VARIANTS.includes(v),
   },
   label: {
     type: String,
@@ -37,11 +41,14 @@ const props = defineProps({
 
 const RADIUS_TOKENS = {
   sm:   'var(--radius-sm)',
-  item: 'var(--radius-item)',
   md:   'var(--radius-md)',
   lg:   'var(--radius-lg)',
   pill: 'var(--radius-pill)',
 }
+
+const safeVariant = computed(() =>
+  VARIANTS.includes(props.variant) ? props.variant : 'neutral'
+)
 
 const styleObject = computed(() => ({
   ...(props.radius ? { borderRadius: RADIUS_TOKENS[props.radius] ?? props.radius } : {}),
@@ -52,7 +59,7 @@ const styleObject = computed(() => ({
 </script>
 
 <template>
-  <span class="app-badge" :class="`is-${props.variant}`" :style="styleObject">
+  <span class="app-badge" :class="`is-${safeVariant}`" :style="styleObject">
     <slot>{{ label }}</slot>
   </span>
 </template>
