@@ -225,6 +225,10 @@ function sectionRoute(section) {
 </template>
 
 <style scoped>
+.section-title {
+  margin: 0;
+}
+
 .overview-kpis {
   display: grid;
   gap: 0.72rem;

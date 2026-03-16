@@ -1629,36 +1629,6 @@ provide('eventCtx', proxyRefs({
   flex-wrap: wrap;
 }
 
-.event-panel :deep(.section-title) {
-  margin: 0 0 0.72rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-  font-size: 1.55rem;
-  font-weight: 800;
-}
-
-.event-panel :deep(.overview-section .section-title) {
-  margin: 0;
-}
-
-.event-panel :deep(.section-header-row) {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-}
-
-.event-panel :deep(.section-title-divider) {
-  display: none;
-}
-
-.event-panel :deep(.section-title-icon) {
-  font-size: 1.16rem;
-  line-height: 1;
-  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
-}
-
 .event-layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
