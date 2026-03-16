@@ -37,6 +37,7 @@ const profileInitial = computed(() => {
   const label = String(profile.value?.display_name || profile.value?.username || '').trim()
   return label.length > 0 ? label[0].toUpperCase() : 'A'
 })
+const isVerifiedProfile = computed(() => String(profile.value?.role || '').trim().toLowerCase() === 'admin')
 const hasAccountChanges = computed(() => {
   if (!profile.value) {
     return false
@@ -297,7 +298,7 @@ onMounted(async () => {
 <template>
   <main class="app-shell profile-shell">
     <header class="profile-hero-header">
-      <p class="profile-hero-eyebrow">
+      <p v-if="isVerifiedProfile" class="profile-hero-eyebrow">
         <span class="material-symbols-rounded profile-hero-eyebrow-icon" aria-hidden="true">verified_user</span>
         <span>Verified Profile</span>
       </p>
@@ -457,18 +458,8 @@ onMounted(async () => {
   align-items: start;
 }
 
-.profile-shell :deep(.card) {
+.profile-layout :deep(.card) {
   background: transparent;
-}
-
-.profile-shell :deep(.muted) {
-  color: color-mix(in srgb, var(--ink-muted) 62%, var(--ink-2) 38%);
-}
-
-.profile-shell :deep(button) {
-  padding: 0.34rem 0.56rem;
-  font-size: 0.84rem;
-  line-height: 1.2;
 }
 
 .profile-column {
