@@ -1407,7 +1407,7 @@ provide('eventCtx', proxyRefs({
 </script>
 
 <template>
-  <main class="app-shell event-shell">
+  <main class="app-shell app-shell--wide event-shell">
     <section v-if="loadingEvent" class="event-loading-state">
       <p>Loading event...</p>
     </section>
@@ -1528,8 +1528,6 @@ provide('eventCtx', proxyRefs({
 }
 
 .event-shell {
-  max-width: none;
-  width: 100%;
   padding: 1.1rem 1.2rem 1.25rem;
 }
 
