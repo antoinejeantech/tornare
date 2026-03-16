@@ -1,5 +1,6 @@
 <script setup>
-defineProps({
+import { computed } from 'vue'
+const props = defineProps({
   /**
    * Visual variant: ok | danger | info | neutral | accent | muted
    */
@@ -11,11 +12,32 @@ defineProps({
     type: String,
     default: '',
   },
+  /**
+   * Border radius override. Accepts a CSS value or a token name:
+   * 'sm' | 'item' | 'md' | 'lg' | 'pill' | any CSS value (e.g. '4px')
+   * Defaults to var(--radius-sm).
+   */
+  radius: {
+    type: String,
+    default: null,
+  },
 })
+
+const RADIUS_TOKENS = {
+  sm:   'var(--radius-sm)',
+  item: 'var(--radius-item)',
+  md:   'var(--radius-md)',
+  lg:   'var(--radius-lg)',
+  pill: '999px',
+}
+
+const radiusStyle = computed(() =>
+  props.radius ? { borderRadius: RADIUS_TOKENS[props.radius] ?? props.radius } : {}
+)
 </script>
 
 <template>
-  <span class="app-badge" :class="`is-${variant}`">
+  <span class="app-badge" :class="`is-${props.variant}`" :style="radiusStyle">
     <slot>{{ label }}</slot>
   </span>
 </template>
