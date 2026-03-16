@@ -317,7 +317,7 @@ async function saveMatchupAndClose(match) {
 .entry-list li {
   border: 1px solid color-mix(in srgb, var(--line) 92%, var(--brand-1) 8%);
   background: color-mix(in srgb, var(--card) 90%, #f1f5ff 10%);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 1rem 1.05rem;
   display: grid;
   grid-template-columns: minmax(180px, 0.9fr) minmax(0, 1.35fr) auto;
@@ -373,7 +373,7 @@ async function saveMatchupAndClose(match) {
   top: 0;
   bottom: 0;
   width: 6px;
-  border-radius: 10px 0 0 10px;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
   background: linear-gradient(180deg, var(--team-a), var(--team-b));
 }
 
@@ -409,7 +409,7 @@ async function saveMatchupAndClose(match) {
 .matchup-team-pill {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.26rem 0.74rem;
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
   background: color-mix(in srgb, var(--card) 92%, #1a2740 8%);
@@ -431,7 +431,7 @@ async function saveMatchupAndClose(match) {
 
 .matchup-state {
   margin-left: 0.2rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.24rem 0.7rem;
   font-size: 0.88rem;
   font-weight: 700;

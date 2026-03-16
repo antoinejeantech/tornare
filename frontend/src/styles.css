@@ -8,6 +8,9 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  --blur-md: 12px;
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -49,27 +52,32 @@
   --surface-card-bg: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
   --surface-card-border: color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
 
+  /* brand-1: decorative/text tint (mix into borders, text colors, gradient fills) */
+  /* accent:   interactive affordance (focus rings, active state fills, link colors) */
   --brand-1: var(--primary-300);
   --brand-2: #b0b0b0;
-  --accent: var(--primary-300);
+  --accent: var(--primary-400);
 
   /* Primary shade palette */
-  --primary-50: #faf5ea;
-  --primary-100: #f3e7cd;
-  --primary-200: #e9d5a7;
-  --primary-300: #dfc281;
-  --primary-400: #d4b062;
-  --primary-500: #c9a458;
-  --primary-600: #b08f4d;
-  --primary-700: #967842;
-  --primary-800: #7c6337;
-  --primary-900: #624f2c;
+  --primary-50: #fdf8eb;
+  --primary-100: #f9eccc;
+  --primary-200: #f4d990;
+  --primary-300: #f0bf4c;
+  --primary-400: #e6a820;
+  --primary-500: #cc9118;
+  --primary-600: #a97613;
+  --primary-700: #875e0e;
+  --primary-800: #68490b;
+  --primary-900: #4c3508;
 
   /* Semantic colors */
   --ok-bg: #4caf50;
   --ok-ink: #eaf8ec;
   --ok-soft: #429d46;
   --warn: #ffa000;
+  --warn-bg: #7d4c00;
+  --warn-ink: #ffe0a0;
+  --warn-soft: #a86200;
   --danger-bg: #c62828;
   --danger-ink: #ffe7e7;
   --danger-soft: #b33434;
@@ -137,24 +145,27 @@ body.theme-light {
   --ink-2: #3f4758;
   --ink-muted: #5d6678;
   --heading-ink: #1f2430;
-  --brand-1: #c9a458;
+  --brand-1: var(--primary-500);
   --brand-2: #9095a0;
   --accent: var(--primary-400);
 
-  --primary-50: #faf5ea;
-  --primary-100: #f3e7cd;
-  --primary-200: #e9d5a7;
-  --primary-300: #dfc281;
-  --primary-400: #d4b062;
-  --primary-500: #c9a458;
-  --primary-600: #b08f4d;
-  --primary-700: #967842;
-  --primary-800: #7c6337;
-  --primary-900: #624f2c;
+  --primary-50: #fdf8eb;
+  --primary-100: #f9eccc;
+  --primary-200: #f4d990;
+  --primary-300: #f0bf4c;
+  --primary-400: #e6a820;
+  --primary-500: #cc9118;
+  --primary-600: #a97613;
+  --primary-700: #875e0e;
+  --primary-800: #68490b;
+  --primary-900: #4c3508;
   --ok-bg: #e7f6ea;
   --ok-ink: #1d6f33;
   --ok-soft: #5f9b6c;
   --warn: #9a6500;
+  --warn-bg: #fff4e0;
+  --warn-ink: #7a4c00;
+  --warn-soft: #c68400;
   --danger-bg: #fde9e9;
   --danger-ink: #a51f1f;
   --danger-soft: #b97676;
@@ -292,9 +303,6 @@ body.theme-light {
     0 6px 14px rgba(2, 6, 14, 0.18),
     0 1px 4px rgba(2, 6, 14, 0.22);
   animation: rise-in 360ms ease-out;
-}
-
-.card {
   padding: var(--space-3);
 }
 
@@ -404,14 +412,14 @@ textarea:-webkit-autofill:focus {
 
 .btn-primary {
   font-weight: 400;
-  border-color: color-mix(in srgb, var(--brand-1) 72%, #2c1f07 28%);
-  background: linear-gradient(132deg, color-mix(in srgb, var(--brand-1) 90%, #e7cd98 10%), var(--brand-1));
+  border-color: color-mix(in srgb, var(--brand-1) 72%, var(--primary-900) 28%);
+  background: linear-gradient(132deg, color-mix(in srgb, var(--brand-1) 90%, var(--primary-100) 10%), var(--brand-1));
   color: #101216;
   box-shadow: 0 10px 22px rgba(78, 52, 7, 0.24);
 }
 
 .btn-primary:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--brand-1) 76%, #f2cb74 24%);
+  border-color: color-mix(in srgb, var(--brand-1) 76%, var(--primary-200) 24%);
   box-shadow: 0 16px 34px rgba(78, 52, 7, 0.38);
 }
 
@@ -450,7 +458,7 @@ textarea:-webkit-autofill:focus {
   gap: 0.28rem;
   margin-left: 0.42rem;
   padding: 0.1rem 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   background: color-mix(in srgb, var(--card) 90%, #252525 10%);
   font-size: 0.84rem;
@@ -462,6 +470,51 @@ textarea:-webkit-autofill:focus {
   object-fit: contain;
 }
 
+
+/* Wide shell modifier — use alongside .app-shell for full-bleed layouts */
+.app-shell--wide {
+  max-width: 1820px;
+  width: min(96vw, 1820px);
+}
+
+/* Static content pages */
+.static-page-shell {
+  max-width: 1120px;
+}
+
+.static-page-card {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.static-page-card h2,
+.static-page-card p {
+  margin: 0;
+}
+
+.page-subtitle {
+  margin: 0;
+  text-align: right;
+}
+
+/* Section / card eyebrow kicker label */
+.section-kicker {
+  margin: 0;
+  color: var(--accent);
+  font-family: "Space Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+/* Save / cancel action row inside forms */
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
 
 @keyframes rise-in {
   from {

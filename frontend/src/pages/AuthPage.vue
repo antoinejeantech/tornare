@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import battlenetLogo from '../assets/branding/bnet-logo.png'
+import AppBadge from '../components/ui/AppBadge.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -132,7 +133,7 @@ function switchMode(nextMode) {
             <img class="btn-bnet-logo" :src="battlenetLogo" alt="Battle.net" />
             <span class="btn-bnet-label">Connect with Battle.net</span>
           </span>
-          <span class="btn-bnet-badge">Coming soon</span>
+          <AppBadge label="Coming soon" radius="pill" bg="linear-gradient(135deg, #ef5f00, #f28b2f)" color="#fff" />
         </button>
         <p class="muted auth-soon-note">Social login is on the roadmap and will arrive in a future update.</p>
       </div>
@@ -224,7 +225,7 @@ function switchMode(nextMode) {
 
 .btn-bnet {
   border: 1px dashed color-mix(in srgb, var(--line) 68%, #f06414 32%);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 0.7rem 0.9rem;
   background: linear-gradient(120deg, #fff5ed, #ffe9d7);
   color: #5c2400;
@@ -248,7 +249,7 @@ function switchMode(nextMode) {
   display: block;
   background: #fff;
   border: 1px solid color-mix(in srgb, #0b5ed7 22%, #ffffff 78%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.2rem;
   box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
 }
@@ -256,17 +257,6 @@ function switchMode(nextMode) {
 .btn-bnet-label {
   font-weight: 780;
   letter-spacing: 0.01em;
-}
-
-.btn-bnet-badge {
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #fff;
-  background: linear-gradient(135deg, #ef5f00, #f28b2f);
-  border-radius: 999px;
-  padding: 0.18rem 0.5rem;
 }
 
 .auth-soon-note {
@@ -282,7 +272,7 @@ function switchMode(nextMode) {
 .auth-signup-lock {
   border: 1px dashed color-mix(in srgb, var(--line) 64%, #f08b2f 36%);
   background: linear-gradient(130deg, color-mix(in srgb, var(--card) 78%, #fff1df 22%), color-mix(in srgb, var(--card) 86%, #ffe5cc 14%));
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 0.6rem 0.72rem;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

@@ -5,8 +5,8 @@ import { apiCall } from '../lib/api'
 import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { useAuthStore } from '../stores/auth'
-import ProfileHeroCard from '../components/player/profile/ProfileHeroCard.vue'
-import ProfileGamesCard from '../components/player/profile/ProfileGamesCard.vue'
+import ProfileHeroCard from '../components/profile/ProfileHeroCard.vue'
+import ProfileGamesCard from '../components/profile/ProfileGamesCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -343,7 +343,7 @@ onMounted(async () => {
                 Confirm new password
                 <input v-model="editPasswordConfirm" type="password" placeholder="Repeat new password" @input="markProfileFormTouched" />
               </label>
-              <div class="section-actions">
+              <div class="form-actions">
                 <button type="submit" class="btn-primary" :disabled="!canSaveAccountSection">
                   {{ savingProfile ? 'Saving...' : 'Save account' }}
                 </button>
@@ -392,7 +392,7 @@ onMounted(async () => {
                   </select>
                 </label>
               </div>
-              <div class="section-actions">
+              <div class="form-actions">
                 <button type="submit" class="btn-primary" :disabled="!canSaveOverwatchSection">
                   {{ savingProfile ? 'Saving...' : 'Save Overwatch' }}
                 </button>
@@ -475,19 +475,13 @@ onMounted(async () => {
   display: grid;
   gap: 0.7rem;
   border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-1) 18%);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 0.85rem;
 }
 
 .profile-form label {
   display: grid;
   gap: 0.3rem;
-}
-
-.section-actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
 }
 
 .profile-note {
@@ -513,7 +507,7 @@ onMounted(async () => {
 .profile-static-value {
   margin: 0;
   border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-1) 18%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.55rem 0.7rem;
   font-weight: 600;
 }
@@ -537,10 +531,6 @@ onMounted(async () => {
 
   .profile-ranks-grid {
     grid-template-columns: 1fr;
-  }
-
-  .section-actions {
-    flex-wrap: wrap;
   }
 }
 </style>

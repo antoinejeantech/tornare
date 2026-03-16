@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import StatusPill from '../ui/StatusPill.vue'
+import AppBadge from '../ui/AppBadge.vue'
 
 const props = defineProps({
   event: {
@@ -94,15 +94,10 @@ const statusLabel = computed(() => {
   return 'Open'
 })
 
-const statusForPill = computed(() => {
-  if (statusLabel.value === 'Full') {
-    return 'Full'
-  }
-  if (statusLabel.value === 'Ongoing') {
-    return 'Progress'
-  }
-
-  return 'Open'
+const statusVariant = computed(() => {
+  if (statusLabel.value === 'Full') return 'danger'
+  if (statusLabel.value === 'Ongoing') return 'info'
+  return 'ok'
 })
 
 </script>
@@ -147,7 +142,7 @@ const statusForPill = computed(() => {
     </div>
 
     <div class="event-actions-col" aria-label="Status and actions">
-      <StatusPill :status="statusForPill" :label="statusLabel" />
+      <AppBadge :variant="statusVariant" :label="statusLabel" />
       <RouterLink class="event-details-btn" :to="to">Details</RouterLink>
     </div>
   </li>
@@ -157,7 +152,7 @@ const statusForPill = computed(() => {
 .event-list-item {
   border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
   background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 1.02rem 0.95rem;
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 0.85fr) minmax(0, 0.95fr) minmax(0, 1.3fr) auto;
@@ -197,12 +192,12 @@ const statusForPill = computed(() => {
 }
 
 .event-list-title-link:hover .event-list-title {
-  color: #fff;
+  color: var(--brand-1);
 }
 
 .event-list-title {
   font-weight: 600;
-  color: #fff;
+  color: var(--ink-1);
   text-transform: uppercase;
   letter-spacing: 0.02em;
   font-size: 0.9rem;
@@ -219,7 +214,7 @@ const statusForPill = computed(() => {
   color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
   font-size: 1.35rem;
   border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.4rem;
   background: color-mix(in srgb, var(--bg-1) 66%, var(--card) 34%);
 }
@@ -231,7 +226,7 @@ const statusForPill = computed(() => {
   min-width: 0;
   width: 100%;
   padding: 0.16rem 0.32rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .event-col-label {
@@ -255,7 +250,7 @@ const statusForPill = computed(() => {
   width: 100%;
   justify-content: center;
   padding: 0.2rem 0.36rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--ink-1);
   font-size: 0.82rem;
   font-weight: 760;
@@ -278,7 +273,7 @@ const statusForPill = computed(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.34rem;
-  color: #fff;
+  color: var(--ink-2);
   font-size: 0.84rem;
   font-weight: 500;
   white-space: nowrap;
@@ -288,7 +283,7 @@ const statusForPill = computed(() => {
 
 .event-date-value .event-date-dot.material-symbols-rounded {
   font-size: 0.5rem;
-  color: #fff !important;
+  color: var(--ink-muted) !important;
   font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 24;
 }
 
@@ -305,7 +300,7 @@ const statusForPill = computed(() => {
   border: 1px solid color-mix(in srgb, var(--line-strong) 82%, white 18%);
   background: color-mix(in srgb, var(--grey-900) 74%, black 26%);
   color: white;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   text-decoration: none;
   padding: 0.28rem 0.56rem;
   font-size: 0.68rem;

@@ -1,5 +1,5 @@
 <script setup>
-import { getRoleIcon } from '../../../lib/roles'
+import { getRoleIcon } from '../../lib/roles'
 
 defineProps({
   profile: {
@@ -149,13 +149,13 @@ defineEmits(['edit-overwatch'])
 }
 
 .games-manage-btn {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.42rem 1rem;
 }
 
 .game-panel {
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   margin: 0.45rem 0;
   padding: 1.55rem 1.05rem;
   display: grid;
@@ -225,7 +225,7 @@ defineEmits(['edit-overwatch'])
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--line) 30%, transparent 70%);
 }
 
@@ -233,7 +233,7 @@ defineEmits(['edit-overwatch'])
   display: grid;
   gap: 0.68rem;
   border: 1px dashed color-mix(in srgb, var(--line) 42%, transparent 58%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.9rem;
   margin-bottom: 0.8rem;
   justify-items: center;
@@ -255,7 +255,7 @@ defineEmits(['edit-overwatch'])
   align-items: center;
   justify-content: center;
   border: 1px dashed color-mix(in srgb, var(--line) 56%, transparent 44%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.12rem 0.46rem;
   font-size: 0.66rem;
   font-weight: 800;
@@ -296,7 +296,7 @@ defineEmits(['edit-overwatch'])
   display: grid;
   gap: 0.46rem;
   padding: 0.84rem 0.84rem 0.72rem;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--line) 26%, transparent 74%);
   position: relative;
 }

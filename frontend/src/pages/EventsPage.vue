@@ -364,7 +364,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="app-shell events-shell">
+  <main class="app-shell app-shell--wide events-shell">
     <SpotlightEventCard
       v-if="featuredEvent"
       class="reveal-block reveal-1"
@@ -595,9 +595,6 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .events-shell {
-  max-width: 1820px;
-  width: min(96vw, 1820px);
-  display: grid;
   gap: 0.88rem;
 }
 
@@ -616,7 +613,7 @@ onBeforeUnmount(() => {
   padding: 0.72rem;
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   box-shadow: none;
   margin-bottom: 0.85rem;
 }
@@ -665,7 +662,7 @@ onBeforeUnmount(() => {
 
 .events-stat-card {
   border: 1px solid var(--surface-card-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 1.25rem 1.2rem;
   background: var(--surface-card-bg);
   display: grid;
@@ -708,7 +705,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   background: var(--surface-card-bg);
   padding: 0.28rem 0.55rem;
@@ -732,7 +729,7 @@ onBeforeUnmount(() => {
   gap: 0.42rem;
   width: fit-content;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.22rem;
   background: var(--surface-card-bg);
 }
@@ -743,7 +740,7 @@ onBeforeUnmount(() => {
   color: var(--ink-2);
   font-weight: 620;
   padding: 0.34rem 0.72rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   transition: background 0.16s ease, color 0.16s ease;
 }
@@ -754,9 +751,9 @@ onBeforeUnmount(() => {
 }
 
 .events-subnav-btn.active {
-  color: #fff;
+  color: var(--primary-100);
   font-weight: 680;
-  background: color-mix(in srgb, var(--brand-1) 34%, var(--card) 66%);
+  background: var(--primary-700);
 }
 
 .events-sort {
@@ -765,7 +762,7 @@ onBeforeUnmount(() => {
   gap: 0.4rem;
   padding: 0.1rem 0.45rem;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-card-bg);
 }
 
@@ -858,7 +855,7 @@ onBeforeUnmount(() => {
 
 .reveal-block {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(12px);
   animation: reveal-rise 380ms ease-out forwards;
 }
 

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import AppBadge from '../components/ui/AppBadge.vue'
 
 const placeholderNews = [
   {
@@ -43,14 +44,14 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 </script>
 
 <template>
-  <main class="app-shell news-shell">
+  <main class="app-shell app-shell--wide news-shell">
     <header class="page-header">
       <h1 class="page-title">Tornare Newsroom</h1>
       <p class="muted page-subtitle">Platform updates, community recaps, and release notes.</p>
     </header>
 
     <section class="card news-hero reveal-block reveal-1">
-      <p class="news-eyebrow">Release Intelligence</p>
+      <p class="section-kicker">Release Intelligence</p>
       <h2>Product updates, community recaps, and shipping notes in one feed.</h2>
       <p class="muted">
         This page is currently curated with structured placeholder content, ready to be replaced by real posts as launch cadence grows.
@@ -70,7 +71,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
       <section v-if="featuredPost" class="card news-featured reveal-block reveal-2">
         <div class="news-featured-head">
           <span class="news-featured-badge">Featured Story</span>
-          <span class="news-category-chip">{{ featuredPost.category }}</span>
+          <AppBadge :label="featuredPost.category" variant="muted" radius="pill" />
         </div>
         <h2>{{ featuredPost.title }}</h2>
         <p class="muted">{{ featuredPost.summary }}</p>
@@ -102,7 +103,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
         <li v-for="item in remainingPosts" :key="item.id" class="news-item">
           <div class="news-item-header">
             <h3>{{ item.title }}</h3>
-            <span class="news-category-chip">{{ item.category }}</span>
+            <AppBadge :label="item.category" variant="muted" radius="pill" />
           </div>
           <p class="muted">{{ item.summary }}</p>
           <div class="news-item-foot">
@@ -117,15 +118,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 
 <style scoped>
 .news-shell {
-  max-width: 1820px;
-  width: min(96vw, 1820px);
-  display: grid;
   gap: 0.88rem;
-}
-
-.page-subtitle {
-  margin: 0;
-  text-align: right;
 }
 
 .news-hero {
@@ -145,16 +138,6 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
   margin: 0;
 }
 
-.news-eyebrow {
-  margin: 0;
-  color: var(--accent);
-  font-family: "Space Mono", ui-monospace, monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
 .news-shell :is(h2, h3) {
   letter-spacing: -0.01em;
 }
@@ -166,7 +149,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 }
 
 .news-meta-pill {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--brand-1) 34%, var(--line) 66%);
   background: color-mix(in srgb, var(--accent) 18%, var(--meta-bg) 82%);
   color: var(--meta-ink);
@@ -244,16 +227,6 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
   color: var(--brand-1);
 }
 
-.news-category-chip {
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-1) 16%);
-  background: color-mix(in srgb, var(--card) 90%, #182337 10%);
-  color: var(--ink-2);
-  padding: 0.14rem 0.5rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-}
-
 .news-impact {
   font-size: 0.76rem;
   color: var(--brand-1);
@@ -302,7 +275,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 
 .news-briefing-item {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card) 94%, #1a2330 6%);
   padding: 0.52rem 0.58rem;
   display: grid;
@@ -333,7 +306,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 
 .news-item {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card) 92%, #19253a 8%);
   padding: 0.62rem 0.7rem;
   display: grid;
@@ -358,7 +331,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 
 .reveal-block {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(12px);
   animation: reveal-rise 380ms ease-out forwards;
 }
 

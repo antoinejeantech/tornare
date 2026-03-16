@@ -7,7 +7,7 @@ import { formatEventStartDate } from '../lib/dates'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
-import StatusPill from '../components/ui/StatusPill.vue'
+import AppBadge from '../components/ui/AppBadge.vue'
 import EventActionButton from '../components/ui/EventActionButton.vue'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
 
@@ -226,7 +226,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="app-shell home-shell">
+  <main class="app-shell app-shell--wide home-shell">
     <section class="home-hero">
       <img class="home-hero-art" :src="torbjornImage" alt="Torbjorn hero art" />
       <p class="home-eyebrow">Community Match Ops</p>
@@ -292,7 +292,7 @@ onMounted(async () => {
                 </span>
                 <span class="home-activity-players-value">{{ row.placeholder ? '\u00A0' : row.players }}</span>
               </span>
-              <StatusPill v-if="!row.placeholder" :status="row.status" />
+              <AppBadge v-if="!row.placeholder" :variant="{ Open: 'ok', Full: 'danger', Progress: 'info' }[row.status] || 'neutral'" :label="row.status" />
             </article>
           </div>
         </div>
@@ -402,9 +402,6 @@ onMounted(async () => {
 
 <style scoped>
 .home-shell {
-  max-width: 1820px;
-  width: min(96vw, 1820px);
-  display: grid;
   gap: 0.82rem;
 }
 
@@ -597,7 +594,7 @@ onMounted(async () => {
   position: relative;
   width: 66px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--line) 85%, var(--bg-1) 15%);
   overflow: hidden;
 }
@@ -605,8 +602,8 @@ onMounted(async () => {
 .home-activity-players-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  border-radius: 999px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--brand-2) 92%, var(--bg-1) 8%), color-mix(in srgb, var(--accent) 90%, var(--bg-1) 10%));
+  border-radius: var(--radius-pill);
+  background: var(--accent);
 }
 
 .home-activity-players-fill.is-full {
@@ -857,7 +854,7 @@ onMounted(async () => {
   justify-content: space-between;
   gap: var(--space-3);
   padding: 1.4rem 1.6rem;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--brand-1) 28%, var(--card) 72%), color-mix(in srgb, #de8b1f 20%, var(--card-soft) 80%));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--brand-1) 28%, var(--card) 72%), color-mix(in srgb, var(--primary-600) 20%, var(--card-soft) 80%));
 }
 
 .home-banner-copy {

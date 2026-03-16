@@ -101,7 +101,7 @@ defineEmits(['edit-account'])
 .hero-avatar {
   width: 3.34rem;
   height: 3.34rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -131,7 +131,7 @@ defineEmits(['edit-account'])
 
 .hero-edit-btn {
   white-space: nowrap;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.42rem 1rem;
 }
 

@@ -2,7 +2,9 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { averagePlayersElo } from '../../lib/elo'
 import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
-import PlayerCard from './PlayerCard.vue'
+import PlayerCard from '../player/PlayerCard.vue'
+import EventSectionHeader from './EventSectionHeader.vue'
+import AppBadge from '../ui/AppBadge.vue'
 
 const ctx = inject('eventCtx')
 const assignmentSearchByTeam = reactive({})
@@ -546,13 +548,7 @@ function formatTeamModified(team) {
 
 <template>
   <section>
-    <div class="section-header-row">
-      <h3 class="section-title">
-        <span class="material-symbols-rounded section-title-icon" aria-hidden="true">shield</span>
-        <span>Team Management</span>
-      </h3>
-    </div>
-    <div class="section-title-divider" aria-hidden="true"></div>
+    <EventSectionHeader icon="shield" title="Team Management" />
     <div class="teams-layout" :class="{ 'is-readonly': !ctx.canManageEvent }">
       <aside v-if="ctx.canManageEvent" class="teams-sidebar">
         <p class="teams-sidebar-kicker">Quick setup</p>
@@ -606,7 +602,13 @@ function formatTeamModified(team) {
               <span class="material-symbols-rounded balance-helper-info-icon" aria-hidden="true">info</span>
               <p class="balance-helper-title">PUG balance assistant</p>
             </span>
-            <span class="balance-helper-format-badge">FORMAT: {{ effectivePugFormat }}</span>
+            <AppBadge
+              bg="color-mix(in srgb, var(--primary-300) 20%, var(--card) 80%)"
+              color="var(--primary-200)"
+              border="color-mix(in srgb, var(--primary-300) 70%, var(--line) 30%)"
+              radius="pill"
+              :label="`FORMAT: ${effectivePugFormat}`"
+            />
           </div>
           <p class="balance-helper-summary">
             Current roster supports <span class="balance-helper-summary-highlight">{{ maxBalancedTeamsFromRoster }} fully balanced teams</span> for standard competitive {{ effectivePugFormat }}.
@@ -662,9 +664,9 @@ function formatTeamModified(team) {
                 <span class="team-meta-elo">AVG ELO: {{ formatTeamAverageElo(team.id) }}</span>
               </div>
               <div v-if="ctx.canManageEvent && !ctx.isTourneyEvent" class="team-balance-row">
-                <span class="team-balance-pill" :class="roleStatusClass(team.id, 'Tank')">Tank {{ teamRoleCounts(team.id).Tank }}/{{ pugRoleTargets.Tank }}</span>
-                <span class="team-balance-pill" :class="roleStatusClass(team.id, 'DPS')">DPS {{ teamRoleCounts(team.id).DPS }}/{{ pugRoleTargets.DPS }}</span>
-                <span class="team-balance-pill" :class="roleStatusClass(team.id, 'Support')">Support {{ teamRoleCounts(team.id).Support }}/{{ pugRoleTargets.Support }}</span>
+                <AppBadge :variant="{ ok: 'ok', missing: 'warning', excess: 'danger' }[roleStatusClass(team.id, 'Tank')]" :label="`Tank ${teamRoleCounts(team.id).Tank}/${pugRoleTargets.Tank}`" />
+                <AppBadge :variant="{ ok: 'ok', missing: 'warning', excess: 'danger' }[roleStatusClass(team.id, 'DPS')]" :label="`DPS ${teamRoleCounts(team.id).DPS}/${pugRoleTargets.DPS}`" />
+                <AppBadge :variant="{ ok: 'ok', missing: 'warning', excess: 'danger' }[roleStatusClass(team.id, 'Support')]" :label="`Support ${teamRoleCounts(team.id).Support}/${pugRoleTargets.Support}`" />
               </div>
               <p v-if="ctx.canManageEvent && !ctx.isTourneyEvent && teamBalanceNeeds(team.id)" class="muted team-balance-note">Needs: {{ teamBalanceNeeds(team.id) }}</p>
               <p v-if="ctx.canManageEvent && !ctx.isTourneyEvent && teamBalanceExcess(team.id)" class="muted team-balance-note">Over target: {{ teamBalanceExcess(team.id) }}</p>
@@ -920,9 +922,9 @@ function formatTeamModified(team) {
 }
 
 .balance-report-box {
-  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-2) 12%);
-  background: color-mix(in srgb, var(--card) 94%, #eef6ff 6%);
-  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 82%, var(--line) 18%);
+  background: var(--card);
+  border-radius: var(--radius-md);
   padding: 0.52rem 0.6rem;
   margin: 0;
 }
@@ -971,21 +973,6 @@ function formatTeamModified(team) {
   font-weight: 760;
 }
 
-.balance-helper-format-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, #f2bf49 70%, var(--line) 30%);
-  background: color-mix(in srgb, #f2bf49 20%, var(--card) 80%);
-  color: #ffdc7a;
-  padding: 0.08rem 0.38rem;
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
 .balance-helper-summary {
   margin: 0;
   color: var(--ink-2);
@@ -1004,7 +991,7 @@ function formatTeamModified(team) {
 .balance-roster-chip {
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
   background: color-mix(in srgb, var(--card) 92%, #1b2840 8%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.16rem 0.5rem;
   font-size: 0.82rem;
   font-weight: 700;
@@ -1056,7 +1043,7 @@ function formatTeamModified(team) {
 .team-row {
   border: 1px solid color-mix(in srgb, var(--line) 96%, var(--brand-1) 4%);
   background: transparent;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 0.92rem 0.96rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1106,7 +1093,7 @@ function formatTeamModified(team) {
 
 .team-meta-elo {
   font-family: "Space Mono", ui-monospace, monospace;
-  color: #fff;
+  color: var(--ink-2);
   text-align: left;
   white-space: nowrap;
 }
@@ -1116,35 +1103,6 @@ function formatTeamModified(team) {
   flex-wrap: wrap;
   gap: 0.34rem;
   margin-bottom: 0.5rem;
-}
-
-.team-balance-pill {
-  border-radius: 8px;
-  padding: 0.12rem 0.42rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  background: color-mix(in srgb, var(--card) 92%, #1b2840 8%);
-}
-
-.team-balance-pill.ok {
-  color: #d7f2e6;
-  border-color: color-mix(in srgb, #1ea672 34%, var(--line) 66%);
-  background: color-mix(in srgb, #123b2c 58%, var(--card) 42%);
-}
-
-.team-balance-pill.missing {
-  color: #f5e5bb;
-  border-color: color-mix(in srgb, #e0a100 34%, var(--line) 66%);
-  background: color-mix(in srgb, #453515 58%, var(--card) 42%);
-}
-
-.team-balance-pill.excess {
-  color: #f4d0d4;
-  border-color: color-mix(in srgb, #d2555d 34%, var(--line) 66%);
-  background: color-mix(in srgb, #4a2327 58%, var(--card) 42%);
 }
 
 .team-balance-note {
@@ -1188,7 +1146,7 @@ function formatTeamModified(team) {
   display: grid;
   gap: 0;
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: transparent;
 }
@@ -1321,7 +1279,7 @@ function formatTeamModified(team) {
 .team-player-avatar {
   width: 24px;
   height: 24px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1378,7 +1336,7 @@ function formatTeamModified(team) {
   max-height: min(80vh, 54rem);
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--brand-1) 28%);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card) 95%, #101a2c 5%);
   padding: 0.82rem;
   display: grid;
@@ -1452,8 +1410,8 @@ function formatTeamModified(team) {
   max-width: min(42rem, calc(100vw - 2rem));
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
   background: color-mix(in srgb, var(--card) 96%, #19253a 4%);
-  border-radius: 10px;
-  box-shadow: 0 10px 24px rgba(16, 39, 82, 0.18);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 24px rgba(16, 39, 82, 0.18);
   padding: 0.45rem;
   display: grid;
   gap: 0.35rem;

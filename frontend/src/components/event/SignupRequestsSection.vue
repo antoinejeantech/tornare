@@ -1,5 +1,7 @@
 <script setup>
 import { computed, inject } from 'vue'
+import EventSectionHeader from './EventSectionHeader.vue'
+import AppBadge from '../ui/AppBadge.vue'
 
 const ctx = inject('eventCtx')
 const isPublicRegistration = computed(() => Boolean(ctx.event?.public_signup_enabled))
@@ -44,13 +46,7 @@ const reviewedRequests = computed(() => {
 
 <template>
   <section>
-    <div class="section-header-row">
-      <h3 class="section-title">
-        <span class="material-symbols-rounded section-title-icon" aria-hidden="true">mail</span>
-        <span>Signup Requests</span>
-      </h3>
-    </div>
-    <div class="section-title-divider" aria-hidden="true"></div>
+    <EventSectionHeader icon="mail" title="Signup Requests" />
 
     <div class="signup-link-box">
       <div class="signup-visibility-row">
@@ -122,7 +118,11 @@ const reviewedRequests = computed(() => {
               <strong>{{ request.name }}</strong>
               <span class="muted">{{ request.role }} · {{ request.rank }}</span>
             </div>
-            <span class="status-badge" :class="request.status">{{ request.status }}</span>
+            <AppBadge
+              :variant="request.status === 'accepted' ? 'ok' : 'danger'"
+              :label="request.status"
+              radius="pill"
+            />
           </li>
         </ul>
       </article>
@@ -133,7 +133,7 @@ const reviewedRequests = computed(() => {
 <style scoped>
 .signup-link-box {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card) 92%, #f0f6ff 8%);
   padding: 0.62rem;
   margin-bottom: 0.72rem;
@@ -172,7 +172,7 @@ const reviewedRequests = computed(() => {
 
 .signup-request-card {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card) 92%, #f0f6ff 8%);
   padding: 0.58rem 0.62rem;
   display: grid;
@@ -225,27 +225,6 @@ const reviewedRequests = computed(() => {
 .signup-request-actions .btn-primary,
 .signup-request-actions .btn-danger {
   min-width: 78px;
-}
-
-.status-badge {
-  border-radius: 999px;
-  padding: 0.14rem 0.48rem;
-  border: 1px solid var(--line);
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.status-badge.accepted {
-  color: var(--ok-ink);
-  background: color-mix(in srgb, var(--ok-bg) 60%, transparent 40%);
-  border-color: color-mix(in srgb, var(--ok-bg) 72%, var(--line) 28%);
-}
-
-.status-badge.declined {
-  color: var(--err-ink);
-  background: color-mix(in srgb, var(--err-bg) 62%, transparent 38%);
-  border-color: color-mix(in srgb, var(--err-bg) 72%, var(--line) 28%);
 }
 
 @media (max-width: 960px) {

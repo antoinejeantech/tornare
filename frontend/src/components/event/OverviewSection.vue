@@ -2,7 +2,8 @@
 import { computed, inject } from 'vue'
 import { RouterLink } from 'vue-router'
 import { formatEventStartDate } from '../../lib/dates'
-import PlayerCard from './PlayerCard.vue'
+import PlayerCard from '../player/PlayerCard.vue'
+import EventSectionHeader from './EventSectionHeader.vue'
 
 const ctx = inject('eventCtx')
 
@@ -105,14 +106,9 @@ function sectionRoute(section) {
 
 <template>
   <section class="overview-section">
-    <header class="overview-hero">
-      <div class="overview-hero-head">
-        <h3 class="section-title">
-          <span class="material-symbols-rounded section-title-icon" aria-hidden="true">dashboard</span>
-          <span>Event Snapshot</span>
-        </h3>
-      </div>
+    <EventSectionHeader icon="dashboard" title="Event Snapshot" />
 
+    <header class="overview-hero">
       <div class="overview-meta-row">
         <span class="overview-chip">{{ ctx.event.event_type }}</span>
         <span class="overview-chip">{{ ctx.event.format }}</span>
@@ -234,7 +230,7 @@ function sectionRoute(section) {
 
 .overview-hero {
   border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 1.1rem 1.15rem;
   margin-bottom: 0.9rem;
   background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
@@ -259,7 +255,7 @@ function sectionRoute(section) {
 .overview-chip {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--bg-1) 14%);
   background: color-mix(in srgb, var(--card) 78%, var(--bg-1) 22%);
   color: color-mix(in srgb, white 94%, var(--ink-1) 6%);
@@ -285,7 +281,7 @@ function sectionRoute(section) {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--line) 88%, var(--bg-0) 12%);
   background: color-mix(in srgb, var(--card) 76%, var(--bg-1) 24%);
   padding: 0.66rem 1rem 0.64rem;
@@ -318,11 +314,11 @@ function sectionRoute(section) {
 .overview-readiness-dot {
   width: 0.58rem;
   height: 0.58rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--brand-1) 74%, #ffd869 26%);
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--brand-1) 14%, transparent 86%),
-    0 0 10px color-mix(in srgb, var(--brand-1) 30%, transparent 70%);
+    0 0 var(--radius-md) color-mix(in srgb, var(--brand-1) 30%, transparent 70%);
 }
 
 .overview-description {
@@ -334,7 +330,7 @@ function sectionRoute(section) {
 .overview-kpi {
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.88rem 0.92rem;
   display: grid;
   gap: 0.24rem;
@@ -365,7 +361,7 @@ function sectionRoute(section) {
 .overview-kpi-track {
   height: 5px;
   margin-top: 0.32rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--line) 85%, var(--bg-1) 15%);
   overflow: hidden;
 }
@@ -386,7 +382,7 @@ function sectionRoute(section) {
 .overview-card {
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.96rem 1rem;
   display: flex;
   flex-direction: column;
@@ -462,7 +458,7 @@ function sectionRoute(section) {
 .overview-team-tag {
   min-width: 2.1rem;
   height: 2.1rem;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -500,7 +496,7 @@ function sectionRoute(section) {
 .overview-empty-icon-wrap {
   width: 5.2rem;
   height: 5.2rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;

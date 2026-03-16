@@ -5,7 +5,7 @@ import { averagePlayersElo, formatAverageElo } from '../lib/elo'
 import { sortPlayersByRoleThenName } from '../lib/roles'
 import { useConfirm } from '../lib/confirm'
 import { useMatchStore } from '../stores/match'
-import PlayerIdentity from '../components/player/PlayerIdentity.vue'
+import PlayerNameplate from '../components/player/PlayerNameplate.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -166,7 +166,7 @@ onMounted(loadMatch)
             <p v-if="teamAPlayers.length === 0" class="muted">No players assigned to this team.</p>
             <ul v-else class="match-players-list">
               <li v-for="player in teamAPlayers" :key="`a-${player.id}`" class="match-player-row">
-                <PlayerIdentity :name="player.name" :role="player.role" :rank="player.rank" />
+                <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" />
               </li>
             </ul>
           </section>
@@ -177,7 +177,7 @@ onMounted(loadMatch)
             <p v-if="teamBPlayers.length === 0" class="muted">No players assigned to this team.</p>
             <ul v-else class="match-players-list">
               <li v-for="player in teamBPlayers" :key="`b-${player.id}`" class="match-player-row">
-                <PlayerIdentity :name="player.name" :role="player.role" :rank="player.rank" />
+                <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" />
               </li>
             </ul>
           </section>
@@ -219,7 +219,7 @@ onMounted(loadMatch)
 .match-player-row {
   border: 1px solid color-mix(in srgb, var(--line) 92%, var(--brand-1) 8%);
   background: color-mix(in srgb, var(--card) 90%, #f1f5ff 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.64rem 0.7rem;
   display: flex;
   justify-content: space-between;
@@ -238,7 +238,7 @@ onMounted(loadMatch)
 
 .team-roster-card {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card) 92%, #19253a 8%);
   padding: 0.6rem;
 }

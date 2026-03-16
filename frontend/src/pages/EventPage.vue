@@ -1602,7 +1602,7 @@ provide('eventCtx', proxyRefs({
 .event-logo {
   width: 5.35rem;
   height: 5.35rem;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1627,36 +1627,6 @@ provide('eventCtx', proxyRefs({
   align-items: center;
   align-self: center;
   flex-wrap: wrap;
-}
-
-.event-panel :deep(.section-title) {
-  margin: 0 0 0.72rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-  font-size: 1.55rem;
-  font-weight: 800;
-}
-
-.event-panel :deep(.overview-section .section-title) {
-  margin: 0;
-}
-
-.event-panel :deep(.section-header-row) {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-}
-
-.event-panel :deep(.section-title-divider) {
-  display: none;
-}
-
-.event-panel :deep(.section-title-icon) {
-  font-size: 1.16rem;
-  line-height: 1;
-  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
 }
 
 .event-layout {
@@ -1709,7 +1679,7 @@ provide('eventCtx', proxyRefs({
   border: 0;
   background: transparent;
   color: var(--ink-2);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.55rem 0.62rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -1734,7 +1704,7 @@ provide('eventCtx', proxyRefs({
   justify-content: center;
   width: 1.45rem;
   height: 1.45rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 0;
   background: transparent;
   color: currentColor;
@@ -1777,7 +1747,7 @@ provide('eventCtx', proxyRefs({
   top: 4px;
   bottom: 4px;
   width: 3px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--brand-1) 84%, #fff 16%);
 }
 
@@ -1790,7 +1760,7 @@ provide('eventCtx', proxyRefs({
   min-width: 1.35rem;
   height: 1.35rem;
   padding: 0 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1818,7 +1788,7 @@ provide('eventCtx', proxyRefs({
   background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
   background-image: none;
   box-shadow: none;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .event-panel :deep(.card) {

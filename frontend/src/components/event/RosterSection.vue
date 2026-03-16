@@ -1,6 +1,7 @@
 <script setup>
 import { computed, inject } from 'vue'
-import PlayerCard from './PlayerCard.vue'
+import PlayerCard from '../player/PlayerCard.vue'
+import EventSectionHeader from './EventSectionHeader.vue'
 
 const ctx = inject('eventCtx')
 
@@ -69,17 +70,12 @@ function padRosterCount(value) {
 
 <template>
   <section>
-    <div class="section-header-row">
-      <h3 class="section-title">
-        <span class="material-symbols-rounded section-title-icon" aria-hidden="true">groups</span>
-        <span>Roster Management</span>
-      </h3>
+    <EventSectionHeader icon="groups" title="Roster Management">
       <p class="section-total muted">
         <span class="section-total-value">{{ padRosterCount(ctx.event?.players?.length || 0) }}/{{ padRosterCount(ctx.event?.max_players || 0) }}</span>
         <span>players</span>
       </p>
-    </div>
-    <div class="section-title-divider" aria-hidden="true"></div>
+    </EventSectionHeader>
     <form v-if="ctx.canManageEvent" class="player-form" @submit.prevent="ctx.addPlayer">
       <label class="player-form-field">
         Player name
@@ -190,7 +186,7 @@ function padRosterCount(value) {
   margin: 0 0 1.35rem;
   padding: 1.02rem 1.08rem;
   border: 1px solid var(--surface-card-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--surface-card-bg);
   box-shadow: none;
 }
@@ -256,7 +252,7 @@ function padRosterCount(value) {
   width: min(520px, 100%);
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 0.92rem;
   display: grid;
   gap: 0.72rem;
