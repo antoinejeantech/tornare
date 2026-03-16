@@ -1,7 +1,7 @@
 <script setup>
 import { getRoleIcon } from '../../../lib/roles'
 
-const props = defineProps({
+defineProps({
   profile: {
     type: Object,
     required: true,
@@ -71,14 +71,13 @@ defineEmits(['edit-overwatch'])
           <p v-else class="battletag-copy">
             No battletag configured yet. Connect your account to synchronize official ranks.
           </p>
-          <a
+          <button
             class="battletag-link battletag-link-disabled"
-            href="#"
-            aria-disabled="true"
-            @click.prevent
+            type="button"
+            disabled
           >
             Connect Battle.net Account
-          </a>
+          </button>
         </div>
 
         <div class="rank-tile-grid">
@@ -267,6 +266,9 @@ defineEmits(['edit-overwatch'])
 
 .battletag-link {
   justify-self: center;
+  background: none;
+  border: none;
+  padding: 0;
   color: color-mix(in srgb, var(--brand-1) 92%, #ffefbf 8%);
   font-size: 0.86rem;
   font-weight: 700;
@@ -282,7 +284,6 @@ defineEmits(['edit-overwatch'])
   color: color-mix(in srgb, var(--ink-muted) 82%, transparent 18%);
   text-decoration: none;
   cursor: not-allowed;
-  pointer-events: none;
 }
 
 .rank-tile-grid {
