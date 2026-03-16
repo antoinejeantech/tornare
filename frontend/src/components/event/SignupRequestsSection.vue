@@ -223,7 +223,7 @@ const reviewedRequests = computed(() => {
 }
 
 .status-badge {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.14rem 0.48rem;
   border: 1px solid var(--line);
   text-transform: uppercase;

@@ -705,7 +705,7 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   background: var(--surface-card-bg);
   padding: 0.28rem 0.55rem;
@@ -729,7 +729,7 @@ onBeforeUnmount(() => {
   gap: 0.42rem;
   width: fit-content;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.22rem;
   background: var(--surface-card-bg);
 }
@@ -740,7 +740,7 @@ onBeforeUnmount(() => {
   color: var(--ink-2);
   font-weight: 620;
   padding: 0.34rem 0.72rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   transition: background 0.16s ease, color 0.16s ease;
 }
@@ -762,7 +762,7 @@ onBeforeUnmount(() => {
   gap: 0.4rem;
   padding: 0.1rem 0.45rem;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-card-bg);
 }
 

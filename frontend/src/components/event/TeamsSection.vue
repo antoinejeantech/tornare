@@ -970,7 +970,7 @@ function formatTeamModified(team) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, #f2bf49 70%, var(--line) 30%);
   background: color-mix(in srgb, #f2bf49 20%, var(--card) 80%);
   color: #ffdc7a;
@@ -999,7 +999,7 @@ function formatTeamModified(team) {
 .balance-roster-chip {
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
   background: color-mix(in srgb, var(--card) 92%, #1b2840 8%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.16rem 0.5rem;
   font-size: 0.82rem;
   font-weight: 700;
@@ -1316,7 +1316,7 @@ function formatTeamModified(team) {
 .team-player-avatar {
   width: 24px;
   height: 24px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;

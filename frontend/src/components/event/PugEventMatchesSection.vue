@@ -409,7 +409,7 @@ async function saveMatchupAndClose(match) {
 .matchup-team-pill {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.26rem 0.74rem;
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
   background: color-mix(in srgb, var(--card) 92%, #1a2740 8%);
@@ -431,7 +431,7 @@ async function saveMatchupAndClose(match) {
 
 .matchup-state {
   margin-left: 0.2rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.24rem 0.7rem;
   font-size: 0.88rem;
   font-weight: 700;

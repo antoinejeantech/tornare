@@ -694,7 +694,7 @@ watch(editingMatchups, () => {
   top: calc(50% - (var(--connector-stroke) / 2));
   width: calc((var(--col-gap) / 2) + var(--connector-overlap));
   height: var(--connector-stroke);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--connector-ink);
   pointer-events: none;
 }
@@ -713,7 +713,7 @@ watch(editingMatchups, () => {
 .fork-segment {
   position: absolute;
   background: var(--connector-ink);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .fork-spine {

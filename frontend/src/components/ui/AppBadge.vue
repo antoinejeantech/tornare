@@ -28,7 +28,7 @@ const RADIUS_TOKENS = {
   item: 'var(--radius-item)',
   md:   'var(--radius-md)',
   lg:   'var(--radius-lg)',
-  pill: '999px',
+  pill: 'var(--radius-pill)',
 }
 
 const radiusStyle = computed(() =>

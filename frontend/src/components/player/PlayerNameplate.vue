@@ -77,7 +77,7 @@ const rankIcon = computed(() => getRankIcon(props.rank))
   gap: 0.28rem;
   margin-left: 0.42rem;
   padding: 0.1rem 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   background: color-mix(in srgb, var(--card) 88%, #19253a 12%);
   font-size: 0.84rem;

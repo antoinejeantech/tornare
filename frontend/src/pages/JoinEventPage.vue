@@ -297,7 +297,7 @@ onMounted(loadSignupInfo)
   border: 1px solid color-mix(in srgb, var(--primary-200) 88%, white 12%);
   background: color-mix(in srgb, var(--primary-700) 28%, var(--card) 72%);
   width: fit-content;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.2rem 0.54rem;
   font-size: 0.7rem;
   font-weight: 700;

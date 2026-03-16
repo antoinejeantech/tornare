@@ -594,7 +594,7 @@ onMounted(async () => {
   position: relative;
   width: 66px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--line) 85%, var(--bg-1) 15%);
   overflow: hidden;
 }
@@ -602,7 +602,7 @@ onMounted(async () => {
 .home-activity-players-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: linear-gradient(90deg, color-mix(in srgb, var(--brand-2) 92%, var(--bg-1) 8%), color-mix(in srgb, var(--accent) 90%, var(--bg-1) 10%));
 }
 

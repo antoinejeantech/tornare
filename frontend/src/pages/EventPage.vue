@@ -1747,7 +1747,7 @@ provide('eventCtx', proxyRefs({
   top: 4px;
   bottom: 4px;
   width: 3px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--brand-1) 84%, #fff 16%);
 }
 
@@ -1760,7 +1760,7 @@ provide('eventCtx', proxyRefs({
   min-width: 1.35rem;
   height: 1.35rem;
   padding: 0 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;

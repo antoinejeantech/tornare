@@ -248,7 +248,7 @@ function switchMode(nextMode) {
   display: block;
   background: #fff;
   border: 1px solid color-mix(in srgb, #0b5ed7 22%, #ffffff 78%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.2rem;
   box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
 }
@@ -265,7 +265,7 @@ function switchMode(nextMode) {
   letter-spacing: 0.05em;
   color: #fff;
   background: linear-gradient(135deg, #ef5f00, #f28b2f);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.18rem 0.5rem;
 }
 

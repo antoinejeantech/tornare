@@ -113,7 +113,7 @@ function emitSelect() {
 .player-avatar {
   width: 2.28rem;
   height: 2.28rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -151,7 +151,7 @@ function emitSelect() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.1rem 0.48rem;
   font-size: 0.72rem;
   font-weight: 700;

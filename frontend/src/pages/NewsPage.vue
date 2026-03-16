@@ -148,7 +148,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 }
 
 .news-meta-pill {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--brand-1) 34%, var(--line) 66%);
   background: color-mix(in srgb, var(--accent) 18%, var(--meta-bg) 82%);
   color: var(--meta-ink);
@@ -227,7 +227,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 }
 
 .news-category-chip {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-1) 16%);
   background: color-mix(in srgb, var(--card) 90%, #182337 10%);
   color: var(--ink-2);

@@ -9,6 +9,7 @@
   --radius-item: 10px;
   --radius-md: 12px;
   --radius-lg: 14px;
+  --radius-pill: 999px;
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -448,7 +449,7 @@ textarea:-webkit-autofill:focus {
   gap: 0.28rem;
   margin-left: 0.42rem;
   padding: 0.1rem 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   background: color-mix(in srgb, var(--card) 90%, #252525 10%);
   font-size: 0.84rem;

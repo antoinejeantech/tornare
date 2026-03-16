@@ -296,7 +296,7 @@ onBeforeUnmount(() => {
   gap: 0.3rem;
   text-decoration: none;
   padding: 0.38rem 0.72rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   background: transparent;
   color: var(--ink-2);
@@ -312,7 +312,7 @@ onBeforeUnmount(() => {
   right: 0.72rem;
   bottom: 0.16rem;
   height: 2px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: center;
@@ -355,7 +355,7 @@ onBeforeUnmount(() => {
   color: var(--ink-1);
   background: color-mix(in srgb, var(--card) 82%, var(--bg-1) 18%);
   border-color: var(--line-strong);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   transform: none;
 }
 
@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.28rem;
   padding: 0.34rem 0.62rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, #5b6f93 46%, var(--line) 54%);
   background: var(--bg-0);
   color: var(--ink-muted);

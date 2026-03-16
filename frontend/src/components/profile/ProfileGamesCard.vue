@@ -225,7 +225,7 @@ defineEmits(['edit-overwatch'])
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--line) 30%, transparent 70%);
 }
 
@@ -255,7 +255,7 @@ defineEmits(['edit-overwatch'])
   align-items: center;
   justify-content: center;
   border: 1px dashed color-mix(in srgb, var(--line) 56%, transparent 44%);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.12rem 0.46rem;
   font-size: 0.66rem;
   font-weight: 800;
