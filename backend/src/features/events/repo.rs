@@ -1110,13 +1110,16 @@ pub async fn load_matches_for_event(
                 g.winner_team_id,
                 tw.name AS winner_team_name,
                 g.is_bracket,
-                g.status
+                g.status,
+                g.created_at::text AS created_at,
+                g.updated_at::text AS updated_at,
+                g.start_date::text AS start_date
          FROM event_matches g
          LEFT JOIN event_teams ta ON ta.id = g.team_a_id
          LEFT JOIN event_teams tb ON tb.id = g.team_b_id
             LEFT JOIN event_teams tw ON tw.id = g.winner_team_id
          WHERE g.event_id = $1
-            ORDER BY COALESCE(g.round, 9999), COALESCE(g.position, 9999), g.id ASC",
+            ORDER BY COALESCE(g.round, 9999), COALESCE(g.position, 9999), g.created_at ASC",
     )
     .bind(event_id)
     .fetch_all(pool)
@@ -1145,6 +1148,9 @@ pub async fn load_matches_for_event(
             winner_team_name: row.get("winner_team_name"),
             is_bracket: row.get::<bool, _>("is_bracket"),
             status: row.get::<String, _>("status"),
+            created_at: row.get::<String, _>("created_at"),
+            updated_at: row.get::<String, _>("updated_at"),
+            start_date: row.get::<Option<String>, _>("start_date"),
             players: players.clone(),
         });
     }

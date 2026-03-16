@@ -104,13 +104,32 @@ pub async fn insert_event_match(
     title: &str,
     map: &str,
     max_players: i32,
+    start_date: Option<String>,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("INSERT INTO event_matches (id, event_id, title, map, max_players) VALUES ($1, $2, $3, $4, $5)")
+    sqlx::query(
+        "INSERT INTO event_matches (id, event_id, title, map, max_players, start_date) VALUES ($1, $2, $3, $4, $5, $6::timestamptz)",
+    )
+    .bind(match_id)
+    .bind(event_id)
+    .bind(title)
+    .bind(map)
+    .bind(max_players)
+    .bind(start_date)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn set_match_start_date(
+    pool: &PgPool,
+    match_id: Uuid,
+    start_date: Option<String>,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("UPDATE event_matches SET start_date = $1::timestamptz WHERE id = $2")
+        .bind(start_date)
         .bind(match_id)
-        .bind(event_id)
-        .bind(title)
-        .bind(map)
-        .bind(max_players)
         .execute(pool)
         .await
         .map_err(internal_error)?;
@@ -334,6 +353,29 @@ pub async fn clear_match_winner_in_tx(
     Ok(())
 }
 
+pub async fn clear_pug_match_winner_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    match_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    // Resets winner and recalculates status for a non-bracket (PUG) match.
+    // Both teams must still be set at this point, so status reverts to READY.
+    sqlx::query(
+        "UPDATE event_matches
+         SET winner_team_id = NULL,
+             status = CASE
+                 WHEN team_a_id IS NOT NULL AND team_b_id IS NOT NULL THEN 'READY'
+                 ELSE 'OPEN'
+             END
+         WHERE id = $1",
+    )
+    .bind(match_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
 pub async fn get_next_match_link_in_tx(
     tx: &mut Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
@@ -496,7 +538,10 @@ pub async fn load_match(pool: &PgPool, match_id: Uuid) -> Result<Match, crate::s
                 g.winner_team_id,
                 tw.name AS winner_team_name,
                 g.is_bracket,
-                g.status
+                g.status,
+                g.created_at::text AS created_at,
+                g.updated_at::text AS updated_at,
+                g.start_date::text AS start_date
          FROM event_matches g
          LEFT JOIN event_teams ta ON ta.id = g.team_a_id
          LEFT JOIN event_teams tb ON tb.id = g.team_b_id
@@ -534,6 +579,9 @@ pub async fn load_match(pool: &PgPool, match_id: Uuid) -> Result<Match, crate::s
         winner_team_name: row.get("winner_team_name"),
         is_bracket: row.get::<bool, _>("is_bracket"),
         status: row.get::<String, _>("status"),
+        created_at: row.get::<String, _>("created_at"),
+        updated_at: row.get::<String, _>("updated_at"),
+        start_date: row.get::<Option<String>, _>("start_date"),
         players,
     })
 }

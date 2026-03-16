@@ -13,5 +13,5 @@ pub use handlers::{
     generate_tourney_bracket, get_event, get_event_signup_link, get_events_kpis, get_featured_event, get_public_signup_info,
     list_event_signup_requests, list_events, report_match_winner, cancel_match_winner,
     rotate_event_signup_link, set_event_featured, set_event_public_signup,
-    set_matchup, update_event, update_event_player, update_event_team,
+    set_matchup, update_event, update_event_player, update_event_team, update_match_start_date,
 };

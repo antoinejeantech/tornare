@@ -8,7 +8,7 @@ use crate::{
         events::{
             models::{
                 BracketGenerationMode, CreateEventMatchInput, CreateMatchInput, Event, EventType, Match,
-                ReportMatchWinnerInput, SetMatchupInput,
+                ReportMatchWinnerInput, SetMatchupInput, UpdateMatchStartDateInput,
             },
             repo as events_repo,
         },
@@ -98,6 +98,7 @@ pub async fn create_event_match_for_user(
         title: payload.title,
         map: payload.map,
         max_players: i32_to_u8(max_players_i32, "max_players")?,
+        start_date: payload.start_date,
     };
 
     create_match_record(state, create_match, event_id).await
@@ -391,12 +392,35 @@ pub async fn report_match_winner_for_user(
     require_event_owner_access(state, event_id, user_id).await?;
 
     match events_repo::event_type_for_event(&state.pool, event_id).await? {
-        Some(EventType::Tourney) => {}
         Some(EventType::Pug) => {
-            return Err(bad_request(
-                "Winner reporting through bracket progression is only available for TOURNEY events",
-            ));
+            // PUG path: simple winner set, no bracket propagation.
+            let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+            let Some(match_state) = repo::get_bracket_match_state_in_tx(&mut tx, event_id, match_id).await? else {
+                return Err(not_found("Match not found in this event"));
+            };
+
+            if match_state.winner_team_id.is_some() {
+                return Err(bad_request("A winner is already set for this match"));
+            }
+
+            let Some(team_a_id) = match_state.team_a_id else {
+                return Err(bad_request("Matchup is incomplete"));
+            };
+            let Some(team_b_id) = match_state.team_b_id else {
+                return Err(bad_request("Matchup is incomplete"));
+            };
+
+            if payload.winner_team_id != team_a_id && payload.winner_team_id != team_b_id {
+                return Err(bad_request("Winner must be one of the two match teams"));
+            }
+
+            repo::set_match_winner_completed_in_tx(&mut tx, match_id, payload.winner_team_id).await?;
+            tx.commit().await.map_err(internal_error)?;
+
+            return repo::load_match(&state.pool, match_id).await;
         }
+        Some(EventType::Tourney) => {}
         None => return Err(not_found("Event not found")),
     }
 
@@ -496,12 +520,24 @@ pub async fn cancel_match_winner_for_user(
     require_event_owner_access(state, event_id, user_id).await?;
 
     match events_repo::event_type_for_event(&state.pool, event_id).await? {
-        Some(EventType::Tourney) => {}
         Some(EventType::Pug) => {
-            return Err(bad_request(
-                "Match result cancellation through bracket progression is only available for TOURNEY events",
-            ));
+            // PUG path: simple winner clear, no bracket rollback.
+            let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+            let Some(match_state) = repo::get_bracket_match_state_in_tx(&mut tx, event_id, match_id).await? else {
+                return Err(not_found("Match not found in this event"));
+            };
+
+            if match_state.winner_team_id.is_none() {
+                return Err(bad_request("No winner is currently set for this match"));
+            }
+
+            repo::clear_pug_match_winner_in_tx(&mut tx, match_id).await?;
+            tx.commit().await.map_err(internal_error)?;
+
+            return repo::load_match(&state.pool, match_id).await;
         }
+        Some(EventType::Tourney) => {}
         None => return Err(not_found("Event not found")),
     }
 
@@ -563,9 +599,31 @@ async fn create_match_record(
         payload.title.trim(),
         payload.map.trim(),
         i32::from(payload.max_players),
+        payload.start_date,
     )
     .await?;
 
+    repo::load_match(&state.pool, match_id).await
+}
+
+pub async fn update_match_start_date_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+    match_id: Uuid,
+    payload: UpdateMatchStartDateInput,
+) -> Result<Match, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    let Some(match_event_id) = repo::get_match_event_id(&state.pool, match_id).await? else {
+        return Err(not_found("Match not found"));
+    };
+
+    if match_event_id != event_id {
+        return Err(not_found("Match not found in this event"));
+    }
+
+    repo::set_match_start_date(&state.pool, match_id, payload.start_date).await?;
     repo::load_match(&state.pool, match_id).await
 }
 

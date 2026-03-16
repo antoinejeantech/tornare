@@ -54,6 +54,9 @@ const lastBalanceSummary = ref('')
 
 const newMatchTitle = ref('')
 const newMatchMap = ref('')
+const newMatchTeamAId = ref('')
+const newMatchTeamBId = ref('')
+const newMatchStartDate = ref('')
 const newPlayerName = ref('')
 const newPlayerRole = ref('DPS')
 const newPlayerRank = ref('Unranked')
@@ -911,6 +914,7 @@ async function createMatch() {
     const created = await matchStore.createMatchForEvent(eventId.value, {
       title: newMatchTitle.value.trim(),
       map: newMatchMap.value.trim(),
+      start_date: newMatchStartDate.value || null,
     })
 
     if (event.value) {
@@ -919,22 +923,62 @@ async function createMatch() {
         matches: [created, ...event.value.matches]
       }
 
+      const teamAId = newMatchTeamAId.value || null
+      const teamBId = newMatchTeamBId.value || null
+
       matchupSelections.value = {
         ...matchupSelections.value,
         [created.id]: {
-          teamAId: created.team_a_id ? String(created.team_a_id) : '',
-          teamBId: created.team_b_id ? String(created.team_b_id) : ''
+          teamAId: teamAId ? String(teamAId) : '',
+          teamBId: teamBId ? String(teamBId) : ''
+        }
+      }
+
+      if (teamAId && teamBId && teamAId !== teamBId) {
+        try {
+          const updatedMatch = await matchStore.setMatchupForEvent(eventId.value, created.id, {
+            team_a_id: teamAId,
+            team_b_id: teamBId,
+          })
+          event.value = {
+            ...event.value,
+            matches: event.value.matches.map((m) => m.id === created.id ? updatedMatch : m)
+          }
+          hydrateSelections()
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Match created but failed to set teams')
         }
       }
     }
 
     newMatchTitle.value = ''
     newMatchMap.value = ''
+    newMatchTeamAId.value = ''
+    newMatchTeamBId.value = ''
+    newMatchStartDate.value = ''
     setNotice('Match created in event')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to create match')
   } finally {
     creatingMatch.value = false
+  }
+}
+
+async function updateMatchStartDate(matchId, startDate) {
+  if (!ensureOwnerAction()) return
+  if (!eventId.value) return
+
+  try {
+    const updated = await matchStore.updateMatchStartDate(eventId.value, matchId, startDate || null)
+    if (event.value) {
+      event.value = {
+        ...event.value,
+        matches: event.value.matches.map((m) => m.id === matchId ? updated : m),
+      }
+    }
+    setNotice('Start date updated')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to update start date')
   }
 }
 
@@ -1015,7 +1059,7 @@ async function reportMatchWinner(matchId, winnerTeamId) {
     return
   }
 
-  if (!eventId.value || !isTourneyEvent.value || !winnerTeamId || reportingWinners.value[matchId]) {
+  if (!eventId.value || !winnerTeamId || reportingWinners.value[matchId]) {
     return
   }
 
@@ -1064,13 +1108,15 @@ async function cancelMatchWinner(matchId) {
     return
   }
 
-  if (!eventId.value || !isTourneyEvent.value || cancellingWinners.value[matchId]) {
+  if (!eventId.value || cancellingWinners.value[matchId]) {
     return
   }
 
   const confirmed = await confirm.ask({
     title: 'Cancel match result?',
-    message: 'Downstream bracket progression will be reset where needed.',
+    message: isTourneyEvent.value
+      ? 'Downstream bracket progression will be reset where needed.'
+      : 'The recorded result for this match will be cleared.',
     confirmText: 'Cancel result',
     tone: 'warning',
   })
@@ -1346,6 +1392,9 @@ provide('eventCtx', proxyRefs({
   newTeamName,
   newMatchTitle,
   newMatchMap,
+  newMatchTeamAId,
+  newMatchTeamBId,
+  newMatchStartDate,
   newPlayerName,
   newPlayerRole,
   newPlayerRank,
@@ -1380,6 +1429,7 @@ provide('eventCtx', proxyRefs({
   autoCreateSoloTeams,
   autoBalanceTeams,
   createMatch,
+  updateMatchStartDate,
   generateTourneyBracket,
   clearTourneyBracket,
   deleteEvent,

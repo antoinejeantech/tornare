@@ -95,6 +95,9 @@ pub struct Match {
     pub winner_team_name: Option<String>,
     pub is_bracket: bool,
     pub status: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub start_date: Option<String>,
     pub players: Vec<Player>,
 }
 
@@ -189,6 +192,12 @@ pub struct UpdateEventInput {
 pub struct CreateEventMatchInput {
     pub title: String,
     pub map: String,
+    pub start_date: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateMatchStartDateInput {
+    pub start_date: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -236,6 +245,7 @@ pub struct CreateMatchInput {
     pub title: String,
     pub map: String,
     pub max_players: u8,
+    pub start_date: Option<String>,
 }
 
 #[derive(Deserialize)]

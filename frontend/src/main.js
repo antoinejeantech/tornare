@@ -6,7 +6,6 @@ import App from './App.vue'
 import './styles.css'
 import HomePage from './pages/HomePage.vue'
 import EventsPage from './pages/EventsPage.vue'
-import MatchPage from './pages/MatchPage.vue'
 import EventPage from './pages/EventPage.vue'
 import AboutPage from './pages/AboutPage.vue'
 import NewsPage from './pages/NewsPage.vue'
@@ -36,7 +35,6 @@ const router = createRouter({
 		{ path: '/events/:id', name: 'event', component: EventPage, meta: { title: 'Event Setup | Tornare' } },
 		{ path: '/join/:token', name: 'join-event', component: JoinEventPage, meta: { title: 'Join Event | Tornare' } },
 		{ path: '/profiles/:id', name: 'profile', component: ProfilePage, meta: { title: 'Profile | Tornare' } },
-		{ path: '/matches/:id', name: 'match', component: MatchPage, meta: { requiresAuth: true, title: 'Match | Tornare' } },
 		{ path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundPage, meta: { title: '404 | Tornare' } }
 	]
 })

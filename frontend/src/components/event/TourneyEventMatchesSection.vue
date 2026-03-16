@@ -1,17 +1,11 @@
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 
 const ctx = inject('eventCtx')
-const router = useRouter()
 const editingMatchups = ref({})
 const bracketWrapEl = ref(null)
 const measuredCardHeight = ref(104)
 let resizeObserver = null
-
-function openMatch(matchId) {
-  router.push({ name: 'match', params: { id: matchId } })
-}
 
 function nextPowerOfTwo(value) {
   let size = 1
@@ -562,14 +556,12 @@ watch(editingMatchups, () => {
 
               <!-- Card header: title + status badge -->
               <div class="match-header">
-                <button
+                <span
                   v-if="!match.isPlaceholder"
-                  class="match-title-btn"
-                  type="button"
-                  @click="openMatch(match.id)"
+                  class="match-title-static"
                 >
                   {{ match.title }}
-                </button>
+                </span>
                 <span v-else class="match-title-static">{{ match.title }}</span>
                 <span
                   class="match-status-badge"

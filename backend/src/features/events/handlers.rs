@@ -16,7 +16,7 @@ use crate::{
             EventsKpiResponse, GenerateTourneyBracketInput, ListEventsQuery, PaginatedEventsResponse, PublicEventSignupInfo, ReportMatchWinnerInput,
             SetEventFeaturedInput, SetEventPublicSignupInput,
             SetMatchupInput, UpdateEventInput,
-            UpdateEventPlayerInput, UpdateEventTeamInput,
+            UpdateEventPlayerInput, UpdateEventTeamInput, UpdateMatchStartDateInput,
         },
     },
     shared::{errors::ApiResult, models::MessageResponse},
@@ -271,6 +271,18 @@ pub async fn cancel_match_winner(
 ) -> ApiResult<Match> {
     let user_id = require_authenticated_user_id(&state, &headers)?;
     service::cancel_match_winner_for_user(&state, user_id, event_id, match_id)
+        .await
+        .map(Json)
+}
+
+pub async fn update_match_start_date(
+    Path((event_id, match_id)): Path<(Uuid, Uuid)>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<UpdateMatchStartDateInput>,
+) -> ApiResult<Match> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::update_match_start_date_for_user(&state, user_id, event_id, match_id, payload)
         .await
         .map(Json)
 }
