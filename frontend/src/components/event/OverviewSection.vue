@@ -106,9 +106,9 @@ function sectionRoute(section) {
 
 <template>
   <section class="overview-section">
-    <header class="overview-hero">
-      <EventSectionHeader icon="dashboard" title="Event Snapshot" />
+    <EventSectionHeader icon="dashboard" title="Event Snapshot" />
 
+    <header class="overview-hero">
       <div class="overview-meta-row">
         <span class="overview-chip">{{ ctx.event.event_type }}</span>
         <span class="overview-chip">{{ ctx.event.format }}</span>
@@ -221,10 +221,6 @@ function sectionRoute(section) {
 </template>
 
 <style scoped>
-:deep(.section-title) {
-  margin: 0;
-}
-
 .overview-kpis {
   display: grid;
   gap: 0.72rem;
