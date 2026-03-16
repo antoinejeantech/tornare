@@ -1,5 +1,6 @@
 <script setup>
 import { computed, inject } from 'vue'
+import EventSectionHeader from './EventSectionHeader.vue'
 
 const ctx = inject('eventCtx')
 const isPublicRegistration = computed(() => Boolean(ctx.event?.public_signup_enabled))
@@ -44,13 +45,7 @@ const reviewedRequests = computed(() => {
 
 <template>
   <section>
-    <div class="section-header-row">
-      <h3 class="section-title">
-        <span class="material-symbols-rounded section-title-icon" aria-hidden="true">mail</span>
-        <span>Signup Requests</span>
-      </h3>
-    </div>
-    <div class="section-title-divider" aria-hidden="true"></div>
+    <EventSectionHeader icon="mail" title="Signup Requests" />
 
     <div class="signup-link-box">
       <div class="signup-visibility-row">
@@ -133,7 +128,7 @@ const reviewedRequests = computed(() => {
 <style scoped>
 .signup-link-box {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   background: color-mix(in srgb, var(--card) 92%, #f0f6ff 8%);
   padding: 0.62rem;
   margin-bottom: 0.72rem;
@@ -172,7 +167,7 @@ const reviewedRequests = computed(() => {
 
 .signup-request-card {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   background: color-mix(in srgb, var(--card) 92%, #f0f6ff 8%);
   padding: 0.58rem 0.62rem;
   display: grid;

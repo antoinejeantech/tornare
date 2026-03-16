@@ -3,6 +3,7 @@ import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, 
 import { averagePlayersElo } from '../../lib/elo'
 import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
 import PlayerCard from './PlayerCard.vue'
+import EventSectionHeader from './EventSectionHeader.vue'
 
 const ctx = inject('eventCtx')
 const assignmentSearchByTeam = reactive({})
@@ -546,13 +547,7 @@ function formatTeamModified(team) {
 
 <template>
   <section>
-    <div class="section-header-row">
-      <h3 class="section-title">
-        <span class="material-symbols-rounded section-title-icon" aria-hidden="true">shield</span>
-        <span>Team Management</span>
-      </h3>
-    </div>
-    <div class="section-title-divider" aria-hidden="true"></div>
+    <EventSectionHeader icon="shield" title="Team Management" />
     <div class="teams-layout" :class="{ 'is-readonly': !ctx.canManageEvent }">
       <aside v-if="ctx.canManageEvent" class="teams-sidebar">
         <p class="teams-sidebar-kicker">Quick setup</p>
@@ -922,7 +917,7 @@ function formatTeamModified(team) {
 .balance-report-box {
   border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-2) 12%);
   background: color-mix(in srgb, var(--card) 94%, #eef6ff 6%);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   padding: 0.52rem 0.6rem;
   margin: 0;
 }
@@ -1119,7 +1114,7 @@ function formatTeamModified(team) {
 }
 
 .team-balance-pill {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.12rem 0.42rem;
   font-size: 0.72rem;
   font-weight: 700;
@@ -1188,7 +1183,7 @@ function formatTeamModified(team) {
   display: grid;
   gap: 0;
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  border-radius: 10px;
+  border-radius: var(--radius-item);
   overflow: hidden;
   background: transparent;
 }
@@ -1452,8 +1447,8 @@ function formatTeamModified(team) {
   max-width: min(42rem, calc(100vw - 2rem));
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
   background: color-mix(in srgb, var(--card) 96%, #19253a 4%);
-  border-radius: 10px;
-  box-shadow: 0 10px 24px rgba(16, 39, 82, 0.18);
+  border-radius: var(--radius-item);
+  box-shadow: 0 var(--radius-item) 24px rgba(16, 39, 82, 0.18);
   padding: 0.45rem;
   display: grid;
   gap: 0.35rem;

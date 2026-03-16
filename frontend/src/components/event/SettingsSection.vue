@@ -1,6 +1,7 @@
 <script setup>
 import { inject } from 'vue'
 import { formatOptionsForType } from '../../lib/event-format'
+import EventSectionHeader from './EventSectionHeader.vue'
 
 const ctx = inject('eventCtx')
 </script>
@@ -8,13 +9,7 @@ const ctx = inject('eventCtx')
 <template>
   <section class="event-settings-section">
     <div class="section-heading-block">
-      <div class="section-header-row">
-        <h3 class="section-title">
-          <span class="material-symbols-rounded section-title-icon" aria-hidden="true">settings</span>
-          <span>Settings</span>
-        </h3>
-      </div>
-      <div class="section-title-divider" aria-hidden="true"></div>
+      <EventSectionHeader icon="settings" title="Settings" />
     </div>
 
     <div class="event-registration-toggle-box" :class="ctx.event.public_signup_enabled ? 'is-public' : 'is-private'">
