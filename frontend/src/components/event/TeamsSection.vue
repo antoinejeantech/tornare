@@ -1101,7 +1101,7 @@ function formatTeamModified(team) {
 
 .team-meta-elo {
   font-family: "Space Mono", ui-monospace, monospace;
-  color: #fff;
+  color: var(--ink-2);
   text-align: left;
   white-space: nowrap;
 }

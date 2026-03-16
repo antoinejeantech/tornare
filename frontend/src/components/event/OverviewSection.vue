@@ -3,6 +3,7 @@ import { computed, inject } from 'vue'
 import { RouterLink } from 'vue-router'
 import { formatEventStartDate } from '../../lib/dates'
 import PlayerCard from './PlayerCard.vue'
+import EventSectionHeader from './EventSectionHeader.vue'
 
 const ctx = inject('eventCtx')
 
@@ -106,12 +107,7 @@ function sectionRoute(section) {
 <template>
   <section class="overview-section">
     <header class="overview-hero">
-      <div class="overview-hero-head">
-        <h3 class="section-title">
-          <span class="material-symbols-rounded section-title-icon" aria-hidden="true">dashboard</span>
-          <span>Event Snapshot</span>
-        </h3>
-      </div>
+      <EventSectionHeader icon="dashboard" title="Event Snapshot" />
 
       <div class="overview-meta-row">
         <span class="overview-chip">{{ ctx.event.event_type }}</span>
@@ -225,7 +221,7 @@ function sectionRoute(section) {
 </template>
 
 <style scoped>
-.section-title {
+:deep(.section-title) {
   margin: 0;
 }
 
