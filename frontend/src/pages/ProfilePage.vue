@@ -475,7 +475,7 @@ onMounted(async () => {
   display: grid;
   gap: 0.7rem;
   border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-1) 18%);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 0.85rem;
 }
 

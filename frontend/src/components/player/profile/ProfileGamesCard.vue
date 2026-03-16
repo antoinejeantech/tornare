@@ -155,7 +155,7 @@ defineEmits(['edit-overwatch'])
 
 .game-panel {
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   margin: 0.45rem 0;
   padding: 1.55rem 1.05rem;
   display: grid;

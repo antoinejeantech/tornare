@@ -44,7 +44,7 @@ function iconFor(type) {
 }
 
 .alert-toast {
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--line);
   background: var(--card);
   box-shadow: 0 12px 24px rgba(14, 30, 61, 0.24);

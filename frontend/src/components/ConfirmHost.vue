@@ -207,7 +207,7 @@ onBeforeUnmount(() => {
 
 .confirm-dialog {
   width: min(520px, calc(100vw - 2rem));
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--line) 74%, var(--brand-2) 26%);
   background:
     radial-gradient(180px 90px at 100% 0%, color-mix(in srgb, var(--brand-2) 14%, transparent 86%), transparent 70%),

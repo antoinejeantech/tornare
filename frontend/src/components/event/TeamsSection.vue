@@ -1051,7 +1051,7 @@ function formatTeamModified(team) {
 .team-row {
   border: 1px solid color-mix(in srgb, var(--line) 96%, var(--brand-1) 4%);
   background: transparent;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 0.92rem 0.96rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1373,7 +1373,7 @@ function formatTeamModified(team) {
   max-height: min(80vh, 54rem);
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--brand-1) 28%);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card) 95%, #101a2c 5%);
   padding: 0.82rem;
   display: grid;

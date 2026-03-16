@@ -382,7 +382,7 @@ onMounted(loadSignupInfo)
   justify-content: center;
   width: 2.8rem;
   height: 2.8rem;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--line-strong) 74%, var(--line) 26%);
   background: color-mix(in srgb, var(--bg-0) 84%, black 16%);
 }

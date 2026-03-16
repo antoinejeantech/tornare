@@ -234,7 +234,7 @@ function sectionRoute(section) {
 
 .overview-hero {
   border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 1.1rem 1.15rem;
   margin-bottom: 0.9rem;
   background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);

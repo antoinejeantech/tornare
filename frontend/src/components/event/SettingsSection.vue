@@ -108,7 +108,7 @@ const ctx = inject('eventCtx')
 
 .event-registration-toggle-box {
   border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-2) 28%);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   padding: 0.82rem;
   background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
   display: grid;

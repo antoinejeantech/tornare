@@ -317,7 +317,7 @@ async function saveMatchupAndClose(match) {
 .entry-list li {
   border: 1px solid color-mix(in srgb, var(--line) 92%, var(--brand-1) 8%);
   background: color-mix(in srgb, var(--card) 90%, #f1f5ff 10%);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 1rem 1.05rem;
   display: grid;
   grid-template-columns: minmax(180px, 0.9fr) minmax(0, 1.35fr) auto;

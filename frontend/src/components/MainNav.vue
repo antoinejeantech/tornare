@@ -495,7 +495,7 @@ onBeforeUnmount(() => {
   right: 0;
   min-width: 140px;
   padding: 0.32rem;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--line-strong);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--card) 90%, #18253a 10%) 0%, color-mix(in srgb, var(--card) 96%, #101828 4%) 100%);
@@ -567,7 +567,7 @@ onBeforeUnmount(() => {
     display: none;
     margin-left: 0;
     padding: 0.55rem;
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     border: 1px solid color-mix(in srgb, var(--brand-2) 36%, var(--line) 64%);
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--card) 92%, #18253a 8%) 0%, color-mix(in srgb, var(--card) 96%, #101828 4%) 100%);

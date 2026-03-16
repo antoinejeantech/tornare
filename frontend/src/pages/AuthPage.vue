@@ -224,7 +224,7 @@ function switchMode(nextMode) {
 
 .btn-bnet {
   border: 1px dashed color-mix(in srgb, var(--line) 68%, #f06414 32%);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 0.7rem 0.9rem;
   background: linear-gradient(120deg, #fff5ed, #ffe9d7);
   color: #5c2400;
@@ -282,7 +282,7 @@ function switchMode(nextMode) {
 .auth-signup-lock {
   border: 1px dashed color-mix(in srgb, var(--line) 64%, #f08b2f 36%);
   background: linear-gradient(130deg, color-mix(in srgb, var(--card) 78%, #fff1df 22%), color-mix(in srgb, var(--card) 86%, #ffe5cc 14%));
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   padding: 0.6rem 0.72rem;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
