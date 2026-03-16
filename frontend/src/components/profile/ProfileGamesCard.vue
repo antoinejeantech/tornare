@@ -1,5 +1,5 @@
 <script setup>
-import { getRoleIcon } from '../../../lib/roles'
+import { getRoleIcon } from '../../lib/roles'
 
 defineProps({
   profile: {

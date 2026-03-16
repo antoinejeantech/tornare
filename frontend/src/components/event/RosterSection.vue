@@ -1,6 +1,6 @@
 <script setup>
 import { computed, inject } from 'vue'
-import PlayerCard from './PlayerCard.vue'
+import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 
 const ctx = inject('eventCtx')

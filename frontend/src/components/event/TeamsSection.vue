@@ -2,7 +2,7 @@
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { averagePlayersElo } from '../../lib/elo'
 import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
-import PlayerCard from './PlayerCard.vue'
+import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 
 const ctx = inject('eventCtx')
@@ -915,8 +915,8 @@ function formatTeamModified(team) {
 }
 
 .balance-report-box {
-  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-2) 12%);
-  background: color-mix(in srgb, var(--card) 94%, #eef6ff 6%);
+  border: 1px solid color-mix(in srgb, var(--line-strong) 82%, var(--line) 18%);
+  background: var(--card);
   border-radius: var(--radius-item);
   padding: 0.52rem 0.6rem;
   margin: 0;

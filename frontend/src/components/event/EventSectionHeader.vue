@@ -25,7 +25,7 @@ defineProps({
 }
 
 .section-title {
-  margin: 0 0 0.72rem;
+  margin: 0 0 1rem;
   display: inline-flex;
   align-items: center;
   gap: 0.42rem;

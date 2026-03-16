@@ -5,7 +5,7 @@ import { averagePlayersElo, formatAverageElo } from '../lib/elo'
 import { sortPlayersByRoleThenName } from '../lib/roles'
 import { useConfirm } from '../lib/confirm'
 import { useMatchStore } from '../stores/match'
-import PlayerIdentity from '../components/player/PlayerIdentity.vue'
+import PlayerNameplate from '../components/player/PlayerNameplate.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -166,7 +166,7 @@ onMounted(loadMatch)
             <p v-if="teamAPlayers.length === 0" class="muted">No players assigned to this team.</p>
             <ul v-else class="match-players-list">
               <li v-for="player in teamAPlayers" :key="`a-${player.id}`" class="match-player-row">
-                <PlayerIdentity :name="player.name" :role="player.role" :rank="player.rank" />
+                <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" />
               </li>
             </ul>
           </section>
@@ -177,7 +177,7 @@ onMounted(loadMatch)
             <p v-if="teamBPlayers.length === 0" class="muted">No players assigned to this team.</p>
             <ul v-else class="match-players-list">
               <li v-for="player in teamBPlayers" :key="`b-${player.id}`" class="match-player-row">
-                <PlayerIdentity :name="player.name" :role="player.role" :rank="player.rank" />
+                <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" />
               </li>
             </ul>
           </section>

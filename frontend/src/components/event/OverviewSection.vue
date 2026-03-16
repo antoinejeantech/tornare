@@ -2,7 +2,7 @@
 import { computed, inject } from 'vue'
 import { RouterLink } from 'vue-router'
 import { formatEventStartDate } from '../../lib/dates'
-import PlayerCard from './PlayerCard.vue'
+import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 
 const ctx = inject('eventCtx')

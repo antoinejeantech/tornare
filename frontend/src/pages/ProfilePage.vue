@@ -5,8 +5,8 @@ import { apiCall } from '../lib/api'
 import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { useAuthStore } from '../stores/auth'
-import ProfileHeroCard from '../components/player/profile/ProfileHeroCard.vue'
-import ProfileGamesCard from '../components/player/profile/ProfileGamesCard.vue'
+import ProfileHeroCard from '../components/profile/ProfileHeroCard.vue'
+import ProfileGamesCard from '../components/profile/ProfileGamesCard.vue'
 
 const route = useRoute()
 const router = useRouter()
