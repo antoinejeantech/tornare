@@ -378,7 +378,7 @@ onMounted(loadSignupInfo)
   height: 2.8rem;
   border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--line-strong) 74%, var(--line) 26%);
-  background: color-mix(in srgb, var(--bg-0) 84%, black 16%);
+  background: color-mix(in srgb, var(--bg-1) 66%, var(--card) 34%);
 }
 
 .join-stat-icon {
