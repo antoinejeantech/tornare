@@ -81,7 +81,7 @@ function emitSelect() {
   width: 100%;
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   padding: 1.08rem 0.78rem;
   display: grid;
   grid-template-columns: minmax(0, 1fr);

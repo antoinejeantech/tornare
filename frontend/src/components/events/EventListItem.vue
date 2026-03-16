@@ -152,7 +152,7 @@ const statusVariant = computed(() => {
 .event-list-item {
   border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
   background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   padding: 1.02rem 0.95rem;
   display: grid;
   grid-template-columns: minmax(0, 2.2fr) minmax(0, 0.85fr) minmax(0, 0.95fr) minmax(0, 1.3fr) auto;
@@ -214,7 +214,7 @@ const statusVariant = computed(() => {
   color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
   font-size: 1.35rem;
   border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   padding: 0.4rem;
   background: color-mix(in srgb, var(--bg-1) 66%, var(--card) 34%);
 }

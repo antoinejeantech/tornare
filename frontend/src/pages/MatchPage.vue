@@ -219,7 +219,7 @@ onMounted(loadMatch)
 .match-player-row {
   border: 1px solid color-mix(in srgb, var(--line) 92%, var(--brand-1) 8%);
   background: color-mix(in srgb, var(--card) 90%, #f1f5ff 10%);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   padding: 0.64rem 0.7rem;
   display: flex;
   justify-content: space-between;
@@ -238,7 +238,7 @@ onMounted(loadMatch)
 
 .team-roster-card {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card) 92%, #19253a 8%);
   padding: 0.6rem;
 }

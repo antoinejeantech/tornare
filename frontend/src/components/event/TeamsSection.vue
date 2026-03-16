@@ -924,7 +924,7 @@ function formatTeamModified(team) {
 .balance-report-box {
   border: 1px solid color-mix(in srgb, var(--line-strong) 82%, var(--line) 18%);
   background: var(--card);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   padding: 0.52rem 0.6rem;
   margin: 0;
 }
@@ -1146,7 +1146,7 @@ function formatTeamModified(team) {
   display: grid;
   gap: 0;
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: transparent;
 }
@@ -1410,8 +1410,8 @@ function formatTeamModified(team) {
   max-width: min(42rem, calc(100vw - 2rem));
   border: 1px solid color-mix(in srgb, var(--line) 84%, var(--brand-2) 16%);
   background: color-mix(in srgb, var(--card) 96%, #19253a 4%);
-  border-radius: var(--radius-item);
-  box-shadow: 0 var(--radius-item) 24px rgba(16, 39, 82, 0.18);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 24px rgba(16, 39, 82, 0.18);
   padding: 0.45rem;
   display: grid;
   gap: 0.35rem;

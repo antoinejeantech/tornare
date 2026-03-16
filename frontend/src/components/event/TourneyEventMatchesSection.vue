@@ -681,7 +681,7 @@ watch(editingMatchups, () => {
   min-height: var(--card-min-height);
   border: 1px solid color-mix(in srgb, var(--line) 85%, var(--brand-2) 15%);
   background: color-mix(in srgb, var(--card) 90%, #f2f6ff 10%);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   padding: 0.62rem 0.58rem;
   display: grid;
   gap: 0.42rem;

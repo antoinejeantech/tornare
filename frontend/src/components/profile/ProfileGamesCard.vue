@@ -233,7 +233,7 @@ defineEmits(['edit-overwatch'])
   display: grid;
   gap: 0.68rem;
   border: 1px dashed color-mix(in srgb, var(--line) 42%, transparent 58%);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   padding: 0.9rem;
   margin-bottom: 0.8rem;
   justify-items: center;
@@ -296,7 +296,7 @@ defineEmits(['edit-overwatch'])
   display: grid;
   gap: 0.46rem;
   padding: 0.84rem 0.84rem 0.72rem;
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--line) 26%, transparent 74%);
   position: relative;
 }

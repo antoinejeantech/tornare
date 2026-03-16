@@ -275,7 +275,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 
 .news-briefing-item {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card) 94%, #1a2330 6%);
   padding: 0.52rem 0.58rem;
   display: grid;
@@ -306,7 +306,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 
 .news-item {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--card) 92%, #19253a 8%);
   padding: 0.62rem 0.7rem;
   display: grid;
@@ -331,7 +331,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 
 .reveal-block {
   opacity: 0;
-  transform: translateY(var(--radius-item));
+  transform: translateY(12px);
   animation: reveal-rise 380ms ease-out forwards;
 }
 

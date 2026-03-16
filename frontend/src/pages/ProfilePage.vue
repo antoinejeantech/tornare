@@ -507,7 +507,7 @@ onMounted(async () => {
 .profile-static-value {
   margin: 0;
   border: 1px solid color-mix(in srgb, var(--line) 82%, var(--brand-1) 18%);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   padding: 0.55rem 0.7rem;
   font-weight: 600;
 }

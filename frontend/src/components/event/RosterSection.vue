@@ -186,7 +186,7 @@ function padRosterCount(value) {
   margin: 0 0 1.35rem;
   padding: 1.02rem 1.08rem;
   border: 1px solid var(--surface-card-border);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   background: var(--surface-card-bg);
   box-shadow: none;
 }

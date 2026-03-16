@@ -373,7 +373,7 @@ async function saveMatchupAndClose(match) {
   top: 0;
   bottom: 0;
   width: 6px;
-  border-radius: var(--radius-item) 0 0 var(--radius-item);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
   background: linear-gradient(180deg, var(--team-a), var(--team-b));
 }
 

@@ -613,7 +613,7 @@ onBeforeUnmount(() => {
   padding: 0.72rem;
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   box-shadow: none;
   margin-bottom: 0.85rem;
 }
@@ -662,7 +662,7 @@ onBeforeUnmount(() => {
 
 .events-stat-card {
   border: 1px solid var(--surface-card-border);
-  border-radius: var(--radius-item);
+  border-radius: var(--radius-md);
   padding: 1.25rem 1.2rem;
   background: var(--surface-card-bg);
   display: grid;
@@ -855,7 +855,7 @@ onBeforeUnmount(() => {
 
 .reveal-block {
   opacity: 0;
-  transform: translateY(var(--radius-item));
+  transform: translateY(12px);
   animation: reveal-rise 380ms ease-out forwards;
 }
 
