@@ -1,5 +1,5 @@
 <script setup>
-const props = defineProps({
+defineProps({
   profile: {
     type: Object,
     required: true,
@@ -23,8 +23,6 @@ defineEmits(['edit-account'])
 
 <template>
   <article class="card profile-hero-card">
-    <div class="hero-cover" aria-hidden="true"></div>
-
     <div class="hero-identity-row">
       <div class="hero-identity">
         <span class="hero-avatar" aria-hidden="true">{{ profileInitial }}</span>
@@ -44,11 +42,11 @@ defineEmits(['edit-account'])
       </button>
     </div>
 
-    <div v-if="editingAccount" class="hero-edit-shell animated-panel">
+    <div v-if="editingAccount" class="hero-edit-shell">
       <slot name="account-edit" />
     </div>
 
-    <dl v-else class="hero-details-grid animated-panel">
+    <dl v-else class="hero-details-grid">
       <div class="hero-details-row">
         <dt>Username</dt>
         <dd>{{ profile.username }}</dd>
@@ -77,14 +75,6 @@ defineEmits(['edit-account'])
   display: grid;
   gap: 1.08rem;
   padding: 1.2rem;
-}
-
-.hero-cover {
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: 100%;
-  height: 170px;
-  pointer-events: none;
 }
 
 .hero-identity-row,
@@ -148,7 +138,6 @@ defineEmits(['edit-account'])
 .hero-details-grid {
   display: grid;
   gap: 0.3rem;
-  border-top: 1px solid color-mix(in srgb, var(--line) 84%, transparent 16%);
   padding-top: 0.9rem;
 }
 

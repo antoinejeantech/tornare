@@ -318,7 +318,7 @@ defineEmits(['edit-overwatch'])
   align-items: center;
   justify-content: space-between;
   font-size: 0.72rem;
-  color: #fff;
+  color: var(--ink-1);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 700;
@@ -334,7 +334,7 @@ defineEmits(['edit-overwatch'])
   align-items: center;
   gap: 0.3rem;
   font-weight: 760;
-  color: #fff;
+  color: var(--ink-1);
 }
 
 .rank-icon {
@@ -372,8 +372,8 @@ defineEmits(['edit-overwatch'])
   gap: 0.32rem;
   padding: 0.48rem 0.66rem;
   border: 1px solid color-mix(in srgb, var(--line) 34%, transparent 66%);
-  background: var(--bg-0);
-  color: #fff;
+  background: color-mix(in srgb, var(--card) 84%, var(--bg-0) 16%);
+  color: var(--ink-1);
 }
 
 .action-btn:disabled {
