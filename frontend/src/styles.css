@@ -6,10 +6,11 @@
   --space-4: 2rem;
 
   --radius-sm: 8px;
-  --radius-item: 10px;
   --radius-md: 12px;
   --radius-lg: 14px;
   --radius-pill: 999px;
+
+  --blur-md: 12px;
 
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -74,9 +75,9 @@
   --ok-ink: #eaf8ec;
   --ok-soft: #429d46;
   --warn: #ffa000;
-  --warn-bg: #ffa000;
-  --warn-ink: #fff7e0;
-  --warn-soft: #d47e00;
+  --warn-bg: #7d4c00;
+  --warn-ink: #ffe0a0;
+  --warn-soft: #a86200;
   --danger-bg: #c62828;
   --danger-ink: #ffe7e7;
   --danger-soft: #b33434;
