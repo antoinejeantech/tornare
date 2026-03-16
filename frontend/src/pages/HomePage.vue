@@ -603,7 +603,7 @@ onMounted(async () => {
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--brand-2) 92%, var(--bg-1) 8%), color-mix(in srgb, var(--accent) 90%, var(--bg-1) 10%));
+  background: var(--accent);
 }
 
 .home-activity-players-fill.is-full {
@@ -854,7 +854,7 @@ onMounted(async () => {
   justify-content: space-between;
   gap: var(--space-3);
   padding: 1.4rem 1.6rem;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--brand-1) 28%, var(--card) 72%), color-mix(in srgb, #de8b1f 20%, var(--card-soft) 80%));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--brand-1) 28%, var(--card) 72%), color-mix(in srgb, var(--primary-600) 20%, var(--card-soft) 80%));
 }
 
 .home-banner-copy {

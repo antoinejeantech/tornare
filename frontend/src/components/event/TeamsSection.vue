@@ -603,9 +603,9 @@ function formatTeamModified(team) {
               <p class="balance-helper-title">PUG balance assistant</p>
             </span>
             <AppBadge
-              bg="color-mix(in srgb, #f2bf49 20%, var(--card) 80%)"
-              color="#ffdc7a"
-              border="color-mix(in srgb, #f2bf49 70%, var(--line) 30%)"
+              bg="color-mix(in srgb, var(--primary-300) 20%, var(--card) 80%)"
+              color="var(--primary-200)"
+              border="color-mix(in srgb, var(--primary-300) 70%, var(--line) 30%)"
               radius="pill"
               :label="`FORMAT: ${effectivePugFormat}`"
             />

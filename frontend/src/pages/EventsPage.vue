@@ -751,9 +751,9 @@ onBeforeUnmount(() => {
 }
 
 .events-subnav-btn.active {
-  color: #fff;
+  color: var(--primary-100);
   font-weight: 680;
-  background: color-mix(in srgb, var(--brand-1) 34%, var(--card) 66%);
+  background: var(--primary-700);
 }
 
 .events-sort {
