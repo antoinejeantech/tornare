@@ -8,7 +8,7 @@ use crate::{
         events::{
             models::{
                 BracketGenerationMode, CreateEventMatchInput, CreateMatchInput, Event, EventType, Match,
-                ReportMatchWinnerInput, SetMatchupInput,
+                ReportMatchWinnerInput, SetMatchupInput, UpdateMatchStartDateInput,
             },
             repo as events_repo,
         },
@@ -19,6 +19,7 @@ use crate::{
         errors::{bad_request, internal_error, not_found, ApiError},
         models::MessageResponse,
         numeric::i32_to_u8,
+        validation::normalize_optional_rfc3339_timestamp,
     },
 };
 
@@ -98,6 +99,7 @@ pub async fn create_event_match_for_user(
         title: payload.title,
         map: payload.map,
         max_players: i32_to_u8(max_players_i32, "max_players")?,
+        start_date: payload.start_date,
     };
 
     create_match_record(state, create_match, event_id).await
@@ -391,12 +393,35 @@ pub async fn report_match_winner_for_user(
     require_event_owner_access(state, event_id, user_id).await?;
 
     match events_repo::event_type_for_event(&state.pool, event_id).await? {
-        Some(EventType::Tourney) => {}
         Some(EventType::Pug) => {
-            return Err(bad_request(
-                "Winner reporting through bracket progression is only available for TOURNEY events",
-            ));
+            // PUG path: simple winner set, no bracket propagation.
+            let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+            let Some(match_state) = repo::get_bracket_match_state_in_tx(&mut tx, event_id, match_id).await? else {
+                return Err(not_found("Match not found in this event"));
+            };
+
+            if match_state.winner_team_id.is_some() {
+                return Err(bad_request("A winner is already set for this match"));
+            }
+
+            let Some(team_a_id) = match_state.team_a_id else {
+                return Err(bad_request("Matchup is incomplete"));
+            };
+            let Some(team_b_id) = match_state.team_b_id else {
+                return Err(bad_request("Matchup is incomplete"));
+            };
+
+            if payload.winner_team_id != team_a_id && payload.winner_team_id != team_b_id {
+                return Err(bad_request("Winner must be one of the two match teams"));
+            }
+
+            repo::set_match_winner_completed_in_tx(&mut tx, match_id, payload.winner_team_id).await?;
+            tx.commit().await.map_err(internal_error)?;
+
+            return repo::load_match(&state.pool, match_id).await;
         }
+        Some(EventType::Tourney) => {}
         None => return Err(not_found("Event not found")),
     }
 
@@ -496,12 +521,24 @@ pub async fn cancel_match_winner_for_user(
     require_event_owner_access(state, event_id, user_id).await?;
 
     match events_repo::event_type_for_event(&state.pool, event_id).await? {
-        Some(EventType::Tourney) => {}
         Some(EventType::Pug) => {
-            return Err(bad_request(
-                "Match result cancellation through bracket progression is only available for TOURNEY events",
-            ));
+            // PUG path: simple winner clear, no bracket rollback.
+            let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+            let Some(match_state) = repo::get_bracket_match_state_in_tx(&mut tx, event_id, match_id).await? else {
+                return Err(not_found("Match not found in this event"));
+            };
+
+            if match_state.winner_team_id.is_none() {
+                return Err(bad_request("No winner is currently set for this match"));
+            }
+
+            repo::clear_pug_match_winner_in_tx(&mut tx, match_id).await?;
+            tx.commit().await.map_err(internal_error)?;
+
+            return repo::load_match(&state.pool, match_id).await;
         }
+        Some(EventType::Tourney) => {}
         None => return Err(not_found("Event not found")),
     }
 
@@ -554,6 +591,8 @@ async fn create_match_record(
 ) -> Result<Match, ApiError> {
     validate_create_match_input(&payload)?;
 
+    let normalized_start_date = normalize_optional_rfc3339_timestamp(payload.start_date.as_deref())?;
+
     let match_id = Uuid::new_v4();
 
     repo::insert_event_match(
@@ -563,9 +602,33 @@ async fn create_match_record(
         payload.title.trim(),
         payload.map.trim(),
         i32::from(payload.max_players),
+        normalized_start_date,
     )
     .await?;
 
+    repo::load_match(&state.pool, match_id).await
+}
+
+pub async fn update_match_start_date_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+    match_id: Uuid,
+    payload: UpdateMatchStartDateInput,
+) -> Result<Match, ApiError> {
+    require_event_owner_access(state, event_id, user_id).await?;
+
+    let Some(match_event_id) = repo::get_match_event_id(&state.pool, match_id).await? else {
+        return Err(not_found("Match not found"));
+    };
+
+    if match_event_id != event_id {
+        return Err(not_found("Match not found in this event"));
+    }
+
+    let normalized_start_date = normalize_optional_rfc3339_timestamp(payload.start_date.as_deref())?;
+
+    repo::set_match_start_date(&state.pool, match_id, normalized_start_date).await?;
     repo::load_match(&state.pool, match_id).await
 }
 
@@ -755,6 +818,11 @@ async fn invalidate_match_winner_and_downstream(
 
 #[cfg(test)]
 mod tests {
+    use axum::http::StatusCode;
+    use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+
+    use crate::shared::validation::normalize_optional_rfc3339_timestamp;
+
     use super::can_regenerate_bracket;
 
     #[test]
@@ -770,5 +838,67 @@ mod tests {
     #[test]
     fn regeneration_blocked_when_any_match_played() {
         assert!(!can_regenerate_bracket(6, 1));
+    }
+
+    #[test]
+    fn normalize_start_date_accepts_utc_rfc3339() {
+        let normalized = match normalize_optional_rfc3339_timestamp(Some("2026-03-17T19:30:00Z")) {
+            Ok(value) => value,
+            Err(_) => panic!("expected valid UTC timestamp to normalize"),
+        };
+
+        let expected = match OffsetDateTime::parse("2026-03-17T19:30:00Z", &Rfc3339) {
+            Ok(value) => value,
+            Err(_) => panic!("expected test fixture timestamp to parse"),
+        };
+
+        assert_eq!(normalized, Some(expected));
+    }
+
+    #[test]
+    fn normalize_start_date_converts_offsets_to_utc() {
+        let normalized = match normalize_optional_rfc3339_timestamp(Some("2026-03-17T20:30:00+01:00")) {
+            Ok(value) => value,
+            Err(_) => panic!("expected offset timestamp to normalize"),
+        };
+
+        let expected = match OffsetDateTime::parse("2026-03-17T19:30:00Z", &Rfc3339) {
+            Ok(value) => value,
+            Err(_) => panic!("expected test fixture timestamp to parse"),
+        };
+
+        assert_eq!(normalized, Some(expected));
+    }
+
+    #[test]
+    fn normalize_start_date_treats_blank_values_as_none() {
+        let normalized = match normalize_optional_rfc3339_timestamp(Some("   ")) {
+            Ok(value) => value,
+            Err(_) => panic!("expected blank timestamp to clear start date"),
+        };
+
+        assert_eq!(normalized, None);
+    }
+
+    #[test]
+    fn normalize_start_date_rejects_invalid_timestamp_strings() {
+        let error = match normalize_optional_rfc3339_timestamp(Some("not-a-date")) {
+            Ok(_) => panic!("expected invalid timestamp to be rejected"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        assert_eq!(error.1.0.error, "start_date must be a valid RFC3339 timestamp with a timezone offset");
+    }
+
+    #[test]
+    fn normalize_start_date_rejects_timezone_less_strings() {
+        let error = match normalize_optional_rfc3339_timestamp(Some("2026-03-17T19:30:00")) {
+            Ok(_) => panic!("expected timestamp without timezone to be rejected"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        assert_eq!(error.1.0.error, "start_date must be a valid RFC3339 timestamp with a timezone offset");
     }
 }

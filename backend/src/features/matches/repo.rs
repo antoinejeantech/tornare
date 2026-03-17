@@ -1,4 +1,5 @@
 use sqlx::{PgPool, Row, Transaction};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::shared::{
@@ -104,13 +105,37 @@ pub async fn insert_event_match(
     title: &str,
     map: &str,
     max_players: i32,
+    start_date: Option<OffsetDateTime>,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("INSERT INTO event_matches (id, event_id, title, map, max_players) VALUES ($1, $2, $3, $4, $5)")
+    sqlx::query(
+        "INSERT INTO event_matches (id, event_id, title, map, max_players, start_date) VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(match_id)
+    .bind(event_id)
+    .bind(title)
+    .bind(map)
+    .bind(max_players)
+    .bind(start_date)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn set_match_start_date(
+    pool: &PgPool,
+    match_id: Uuid,
+    start_date: Option<OffsetDateTime>,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "UPDATE event_matches
+         SET start_date = $1,
+             updated_at = NOW()
+         WHERE id = $2",
+    )
+        .bind(start_date)
         .bind(match_id)
-        .bind(event_id)
-        .bind(title)
-        .bind(map)
-        .bind(max_players)
         .execute(pool)
         .await
         .map_err(internal_error)?;
@@ -177,7 +202,8 @@ pub async fn update_bracket_next_link_in_tx(
     sqlx::query(
         "UPDATE event_matches
          SET next_match_id = $1,
-             next_match_slot = $2
+             next_match_slot = $2,
+             updated_at = NOW()
          WHERE id = $3 AND event_id = $4",
     )
     .bind(next_match_id)
@@ -197,7 +223,8 @@ pub async fn normalize_bracket_matches_in_tx(
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
         "UPDATE event_matches
-         SET winner_team_id = NULL
+                 SET winner_team_id = NULL,
+                         updated_at = NOW()
          WHERE event_id = $1
            AND is_bracket = TRUE
            AND winner_team_id IS NOT NULL
@@ -214,7 +241,8 @@ pub async fn normalize_bracket_matches_in_tx(
              WHEN winner_team_id IS NOT NULL THEN 'COMPLETED'
              WHEN team_a_id IS NOT NULL AND team_b_id IS NOT NULL THEN 'READY'
              ELSE 'OPEN'
-         END
+         END,
+             updated_at = NOW()
          WHERE event_id = $1
            AND is_bracket = TRUE",
     )
@@ -311,7 +339,13 @@ pub async fn set_match_winner_completed_in_tx(
     match_id: Uuid,
     winner_team_id: Uuid,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE event_matches SET winner_team_id = $1, status = 'COMPLETED' WHERE id = $2")
+    sqlx::query(
+        "UPDATE event_matches
+         SET winner_team_id = $1,
+             status = 'COMPLETED',
+             updated_at = NOW()
+         WHERE id = $2",
+    )
         .bind(winner_team_id)
         .bind(match_id)
         .execute(&mut **tx)
@@ -325,11 +359,40 @@ pub async fn clear_match_winner_in_tx(
     tx: &mut Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE event_matches SET winner_team_id = NULL WHERE id = $1")
+    sqlx::query(
+        "UPDATE event_matches
+         SET winner_team_id = NULL,
+             updated_at = NOW()
+         WHERE id = $1",
+    )
         .bind(match_id)
         .execute(&mut **tx)
         .await
         .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn clear_pug_match_winner_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    match_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    // Resets winner and recalculates status for a non-bracket (PUG) match.
+    // Both teams must still be set at this point, so status reverts to READY.
+    sqlx::query(
+        "UPDATE event_matches
+         SET winner_team_id = NULL,
+             updated_at = NOW(),
+             status = CASE
+                 WHEN team_a_id IS NOT NULL AND team_b_id IS NOT NULL THEN 'READY'
+                 ELSE 'OPEN'
+             END
+         WHERE id = $1",
+    )
+    .bind(match_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
 
     Ok(())
 }
@@ -364,7 +427,12 @@ pub async fn set_matchup_slot_in_tx(
 ) -> Result<(), crate::shared::errors::ApiError> {
     match slot {
         "A" => {
-            sqlx::query("UPDATE event_matches SET team_a_id = $1 WHERE id = $2")
+            sqlx::query(
+                "UPDATE event_matches
+                 SET team_a_id = $1,
+                     updated_at = NOW()
+                 WHERE id = $2",
+            )
                 .bind(team_id)
                 .bind(match_id)
                 .execute(&mut **tx)
@@ -372,7 +440,12 @@ pub async fn set_matchup_slot_in_tx(
                 .map_err(internal_error)?;
         }
         "B" => {
-            sqlx::query("UPDATE event_matches SET team_b_id = $1 WHERE id = $2")
+            sqlx::query(
+                "UPDATE event_matches
+                 SET team_b_id = $1,
+                     updated_at = NOW()
+                 WHERE id = $2",
+            )
                 .bind(team_id)
                 .bind(match_id)
                 .execute(&mut **tx)
@@ -392,14 +465,24 @@ pub async fn clear_matchup_slot_in_tx(
 ) -> Result<(), crate::shared::errors::ApiError> {
     match slot {
         "A" => {
-            sqlx::query("UPDATE event_matches SET team_a_id = NULL WHERE id = $1")
+            sqlx::query(
+                "UPDATE event_matches
+                 SET team_a_id = NULL,
+                     updated_at = NOW()
+                 WHERE id = $1",
+            )
                 .bind(match_id)
                 .execute(&mut **tx)
                 .await
                 .map_err(internal_error)?;
         }
         "B" => {
-            sqlx::query("UPDATE event_matches SET team_b_id = NULL WHERE id = $1")
+            sqlx::query(
+                "UPDATE event_matches
+                 SET team_b_id = NULL,
+                     updated_at = NOW()
+                 WHERE id = $1",
+            )
                 .bind(match_id)
                 .execute(&mut **tx)
                 .await
@@ -437,7 +520,12 @@ pub async fn set_match_status_in_tx(
     match_id: Uuid,
     status: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE event_matches SET status = $1 WHERE id = $2")
+    sqlx::query(
+        "UPDATE event_matches
+         SET status = $1,
+             updated_at = NOW()
+         WHERE id = $2",
+    )
         .bind(status)
         .bind(match_id)
         .execute(&mut **tx)
@@ -453,7 +541,13 @@ pub async fn set_matchup_in_tx(
     team_a_id: Uuid,
     team_b_id: Uuid,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE event_matches SET team_a_id = $1, team_b_id = $2 WHERE id = $3")
+    sqlx::query(
+        "UPDATE event_matches
+         SET team_a_id = $1,
+             team_b_id = $2,
+             updated_at = NOW()
+         WHERE id = $3",
+    )
         .bind(team_a_id)
         .bind(team_b_id)
         .bind(match_id)
@@ -468,7 +562,13 @@ pub async fn clear_matchup_in_tx(
     tx: &mut Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE event_matches SET team_a_id = NULL, team_b_id = NULL WHERE id = $1")
+    sqlx::query(
+        "UPDATE event_matches
+         SET team_a_id = NULL,
+             team_b_id = NULL,
+             updated_at = NOW()
+         WHERE id = $1",
+    )
         .bind(match_id)
         .execute(&mut **tx)
         .await
@@ -496,7 +596,10 @@ pub async fn load_match(pool: &PgPool, match_id: Uuid) -> Result<Match, crate::s
                 g.winner_team_id,
                 tw.name AS winner_team_name,
                 g.is_bracket,
-                g.status
+                g.status,
+                  g.created_at,
+                  g.updated_at,
+                  g.start_date
          FROM event_matches g
          LEFT JOIN event_teams ta ON ta.id = g.team_a_id
          LEFT JOIN event_teams tb ON tb.id = g.team_b_id
@@ -534,6 +637,9 @@ pub async fn load_match(pool: &PgPool, match_id: Uuid) -> Result<Match, crate::s
         winner_team_name: row.get("winner_team_name"),
         is_bracket: row.get::<bool, _>("is_bracket"),
         status: row.get::<String, _>("status"),
+        created_at: row.get::<OffsetDateTime, _>("created_at"),
+        updated_at: row.get::<OffsetDateTime, _>("updated_at"),
+        start_date: row.get::<Option<OffsetDateTime>, _>("start_date"),
         players,
     })
 }

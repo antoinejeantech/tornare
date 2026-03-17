@@ -1,4 +1,5 @@
 use sqlx::{Postgres, QueryBuilder, PgPool, Row, Transaction};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::shared::errors::{bad_request, internal_error, not_found};
@@ -49,16 +50,16 @@ pub async fn load_events_kpis(
                 SELECT COUNT(*)
                 FROM events e
                 WHERE e.start_date IS NOT NULL
-                  AND e.start_date::timestamptz >= NOW()
-                  AND e.start_date::timestamptz <= NOW() + INTERVAL '7 days'
+                                    AND e.start_date >= NOW()
+                                    AND e.start_date <= NOW() + INTERVAL '7 days'
             ) AS upcoming_events_this_week,
             (
                 SELECT COUNT(*)
                 FROM events e
                 WHERE e.event_type = 'TOURNEY'
                   AND e.start_date IS NOT NULL
-                  AND e.start_date::timestamptz >= NOW()
-                  AND e.start_date::timestamptz <= NOW() + INTERVAL '7 days'
+                                    AND e.start_date >= NOW()
+                                    AND e.start_date <= NOW() + INTERVAL '7 days'
             ) AS upcoming_tourneys_this_week",
     )
     .fetch_one(pool)
@@ -95,7 +96,7 @@ pub async fn featured_event_id(
         "SELECT id
          FROM events
          WHERE start_date IS NOT NULL
-           AND start_date::timestamptz >= NOW()
+                     AND start_date >= NOW()
          ORDER BY start_date ASC, id DESC
          LIMIT 1",
     )
@@ -250,7 +251,7 @@ pub async fn insert_event(
     event_id: Uuid,
     name: &str,
     description: &str,
-    start_date: Option<String>,
+    start_date: Option<OffsetDateTime>,
     event_type: &str,
     format: &str,
     public_signup_enabled: bool,
@@ -301,7 +302,7 @@ pub async fn update_event_details(
     event_id: Uuid,
     name: &str,
     description: &str,
-    start_date: Option<String>,
+    start_date: Option<OffsetDateTime>,
     event_type: &str,
     format: &str,
     max_players: i32,
@@ -549,14 +550,24 @@ pub async fn clear_team_from_event_matches(
     event_id: Uuid,
     team_id: Uuid,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE event_matches SET team_a_id = NULL WHERE event_id = $1 AND team_a_id = $2")
+    sqlx::query(
+        "UPDATE event_matches
+         SET team_a_id = NULL,
+             updated_at = NOW()
+         WHERE event_id = $1 AND team_a_id = $2",
+    )
         .bind(event_id)
         .bind(team_id)
         .execute(pool)
         .await
         .map_err(internal_error)?;
 
-    sqlx::query("UPDATE event_matches SET team_b_id = NULL WHERE event_id = $1 AND team_b_id = $2")
+    sqlx::query(
+        "UPDATE event_matches
+         SET team_b_id = NULL,
+             updated_at = NOW()
+         WHERE event_id = $1 AND team_b_id = $2",
+    )
         .bind(event_id)
         .bind(team_id)
         .execute(pool)
@@ -787,7 +798,7 @@ pub async fn event_signup_info_by_token(
                 e.id,
                 e.name,
             e.description,
-            e.start_date,
+                e.start_date,
                 e.event_type,
                 e.format,
                 e.max_players,
@@ -836,7 +847,7 @@ pub async fn event_signup_info_by_token(
         event_id: row.get("id"),
         event_name: row.get("name"),
         event_description: row.get("description"),
-        start_date: row.get("start_date"),
+        start_date: row.get::<Option<OffsetDateTime>, _>("start_date"),
         event_type,
         format,
         max_players,
@@ -1064,7 +1075,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         id: db_id,
         name: row.get("name"),
         description: row.get("description"),
-        start_date: row.get("start_date"),
+        start_date: row.get::<Option<OffsetDateTime>, _>("start_date"),
         event_type,
         format,
         is_featured: row.get("is_featured"),
@@ -1110,13 +1121,16 @@ pub async fn load_matches_for_event(
                 g.winner_team_id,
                 tw.name AS winner_team_name,
                 g.is_bracket,
-                g.status
+                g.status,
+                  g.created_at,
+                  g.updated_at,
+                  g.start_date
          FROM event_matches g
          LEFT JOIN event_teams ta ON ta.id = g.team_a_id
          LEFT JOIN event_teams tb ON tb.id = g.team_b_id
             LEFT JOIN event_teams tw ON tw.id = g.winner_team_id
          WHERE g.event_id = $1
-            ORDER BY COALESCE(g.round, 9999), COALESCE(g.position, 9999), g.id ASC",
+                ORDER BY COALESCE(g.round, 9999), COALESCE(g.position, 9999), g.created_at ASC, g.id ASC",
     )
     .bind(event_id)
     .fetch_all(pool)
@@ -1145,6 +1159,9 @@ pub async fn load_matches_for_event(
             winner_team_name: row.get("winner_team_name"),
             is_bracket: row.get::<bool, _>("is_bracket"),
             status: row.get::<String, _>("status"),
+            created_at: row.get::<OffsetDateTime, _>("created_at"),
+            updated_at: row.get::<OffsetDateTime, _>("updated_at"),
+            start_date: row.get::<Option<OffsetDateTime>, _>("start_date"),
             players: players.clone(),
         });
     }

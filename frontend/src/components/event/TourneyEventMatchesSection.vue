@@ -1,17 +1,11 @@
 <script setup>
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
 
 const ctx = inject('eventCtx')
-const router = useRouter()
 const editingMatchups = ref({})
 const bracketWrapEl = ref(null)
-const measuredCardHeight = ref(212)
+const measuredCardHeight = ref(104)
 let resizeObserver = null
-
-function openMatch(matchId) {
-  router.push({ name: 'match', params: { id: matchId } })
-}
 
 function nextPowerOfTwo(value) {
   let size = 1
@@ -446,51 +440,86 @@ watch(editingMatchups, () => {
 </script>
 
 <template>
-  <div>
-    <div class="tourney-toolbar">
-      <button
-        v-if="ctx.canManageEvent"
-        class="btn-primary"
-        type="button"
-        :disabled="ctx.creatingMatch || ctx.clearingBracket || hasPlayedMatches || !hasEnoughTeamsForBracket"
-        @click="ctx.generateTourneyBracket('random')"
-      >
-        {{ ctx.creatingMatch ? 'Generating...' : 'Generate Random Bracket' }}
-      </button>
-      <button
-        v-if="ctx.canManageEvent"
-        class="btn-secondary"
-        type="button"
-        :disabled="ctx.creatingMatch || ctx.clearingBracket || hasPlayedMatches || !hasEnoughTeamsForBracket"
-        @click="ctx.generateTourneyBracket('empty')"
-      >
-        {{ ctx.creatingMatch ? 'Generating...' : 'Generate Empty Bracket' }}
-      </button>
-      <button
-        v-if="ctx.canManageEvent"
-        class="btn-danger"
-        type="button"
-        :disabled="ctx.creatingMatch || ctx.clearingBracket || hasPlayedMatches || !hasGeneratedMatches"
-        @click="ctx.clearTourneyBracket"
-      >
-        {{ ctx.clearingBracket ? 'Clearing...' : 'Delete Bracket' }}
-      </button>
-      <p class="muted">
-        {{ hasPlayedMatches ? 'At least one match result is set, so bracket regeneration and deletion are disabled.' : (!hasEnoughTeamsForBracket ? 'Create at least 2 teams to generate a tournament bracket.' : (ctx.event.matches.length > 0 ? 'No match has been played yet. You can regenerate in random/empty mode or delete the generated bracket.' : 'Choose random generation for auto-seeded matchups, or empty generation to assign matchups manually.')) }}
+  <div class="tourney-root">
+    <!-- Toolbar -->
+    <div v-if="ctx.canManageEvent" class="tourney-toolbar">
+      <div class="tourney-toolbar-actions">
+        <button
+          class="btn-primary toolbar-btn-random"
+          type="button"
+          :disabled="ctx.creatingMatch || ctx.clearingBracket || hasPlayedMatches || !hasEnoughTeamsForBracket"
+          @click="ctx.generateTourneyBracket('random')"
+        >
+          <span class="material-symbols-rounded btn-icon" aria-hidden="true">shuffle</span>
+          {{ ctx.creatingMatch ? 'Generating…' : 'Generate Random Bracket' }}
+        </button>
+        <button
+          class="btn-secondary"
+          type="button"
+          :disabled="ctx.creatingMatch || ctx.clearingBracket || hasPlayedMatches || !hasEnoughTeamsForBracket"
+          @click="ctx.generateTourneyBracket('empty')"
+        >
+          {{ ctx.creatingMatch ? 'Generating…' : 'Generate Empty Bracket' }}
+        </button>
+        <button
+          class="btn-danger toolbar-btn-delete"
+          type="button"
+          :disabled="ctx.creatingMatch || ctx.clearingBracket || hasPlayedMatches || !hasGeneratedMatches"
+          @click="ctx.clearTourneyBracket"
+        >
+          <span class="material-symbols-rounded btn-icon" aria-hidden="true">delete</span>
+          {{ ctx.clearingBracket ? 'Clearing…' : 'Delete Bracket' }}
+        </button>
+      </div>
+      <p class="tourney-toolbar-hint muted">
+        {{ hasPlayedMatches
+          ? 'At least one match result is set, so bracket regeneration and deletion are disabled.'
+          : (!hasEnoughTeamsForBracket
+            ? 'Create at least 2 teams to generate a tournament bracket.'
+            : (ctx.event.matches.length > 0
+              ? 'No match has been played yet. You can regenerate in random/empty mode or delete the generated bracket.'
+              : 'Choose random generation for auto-seeded matchups, or empty generation to assign matchups manually. All changes are saved automatically.')) }}
       </p>
     </div>
 
+    <!-- Stats bar -->
+    <div v-if="hasGeneratedMatches || teamCount > 0" class="bracket-stats">
+      <div class="stat-item">
+        <span class="stat-value">{{ ctx.event?.players?.length ?? 0 }}</span>
+        <span class="stat-label">Total Players</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{{ teamCount }}</span>
+        <span class="stat-label">Teams Registered</span>
+        <span v-if="hasGeneratedMatches" class="stat-sub muted">Full Bracket</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{{ ctx.event?.matches?.length ?? 0 }}</span>
+        <span class="stat-label">Total Matches</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">
+          {{ ctx.event?.matches?.filter(m => m.winner_team_id).length ?? 0 }}
+          <span class="stat-value-of muted">/ {{ ctx.event?.matches?.length ?? 0 }}</span>
+        </span>
+        <span class="stat-label">Matches Played</span>
+      </div>
+    </div>
+
+    <!-- Empty state -->
     <p v-if="!hasGeneratedMatches && teamCount === 0" class="muted bracket-empty-message">
       No teams created yet. Create teams first to preview or generate the tournament bracket.
     </p>
 
+    <!-- Bracket -->
     <div v-else class="tourney-bracket-wrap">
       <div
         ref="bracketWrapEl"
         class="tourney-bracket"
         :style="{
           '--rounds': bracketRounds.length,
-          '--max-round-cards': maxRoundCards
+          '--max-round-cards': maxRoundCards,
+          '--match-height': measuredCardHeight + 'px',
         }"
       >
         <section
@@ -506,11 +535,13 @@ watch(editingMatchups, () => {
               :key="match.id"
               class="bracket-match"
               :class="{
-                ready: match.status === 'READY',
-                completed: match.status === 'COMPLETED',
-                placeholder: match.isPlaceholder,
+                'is-ready': match.status === 'READY',
+                'is-completed': match.status === 'COMPLETED',
+                'is-placeholder': match.isPlaceholder,
+                'is-editing-card': ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id),
               }"
             >
+              <!-- Bracket connectors -->
               <span
                 v-if="showOutgoingLink(match, round, roundIndex)"
                 class="child-outgoing-link"
@@ -522,92 +553,118 @@ watch(editingMatchups, () => {
                 <span class="fork-segment fork-arm-bottom"></span>
                 <span class="fork-segment fork-arm-right"></span>
               </span>
-              <button
-                v-if="!match.isPlaceholder"
-                class="bracket-match-title"
-                type="button"
-                @click="openMatch(match.id)"
-              >
-                {{ match.title }}
-              </button>
-              <p v-else class="bracket-match-title muted">{{ match.title }}</p>
-              <div v-if="ctx.canManageEvent && !match.isPlaceholder" class="bracket-top-actions">
+
+              <!-- Card header: title + status badge -->
+              <div class="match-header">
+                <span
+                  v-if="!match.isPlaceholder"
+                  class="match-title-static"
+                >
+                  {{ match.title }}
+                </span>
+                <span v-else class="match-title-static">{{ match.title }}</span>
+                <span
+                  class="match-status-badge"
+                  :class="`badge-${(match.winner_team_name ? 'completed' : match.status || 'open').toLowerCase()}`"
+                >
+                  {{ match.winner_team_name ? 'Done' : (match.status || 'Open') }}
+                </span>
+              </div>
+
+              <!-- Team rows -->
+              <div class="match-teams">
+                <!-- Team A -->
+                <div
+                  class="match-team-row"
+                  :class="{
+                    'is-winner': match.winner_team_id === match.team_a_id && match.team_a_id,
+                    'is-editing': ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id),
+                  }"
+                >
+                  <select
+                    v-if="ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id)"
+                    v-model="ctx.matchupSelections[match.id].teamAId"
+                    class="bracket-team-select"
+                    :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
+                    @click.stop
+                  >
+                    <option value="">Choose team</option>
+                    <option v-for="team in ctx.event.teams" :key="`t-a-${match.id}-${team.id}`" :value="String(team.id)">
+                      {{ team.name }}
+                    </option>
+                  </select>
+                  <span v-else class="team-name">{{ displayTeamName(match, 'A') }}</span>
+                  <button
+                    v-if="canReportWinner(match, match.team_a_id) && !isEditingMatchup(match.id)"
+                    class="btn-secondary win-btn"
+                    type="button"
+                    :disabled="Boolean(ctx.reportingWinners[match.id])"
+                    @click="ctx.reportMatchWinner(match.id, match.team_a_id)"
+                  >Win</button>
+                </div>
+
+                <div class="match-teams-divider" aria-hidden="true"></div>
+
+                <!-- Team B -->
+                <div
+                  class="match-team-row"
+                  :class="{
+                    'is-winner': match.winner_team_id === match.team_b_id && match.team_b_id,
+                    'is-editing': ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id),
+                  }"
+                >
+                  <select
+                    v-if="ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id)"
+                    v-model="ctx.matchupSelections[match.id].teamBId"
+                    class="bracket-team-select"
+                    :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
+                    @click.stop
+                  >
+                    <option value="">Choose team</option>
+                    <option v-for="team in ctx.event.teams" :key="`t-b-${match.id}-${team.id}`" :value="String(team.id)">
+                      {{ team.name }}
+                    </option>
+                  </select>
+                  <span v-else class="team-name">{{ displayTeamName(match, 'B') }}</span>
+                  <button
+                    v-if="canReportWinner(match, match.team_b_id) && !isEditingMatchup(match.id)"
+                    class="btn-secondary win-btn"
+                    type="button"
+                    :disabled="Boolean(ctx.reportingWinners[match.id])"
+                    @click="ctx.reportMatchWinner(match.id, match.team_b_id)"
+                  >Win</button>
+                </div>
+              </div>
+
+              <!-- Admin controls (collapse when not needed) -->
+              <div v-if="ctx.canManageEvent && !match.isPlaceholder" class="match-admin-row">
                 <button
-                  class="btn-secondary bracket-toggle-btn"
+                  class="btn-secondary admin-btn"
                   type="button"
                   :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
                   @click="toggleMatchupEditor(match.id)"
                 >
-                  {{ isEditingMatchup(match.id) ? 'Close edit' : 'Edit matchup' }}
+                  {{ isEditingMatchup(match.id) ? 'Close' : 'Edit matchup' }}
                 </button>
                 <button
                   v-if="isEditingMatchup(match.id)"
-                  class="btn-secondary bracket-action-btn"
+                  class="btn-secondary admin-btn"
                   type="button"
                   :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
                   @click="saveMatchupAndClose(match.id)"
                 >
-                  {{ ctx.savingMatchups[match.id] ? 'Saving...' : 'Save' }}
+                  {{ ctx.savingMatchups[match.id] ? 'Saving…' : 'Save' }}
                 </button>
-              </div>
-              <div class="bracket-team-row" :class="{ winner: match.winner_team_id === match.team_a_id && match.team_a_id }">
-                <select
-                  v-if="ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id)"
-                  v-model="ctx.matchupSelections[match.id].teamAId"
-                  class="bracket-team-select"
-                  :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
-                  @click.stop
-                >
-                  <option value="">Choose team</option>
-                  <option v-for="team in ctx.event.teams" :key="`t-a-${match.id}-${team.id}`" :value="String(team.id)">
-                    {{ team.name }}
-                  </option>
-                </select>
-                <span v-else class="bracket-team-name">{{ displayTeamName(match, 'A') }}</span>
-                <button
-                  v-if="canReportWinner(match, match.team_a_id) && !isEditingMatchup(match.id)"
-                  class="btn-secondary bracket-win-btn"
-                  type="button"
-                  :disabled="Boolean(ctx.reportingWinners[match.id])"
-                  @click="ctx.reportMatchWinner(match.id, match.team_a_id)"
-                >Win</button>
-              </div>
-              <div class="bracket-team-row" :class="{ winner: match.winner_team_id === match.team_b_id && match.team_b_id }">
-                <select
-                  v-if="ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id)"
-                  v-model="ctx.matchupSelections[match.id].teamBId"
-                  class="bracket-team-select"
-                  :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
-                  @click.stop
-                >
-                  <option value="">Choose team</option>
-                  <option v-for="team in ctx.event.teams" :key="`t-b-${match.id}-${team.id}`" :value="String(team.id)">
-                    {{ team.name }}
-                  </option>
-                </select>
-                <span v-else class="bracket-team-name">{{ displayTeamName(match, 'B') }}</span>
-                <button
-                  v-if="canReportWinner(match, match.team_b_id) && !isEditingMatchup(match.id)"
-                  class="btn-secondary bracket-win-btn"
-                  type="button"
-                  :disabled="Boolean(ctx.reportingWinners[match.id])"
-                  @click="ctx.reportMatchWinner(match.id, match.team_b_id)"
-                >Win</button>
-              </div>
-              <div v-if="ctx.canManageEvent && !match.isPlaceholder" class="bracket-edit-row">
                 <button
                   v-if="canCancelWinner(match) && !isEditingMatchup(match.id)"
-                  class="btn-danger bracket-action-btn"
+                  class="btn-danger admin-btn"
                   type="button"
                   :disabled="Boolean(ctx.cancellingWinners[match.id]) || Boolean(ctx.reportingWinners[match.id])"
                   @click="ctx.cancelMatchWinner(match.id)"
                 >
-                  {{ ctx.cancellingWinners[match.id] ? 'Cancelling...' : 'Cancel Result' }}
+                  {{ ctx.cancellingWinners[match.id] ? 'Cancelling…' : 'Cancel Result' }}
                 </button>
               </div>
-              <p class="muted bracket-status">
-                {{ match.winner_team_name ? `Winner: ${match.winner_team_name}` : `Status: ${match.status}` }}
-              </p>
             </article>
           </div>
         </section>
@@ -617,48 +674,93 @@ watch(editingMatchups, () => {
 </template>
 
 <style scoped>
+/* ── Root ─────────────────────────────────────── */
+.tourney-root {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+/* ── Toolbar ──────────────────────────────────── */
 .tourney-toolbar {
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.65rem;
+  align-items: flex-start;
+  gap: 1rem;
   flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  background: var(--bg-1);
 }
 
+.tourney-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding-right: 1rem;
+  border-right: 1px solid var(--line);
+}
+
+.btn-icon {
+  font-size: 1rem;
+  line-height: 1;
+  vertical-align: middle;
+  margin-right: 0.2rem;
+}
+
+.tourney-toolbar-hint {
+  flex: 1;
+  min-width: 180px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Empty state ──────────────────────────────── */
+.bracket-empty-message {
+  margin: 0;
+}
+
+/* ── Bracket scroll wrapper  ─────────────────── */
 .tourney-bracket-wrap {
   overflow-x: auto;
-  padding-bottom: 0.2rem;
+  /* Explicitly constrain width so the scroll container is bounded.
+     min-width:0 on the root makes this resolve to the available space. */
+  width: 100%;
+  padding-bottom: 0.25rem;
 }
 
-.bracket-empty-message {
-  margin: 0.2rem 0 0;
-}
-
+/* ── Bracket grid ─────────────────────────────── */
 .tourney-bracket {
-  --card-min-height: 212px;
-  --base-round-gap: 0.8rem;
-  --col-gap: 16px;
+  --card-min-height: 104px;
+  --base-round-gap: 0.75rem;
+  --col-gap: 18px;
   --column-height: calc(
     (var(--max-round-cards) * var(--card-min-height)) +
     ((var(--max-round-cards) - 1) * var(--base-round-gap))
   );
   display: grid;
-  grid-template-columns: repeat(var(--rounds), minmax(270px, 1fr));
+  grid-template-columns: repeat(var(--rounds), minmax(200px, 1fr));
   gap: var(--col-gap);
   min-width: max-content;
   align-items: stretch;
 }
 
+/* ── Round column ─────────────────────────────── */
 .bracket-round {
   display: grid;
-  gap: 0.68rem;
+  gap: 0.6rem;
 }
 
 .bracket-round-title {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   color: var(--ink-2);
 }
 
@@ -666,28 +768,179 @@ watch(editingMatchups, () => {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: var(--round-gap, 0.8rem);
+  gap: var(--round-gap, 0.75rem);
   padding-top: var(--round-pad, 0px);
   padding-bottom: var(--round-pad, 0px);
   min-height: var(--column-height);
   position: relative;
 }
 
+/* ── Match card ───────────────────────────────── */
 .bracket-match {
   --connector-stroke: 2px;
   --connector-overlap: 2px;
-  --connector-ink: color-mix(in srgb, var(--line) 90%, var(--brand-2) 10%);
+  --connector-ink: color-mix(in srgb, var(--line) 80%, transparent 20%);
   position: relative;
-  min-height: var(--card-min-height);
-  border: 1px solid color-mix(in srgb, var(--line) 85%, var(--brand-2) 15%);
-  background: color-mix(in srgb, var(--card) 90%, #f2f6ff 10%);
+  /* All cards in a column must share the same height so that top: 50% on
+     connectors resolves to the same absolute Y. Use min-height (not height)
+     so content is never clipped; JS measures the tallest card and injects
+     --match-height so shorter cards pad up to match it. */
+  min-height: var(--match-height, var(--card-min-height));
+  background: var(--bg-1);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 0.62rem 0.58rem;
-  display: grid;
-  gap: 0.42rem;
-  box-shadow: 0 1px 5px rgba(15, 39, 84, 0.08);
+  padding: 0.55rem 0.65rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
+/* Let editing cards expand naturally; measurement is paused while editing. */
+.bracket-match.is-editing-card {
+  min-height: var(--match-height, var(--card-min-height));
+}
+
+.bracket-match.is-ready {
+  --connector-ink: color-mix(in srgb, var(--brand-1) 60%, var(--line) 40%);
+  border-color: color-mix(in srgb, var(--brand-1) 35%, var(--line) 65%);
+}
+
+.bracket-match.is-completed {
+  --connector-ink: color-mix(in srgb, #1da56f 60%, var(--line) 40%);
+  border-color: color-mix(in srgb, #17a36b 40%, var(--line) 60%);
+}
+
+.bracket-match.is-placeholder {
+  --connector-ink: color-mix(in srgb, var(--line) 60%, transparent 40%);
+  opacity: 0.65;
+  border-style: dashed;
+}
+
+/* ── Card header ──────────────────────────────── */
+.match-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.match-title-static {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+/* ── Status badge ─────────────────────────────── */
+.match-status-badge {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.16rem 0.42rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+
+.badge-open {
+  background: color-mix(in srgb, var(--ink-3) 12%, transparent);
+  color: var(--ink-2);
+  border-color: color-mix(in srgb, var(--line) 90%, transparent);
+}
+
+.badge-ready {
+  background: color-mix(in srgb, var(--brand-1) 15%, transparent);
+  color: var(--brand-1);
+  border-color: color-mix(in srgb, var(--brand-1) 28%, transparent);
+}
+
+.badge-completed, .badge-done {
+  background: color-mix(in srgb, #1da56f 12%, transparent);
+  color: #1da56f;
+  border-color: color-mix(in srgb, #1da56f 28%, transparent);
+}
+
+/* ── Team rows ────────────────────────────────── */
+.match-teams {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex: 1;
+}
+
+.match-teams-divider {
+  height: 1px;
+  background: var(--line);
+}
+
+.match-team-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.32rem 0.5rem;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.match-team-row.is-winner {
+  background: color-mix(in srgb, #1da56f 10%, transparent);
+}
+
+.team-name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-team-row.is-winner .team-name {
+  color: #1da56f;
+  font-weight: 700;
+}
+
+.bracket-team-select {
+  min-width: 0;
+  flex: 1;
+  max-width: 100%;
+  font-size: 0.82rem;
+}
+
+.win-btn {
+  flex-shrink: 0;
+  padding: 0.15rem 0.38rem;
+  font-size: 0.74rem;
+}
+
+/* ── Admin controls ───────────────────────────── */
+.match-admin-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.admin-btn {
+  padding: 0.14rem 0.4rem;
+  font-size: 0.73rem;
+  white-space: nowrap;
+}
+
+/* ── Bracket connectors ───────────────────────── */
 .child-outgoing-link {
   position: absolute;
   right: calc((var(--col-gap) / -2) - var(--connector-overlap));
@@ -718,9 +971,9 @@ watch(editingMatchups, () => {
 
 .fork-spine {
   left: var(--fork-center-x);
-  top: calc(0px - var(--connector-overlap));
+  top: 0;
   width: var(--connector-stroke);
-  height: calc(100% + (var(--connector-overlap) * 2));
+  height: 100%;
 }
 
 .fork-arm-top,
@@ -745,131 +998,83 @@ watch(editingMatchups, () => {
   height: var(--connector-stroke);
 }
 
-.bracket-match.ready {
-  --connector-ink: color-mix(in srgb, var(--brand-1) 64%, #9ec0ff 36%);
-  border-color: color-mix(in srgb, var(--brand-1) 45%, var(--line) 55%);
+/* ── Stats bar ────────────────────────────────── */
+.bracket-stats {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
-.bracket-match.completed {
-  --connector-ink: color-mix(in srgb, #1da56f 68%, #b6f0da 32%);
-  border-color: color-mix(in srgb, #17a36b 52%, var(--line) 48%);
+.stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  padding: 0.85rem 1.1rem;
+  border-right: 1px solid var(--line);
 }
 
-.bracket-match.placeholder {
-  --connector-ink: color-mix(in srgb, var(--line) 94%, #d8deed 6%);
-  opacity: 0.7;
-  border-style: dashed;
+.stat-item:last-child {
+  border-right: none;
 }
 
-.bracket-match-title {
-  border: 0;
-  background: none;
-  text-align: left;
-  padding: 0;
+.stat-value {
+  font-size: 1.35rem;
   font-weight: 800;
   color: var(--ink-1);
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bracket-toggle-btn {
-  padding: 0.14rem 0.44rem;
-  font-size: 0.74rem;
-}
-
-.bracket-top-actions {
+  line-height: 1;
   display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  align-items: baseline;
+  gap: 0.25rem;
 }
 
-.bracket-team-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.42rem;
-  border: 1px solid color-mix(in srgb, var(--line) 88%, var(--brand-2) 12%);
-  border-radius: var(--radius-sm);
-  padding: 0.34rem 0.4rem;
-  background: color-mix(in srgb, var(--card) 92%, #ebf2ff 8%);
+.stat-value-of {
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
-.bracket-team-row.winner {
-  border-color: color-mix(in srgb, #1d9d6f 58%, var(--line) 42%);
-  background: color-mix(in srgb, #d7f5e8 42%, var(--card) 58%);
+.stat-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
 }
 
-.bracket-team-name {
-  font-size: 0.86rem;
-  font-weight: 650;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bracket-team-select {
-  min-width: 0;
-  flex: 1;
-  max-width: 100%;
-}
-
-.bracket-win-btn {
-  min-width: 48px;
-  padding: 0.2rem 0.42rem;
-  font-size: 0.78rem;
-  flex: 0 0 auto;
-}
-
-.bracket-status {
-  margin: 0.22rem 0 0;
-  font-size: 0.78rem;
+.stat-sub {
+  font-size: 0.72rem;
   line-height: 1.3;
 }
 
-.bracket-edit-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  justify-content: flex-end;
-}
-
-.bracket-action-btn {
-  padding: 0.18rem 0.44rem;
-  font-size: 0.76rem;
-  white-space: nowrap;
-}
-
-.bracket-round.round-first .bracket-match {
-  gap: 0.4rem;
-}
-
-.bracket-round.round-first .bracket-team-row {
-  padding: 0.3rem 0.38rem;
-}
-
-.bracket-round.round-first .bracket-status {
-  margin-top: 0.18rem;
-  font-size: 0.74rem;
-  line-height: 1.25;
-}
-
+/* ── Responsive ───────────────────────────────── */
 @media (max-width: 900px) {
+  .tourney-toolbar {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .tourney-toolbar-actions {
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    padding-right: 0;
+    padding-bottom: 0.75rem;
+    width: 100%;
+  }
+
+  .tourney-toolbar-hint {
+    min-width: 0;
+  }
+
   .tourney-bracket {
-    grid-template-columns: repeat(var(--rounds), minmax(230px, 1fr));
+    grid-template-columns: repeat(var(--rounds), minmax(180px, 1fr));
     --col-gap: 12px;
   }
 
   .bracket-round-list {
-    gap: 0.6rem;
+    gap: 0.5rem;
     min-height: auto;
-  }
-
-  .bracket-round.has-connectors .bracket-round-list {
-    padding-left: 0;
   }
 
   .parent-incoming-link,
@@ -878,8 +1083,20 @@ watch(editingMatchups, () => {
   }
 
   .bracket-match {
-    min-height: auto;
-    height: auto;
+    min-height: var(--card-min-height);
+  }
+
+  .bracket-stats {
+    flex-wrap: wrap;
+  }
+
+  .stat-item {
+    flex: 1 1 40%;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stat-item:last-child {
+    border-bottom: none;
   }
 }
 </style>

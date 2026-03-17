@@ -37,12 +37,15 @@ export const useMatchStore = defineStore('match', {
         method: 'POST',
       })
     },
-    fetchMatch(matchId) {
-      return apiCall(`/api/matches/${matchId}`)
-    },
     deleteMatch(matchId) {
       return apiCall(`/api/matches/${matchId}`, {
         method: 'DELETE',
+      })
+    },
+    updateMatchStartDate(eventId, matchId, startDate) {
+      return apiCall(`/api/events/${eventId}/matches/${matchId}/start-date`, {
+        method: 'POST',
+        body: JSON.stringify({ start_date: startDate }),
       })
     },
   },

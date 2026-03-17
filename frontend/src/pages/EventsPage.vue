@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
+import { getDateTimestamp, normalizeDatetimeLocalInput } from '../lib/dates'
 import { formatOptionsForType } from '../lib/event-format'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
@@ -241,12 +242,7 @@ async function loadEventsKpis() {
 }
 
 function normalizeDateValue(value) {
-  if (!value) {
-    return null
-  }
-
-  const parsed = new Date(value).getTime()
-  return Number.isNaN(parsed) ? null : parsed
+  return getDateTimestamp(value)
 }
 
 function getPlayerCount(event) {
@@ -289,6 +285,14 @@ async function createEvent() {
     return
   }
 
+  let normalizedStartDate = null
+  try {
+    normalizedStartDate = normalizeDatetimeLocalInput(newEventStartDate.value, 'event start date')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Invalid event start date')
+    return
+  }
+
   creatingEvent.value = true
   try {
     clearError()
@@ -299,7 +303,7 @@ async function createEvent() {
       body: JSON.stringify({
         name: newEventName.value.trim(),
         description: newEventDescription.value.trim(),
-        start_date: newEventStartDate.value ? newEventStartDate.value : null,
+        start_date: normalizedStartDate,
         event_type: newEventType.value,
         format: newEventFormat.value,
         public_signup_enabled: newEventSignupVisibility.value === 'public',

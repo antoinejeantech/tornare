@@ -6,8 +6,12 @@ use crate::{
         },
         users::models::OVERWATCH_RANKS,
     },
-    shared::errors::{bad_request, ApiError},
+    shared::{
+        errors::{bad_request, ApiError},
+        validation::{normalize_optional_rfc3339_timestamp, parse_rfc3339_timestamp},
+    },
 };
+use time::OffsetDateTime;
 
 pub(super) fn validate_create_event_input(payload: &CreateEventInput) -> Result<(), ApiError> {
     let name = payload.name.trim();
@@ -28,9 +32,11 @@ pub(super) fn validate_create_event_input(payload: &CreateEventInput) -> Result<
     }
 
     if let Some(start_date) = normalize_optional_string(&payload.start_date) {
-        if start_date.len() > 40 {
+        if start_date.len() > 64 {
             return Err(bad_request("Event start date is too long"));
         }
+
+        parse_rfc3339_timestamp(start_date.as_str())?;
     }
 
     if !(2..=99).contains(&payload.max_players) {
@@ -68,6 +74,12 @@ pub(super) fn normalize_optional_string(value: &Option<String>) -> Option<String
         .as_ref()
         .map(|text| text.trim().to_string())
         .filter(|text| !text.is_empty())
+}
+
+pub(super) fn normalize_optional_start_date(
+    value: &Option<String>,
+) -> Result<Option<OffsetDateTime>, ApiError> {
+    normalize_optional_rfc3339_timestamp(value.as_deref())
 }
 
 pub(super) fn validate_add_player_input(payload: &AddPlayerInput) -> Result<(), ApiError> {

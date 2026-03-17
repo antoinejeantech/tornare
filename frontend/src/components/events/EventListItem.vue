@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import { formatDayMonthYear, formatTime24, getDateTimestamp } from '../../lib/dates'
 import AppBadge from '../ui/AppBadge.vue'
 
 const props = defineProps({
@@ -15,38 +16,11 @@ const props = defineProps({
 })
 
 const startDateDisplay = computed(() => {
-  const value = props.event?.start_date
-  if (!value) {
-    return '--/--/----'
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return '--/--/----'
-  }
-
-  const day = String(parsed.getDate()).padStart(2, '0')
-  const month = String(parsed.getMonth() + 1).padStart(2, '0')
-  const year = String(parsed.getFullYear())
-  return `${day}/${month}/${year}`
+  return formatDayMonthYear(props.event?.start_date, '--/--/----')
 })
 
 const startTimeDisplay = computed(() => {
-  const value = props.event?.start_date
-  if (!value) {
-    return '--:--'
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return '--:--'
-  }
-
-  return parsed.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
+  return formatTime24(props.event?.start_date, '--:--')
 })
 
 const playerCount = computed(() => {
@@ -74,13 +48,13 @@ const creatorProfileRoute = computed(() => {
 const statusLabel = computed(() => {
   const maxPlayers = Number(props.event?.max_players) || 0
   const players = playerCount.value
-  const startAt = props.event?.start_date ? new Date(props.event.start_date).getTime() : null
+  const startAt = getDateTimestamp(props.event?.start_date)
 
   if (maxPlayers > 0 && players >= maxPlayers) {
     return 'Full'
   }
 
-  if (startAt && !Number.isNaN(startAt)) {
+  if (startAt !== null) {
     const now = Date.now()
     if (startAt <= now) {
       return 'Ongoing'

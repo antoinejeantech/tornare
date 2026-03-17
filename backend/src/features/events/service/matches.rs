@@ -5,7 +5,7 @@ use crate::{
     features::{
         events::models::{
             BracketGenerationMode, CreateEventMatchInput, Event, Match,
-            ReportMatchWinnerInput, SetMatchupInput,
+            ReportMatchWinnerInput, SetMatchupInput, UpdateMatchStartDateInput,
         },
         matches::service as matches_service,
     },
@@ -66,4 +66,14 @@ pub async fn set_matchup_for_user(
     payload: SetMatchupInput,
 ) -> Result<Match, ApiError> {
     matches_service::set_matchup_for_user(state, user_id, event_id, match_id, payload).await
+}
+
+pub async fn update_match_start_date_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+    match_id: Uuid,
+    payload: UpdateMatchStartDateInput,
+) -> Result<Match, ApiError> {
+    matches_service::update_match_start_date_for_user(state, user_id, event_id, match_id, payload).await
 }

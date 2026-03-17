@@ -22,10 +22,11 @@ defineProps({
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+  margin-bottom: 1rem;
 }
 
 .section-title {
-  margin: 0 0 1rem;
+  margin: 0;
   display: inline-flex;
   align-items: center;
   gap: 0.42rem;
