@@ -76,6 +76,13 @@ make down
 
 ## Backend endpoints
 
+Timestamp contract:
+
+- `start_date` for event create/update and match create/update must be sent as RFC3339 / ISO8601 with an explicit timezone offset, for example `2026-03-17T19:30:00Z` or `2026-03-17T20:30:00+01:00`.
+- The API normalizes accepted timestamps to UTC before storage.
+- Event and match responses return timestamps as stable UTC ISO strings, for example `2026-03-17T19:30:00.000Z`.
+- Do not send raw `datetime-local` values like `2026-03-17T19:30`; they are rejected as `400 Bad Request`.
+
 - `GET /health` health check
 - `GET /api/hello` basic API smoke test
 
@@ -89,18 +96,18 @@ make down
 - `PUT /api/users/:user_id` update a user profile
 
 - `GET /api/events` list events
-- `POST /api/events` create an event (`PUG` or `TOURNEY`)
+- `POST /api/events` create an event (`PUG` or `TOURNEY`, optional `start_date` must follow the timestamp contract above)
 - `GET /api/events/kpi` fetch event KPI aggregates
 - `GET /api/events/featured` fetch the featured event
 - `GET /api/events/:event_id` fetch one event with roster, teams, and matches
-- `PUT /api/events/:event_id` update an event
+- `PUT /api/events/:event_id` update an event (`start_date` follows the same timestamp contract)
 - `DELETE /api/events/:event_id` delete an event
 
-- `POST /api/events/:event_id/matches` create a match in an event
+- `POST /api/events/:event_id/matches` create a match in an event (optional `start_date` follows the same timestamp contract)
 - `POST /api/events/:event_id/matches/:match_id/matchup` set or clear the two teams for a match
 - `POST /api/events/:event_id/matches/:match_id/winner` report a match winner
 - `POST /api/events/:event_id/matches/:match_id/winner/cancel` cancel a reported winner
-- `POST /api/events/:event_id/matches/:match_id/start-date` set or clear a match start date
+- `POST /api/events/:event_id/matches/:match_id/start-date` set or clear a match start date (`start_date` follows the same timestamp contract)
 
 - `POST /api/events/:event_id/players` add a player to the event roster
 - `PUT /api/events/:event_id/players/:player_id` update an event player
