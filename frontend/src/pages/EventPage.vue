@@ -1,7 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, proxyRefs, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { datetimeLocalToIsoString, getDateTimestamp, isoToDatetimeLocalValue, parseDateValue } from '../lib/dates'
+import { getDateTimestamp, isoToDatetimeLocalValue, normalizeDatetimeLocalInput, parseDateValue } from '../lib/dates'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { formatOptionsForType } from '../lib/event-format'
 import { useAlert } from '../lib/alerts'
@@ -216,34 +216,6 @@ function setError(message) {
 
 function setNotice(message) {
   alert.success(message)
-}
-
-function normalizeMatchStartDateInput(value) {
-  const raw = String(value || '').trim()
-  if (!raw) {
-    return null
-  }
-
-  const normalized = datetimeLocalToIsoString(raw)
-  if (!normalized) {
-    throw new Error('Invalid match start date')
-  }
-
-  return normalized
-}
-
-function normalizeEventStartDateInput(value) {
-  const raw = String(value || '').trim()
-  if (!raw) {
-    return null
-  }
-
-  const normalized = datetimeLocalToIsoString(raw)
-  if (!normalized) {
-    throw new Error('Invalid event start date')
-  }
-
-  return normalized
 }
 
 function ensureOwnerAction() {
@@ -940,7 +912,7 @@ async function createMatch() {
 
   let normalizedStartDate = null
   try {
-    normalizedStartDate = normalizeMatchStartDateInput(newMatchStartDate.value)
+    normalizedStartDate = normalizeDatetimeLocalInput(newMatchStartDate.value, 'match start date')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Invalid match start date')
     return
@@ -1007,7 +979,7 @@ async function updateMatchStartDate(matchId, startDate) {
 
   let normalizedStartDate = null
   try {
-    normalizedStartDate = normalizeMatchStartDateInput(startDate)
+    normalizedStartDate = normalizeDatetimeLocalInput(startDate, 'match start date')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Invalid match start date')
     return
@@ -1290,7 +1262,7 @@ async function saveEventEdit() {
 
   let normalizedStartDate = null
   try {
-    normalizedStartDate = normalizeEventStartDateInput(editEventStartDate.value)
+    normalizedStartDate = normalizeDatetimeLocalInput(editEventStartDate.value, 'event start date')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Invalid event start date')
     return

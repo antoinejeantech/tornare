@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
-import { datetimeLocalToIsoString, getDateTimestamp } from '../lib/dates'
+import { getDateTimestamp, normalizeDatetimeLocalInput } from '../lib/dates'
 import { formatOptionsForType } from '../lib/event-format'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
@@ -135,20 +135,6 @@ function resetCreateForm() {
   newEventFormat.value = '5v5'
   newEventSignupVisibility.value = 'private'
   newEventMaxPlayers.value = 10
-}
-
-function normalizeEventStartDateInput(value) {
-  const raw = String(value || '').trim()
-  if (!raw) {
-    return null
-  }
-
-  const normalized = datetimeLocalToIsoString(raw)
-  if (!normalized) {
-    throw new Error('Invalid event start date')
-  }
-
-  return normalized
 }
 
 function openCreateModal() {
@@ -301,7 +287,7 @@ async function createEvent() {
 
   let normalizedStartDate = null
   try {
-    normalizedStartDate = normalizeEventStartDateInput(newEventStartDate.value)
+    normalizedStartDate = normalizeDatetimeLocalInput(newEventStartDate.value, 'event start date')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Invalid event start date')
     return

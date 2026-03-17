@@ -61,6 +61,20 @@ export function datetimeLocalToIsoString(value) {
   return parsed.toISOString()
 }
 
+export function normalizeDatetimeLocalInput(value, errorLabel = 'date') {
+  const raw = String(value || '').trim()
+  if (!raw) {
+    return null
+  }
+
+  const normalized = datetimeLocalToIsoString(raw)
+  if (!normalized) {
+    throw new Error(`Invalid ${errorLabel}`)
+  }
+
+  return normalized
+}
+
 export function isoToDatetimeLocalValue(value) {
   const raw = String(value || '').trim()
   if (!raw) {
