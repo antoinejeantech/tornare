@@ -80,7 +80,7 @@ Timestamp contract:
 
 - `start_date` for event create/update and match create/update must be sent as RFC3339 / ISO8601 with an explicit timezone offset, for example `2026-03-17T19:30:00Z` or `2026-03-17T20:30:00+01:00`.
 - The API normalizes accepted timestamps to UTC before storage.
-- Event and match responses return timestamps as stable UTC ISO strings, for example `2026-03-17T19:30:00.000Z`.
+- Event and match responses return stable UTC RFC3339 / ISO8601 timestamp strings, for example `2026-03-17T19:30:00Z` or `2026-03-17T19:30:00.123456Z`.
 - Do not send raw `datetime-local` values like `2026-03-17T19:30`; they are rejected as `400 Bad Request`.
 
 - `GET /health` health check
