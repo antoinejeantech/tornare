@@ -14,8 +14,37 @@ use crate::{
 use time::OffsetDateTime;
 
 pub(super) fn validate_create_event_input(payload: &CreateEventInput) -> Result<(), ApiError> {
-    let name = payload.name.trim();
-    let description = payload.description.trim();
+    validate_event_fields(
+        &payload.name,
+        &payload.description,
+        &payload.start_date,
+        payload.max_players,
+        &payload.event_type,
+        &payload.format,
+    )
+}
+
+pub(super) fn validate_update_event_input(payload: &UpdateEventInput) -> Result<(), ApiError> {
+    validate_event_fields(
+        &payload.name,
+        &payload.description,
+        &payload.start_date,
+        payload.max_players,
+        &payload.event_type,
+        &payload.format,
+    )
+}
+
+fn validate_event_fields(
+    name: &str,
+    description: &str,
+    start_date: &Option<String>,
+    max_players: u8,
+    event_type: &EventType,
+    format: &EventFormat,
+) -> Result<(), ApiError> {
+    let name = name.trim();
+    let description = description.trim();
 
     if name.is_empty() {
         return Err(bad_request("Event name is required"));
@@ -31,7 +60,7 @@ pub(super) fn validate_create_event_input(payload: &CreateEventInput) -> Result<
         ));
     }
 
-    if let Some(start_date) = normalize_optional_string(&payload.start_date) {
+    if let Some(start_date) = normalize_optional_string(start_date) {
         if start_date.len() > 64 {
             return Err(bad_request("Event start date is too long"));
         }
@@ -39,13 +68,13 @@ pub(super) fn validate_create_event_input(payload: &CreateEventInput) -> Result<
         parse_rfc3339_timestamp(start_date.as_str())?;
     }
 
-    if !(2..=99).contains(&payload.max_players) {
+    if !(2..=99).contains(&max_players) {
         return Err(bad_request("Max players must be between 2 and 99"));
     }
 
-    match &payload.event_type {
+    match event_type {
         EventType::Pug => {
-            if !matches!(&payload.format, EventFormat::FiveVFive | EventFormat::SixVSix) {
+            if !matches!(format, EventFormat::FiveVFive | EventFormat::SixVSix) {
                 return Err(bad_request("PUG events support only 5v5 or 6v6 format"));
             }
         }
@@ -53,20 +82,6 @@ pub(super) fn validate_create_event_input(payload: &CreateEventInput) -> Result<
     }
 
     Ok(())
-}
-
-pub(super) fn validate_update_event_input(payload: &UpdateEventInput) -> Result<(), ApiError> {
-    let create_shape = CreateEventInput {
-        name: payload.name.clone(),
-        description: payload.description.clone(),
-        start_date: payload.start_date.clone(),
-        event_type: payload.event_type.clone(),
-        format: payload.format.clone(),
-        public_signup_enabled: false,
-        max_players: payload.max_players,
-    };
-
-    validate_create_event_input(&create_shape)
 }
 
 pub(super) fn normalize_optional_string(value: &Option<String>) -> Option<String> {
@@ -83,9 +98,33 @@ pub(super) fn normalize_optional_start_date(
 }
 
 pub(super) fn validate_add_player_input(payload: &AddPlayerInput) -> Result<(), ApiError> {
-    let name = payload.name.trim();
-    let role = payload.role.trim();
-    let rank = payload.rank.trim();
+    validate_player_fields(&payload.name, &payload.role, &payload.rank)
+}
+
+pub(super) fn validate_event_player_update_input(
+    payload: &UpdateEventPlayerInput,
+) -> Result<(), ApiError> {
+    validate_player_fields(&payload.name, &payload.role, &payload.rank)
+}
+
+pub(super) fn validate_event_team_name(name: &str) -> Result<(), ApiError> {
+    if name.trim().is_empty() {
+        return Err(bad_request("Team name is required"));
+    }
+
+    Ok(())
+}
+
+pub(super) fn validate_signup_request_input(
+    payload: &CreateEventSignupRequestInput,
+) -> Result<(), ApiError> {
+    validate_player_fields(&payload.name, &payload.role, &payload.rank)
+}
+
+fn validate_player_fields(name: &str, role: &str, rank: &str) -> Result<(), ApiError> {
+    let name = name.trim();
+    let role = role.trim();
+    let rank = rank.trim();
 
     if name.is_empty() {
         return Err(bad_request("Player name is required"));
@@ -112,36 +151,4 @@ pub(super) fn validate_add_player_input(payload: &AddPlayerInput) -> Result<(), 
     }
 
     Ok(())
-}
-
-pub(super) fn validate_event_player_update_input(
-    payload: &UpdateEventPlayerInput,
-) -> Result<(), ApiError> {
-    let add_player_shape = AddPlayerInput {
-        name: payload.name.clone(),
-        role: payload.role.clone(),
-        rank: payload.rank.clone(),
-    };
-
-    validate_add_player_input(&add_player_shape)
-}
-
-pub(super) fn validate_event_team_name(name: &str) -> Result<(), ApiError> {
-    if name.trim().is_empty() {
-        return Err(bad_request("Team name is required"));
-    }
-
-    Ok(())
-}
-
-pub(super) fn validate_signup_request_input(
-    payload: &CreateEventSignupRequestInput,
-) -> Result<(), ApiError> {
-    let add_player_shape = AddPlayerInput {
-        name: payload.name.clone(),
-        role: payload.role.clone(),
-        rank: payload.rank.clone(),
-    };
-
-    validate_add_player_input(&add_player_shape)
 }

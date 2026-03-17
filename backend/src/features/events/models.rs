@@ -159,6 +159,17 @@ pub struct Event {
     pub matches: Vec<Match>,
 }
 
+impl Event {
+    /// Set ownership/management flags for a write-path response.
+    /// `is_owner` is `true` for literal event-membership owners, `false` for
+    /// global admins/moderators acting with elevated access.
+    pub fn into_owner(mut self, is_owner: bool) -> Self {
+        self.is_owner = is_owner;
+        self.can_manage = true;
+        self
+    }
+}
+
 #[derive(Deserialize)]
 pub struct SetEventPublicSignupInput {
     pub enabled: bool,

@@ -345,7 +345,7 @@ pub async fn generate_tourney_bracket_for_user(
     tx.commit().await.map_err(internal_error)?;
 
     let event = events_repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, is_owner))
+    Ok(event.into_owner(is_owner))
 }
 
 pub async fn clear_tourney_bracket_for_user(
@@ -380,7 +380,7 @@ pub async fn clear_tourney_bracket_for_user(
     }
 
     let event = events_repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, is_owner))
+    Ok(event.into_owner(is_owner))
 }
 
 pub async fn report_match_winner_for_user(
@@ -564,12 +564,6 @@ pub async fn cancel_match_winner_for_user(
     tx.commit().await.map_err(internal_error)?;
 
     repo::load_match(&state.pool, match_id).await
-}
-
-fn as_owner_event(mut event: Event, is_owner: bool) -> Event {
-    event.is_owner = is_owner;
-    event.can_manage = true;
-    event
 }
 
 fn can_regenerate_bracket(existing_match_count: i64, played_match_count: i64) -> bool {
