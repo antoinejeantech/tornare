@@ -19,26 +19,26 @@ pub async fn get_user_profile_public(
     state: &AppState,
     user_id: Uuid,
 ) -> Result<AuthUser, ApiError> {
-    let Some((id, email, username, display_name, role, battletag, rank_tank, rank_dps, rank_support, is_active)) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
+    let Some(row) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
         return Err(not_found("User not found"));
     };
 
-    if !is_active {
+    if !row.is_active {
         return Err(not_found("User not found"));
     }
 
     let has_battlenet_identity = repo::has_provider_identity(&state.pool, user_id, "battlenet").await?;
 
     Ok(AuthUser {
-        id,
-        email,
-        username,
-        display_name,
-        role,
-        battletag,
-        rank_tank,
-        rank_dps,
-        rank_support,
+        id: row.id,
+        email: row.email,
+        username: row.username,
+        display_name: row.display_name,
+        role: row.role,
+        battletag: row.battletag,
+        rank_tank: row.rank_tank,
+        rank_dps: row.rank_dps,
+        rank_support: row.rank_support,
         can_edit_battletag: !has_battlenet_identity,
     })
 }
