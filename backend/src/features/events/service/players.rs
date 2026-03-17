@@ -23,7 +23,7 @@ pub async fn add_event_player_for_user(
     event_id: Uuid,
     payload: AddPlayerInput,
 ) -> Result<Event, ApiError> {
-    require_event_owner_access(state, event_id, user_id).await?;
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
     validate_add_player_input(&payload)?;
 
     ensure_event_has_capacity_for_new_player(state, event_id).await?;
@@ -38,7 +38,7 @@ pub async fn add_event_player_for_user(
     .await?;
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event))
+    Ok(as_owner_event(event, is_owner))
 }
 
 pub async fn delete_event_player_for_user(
@@ -69,7 +69,7 @@ pub async fn update_event_player_for_user(
     player_id: Uuid,
     payload: UpdateEventPlayerInput,
 ) -> Result<Event, ApiError> {
-    require_event_owner_access(state, event_id, user_id).await?;
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
     validate_event_player_update_input(&payload)?;
 
     let updated = repo::update_event_player_by_id(
@@ -87,7 +87,7 @@ pub async fn update_event_player_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event))
+    Ok(as_owner_event(event, is_owner))
 }
 
 pub async fn assign_event_player_team_for_user(
@@ -96,7 +96,7 @@ pub async fn assign_event_player_team_for_user(
     event_id: Uuid,
     payload: AssignEventPlayerTeamInput,
 ) -> Result<Event, ApiError> {
-    require_event_owner_access(state, event_id, user_id).await?;
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
 
     if !repo::event_player_exists(&state.pool, event_id, payload.player_id).await? {
         return Err(not_found("Player not found in this event"));
@@ -115,5 +115,5 @@ pub async fn assign_event_player_team_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event))
+    Ok(as_owner_event(event, is_owner))
 }

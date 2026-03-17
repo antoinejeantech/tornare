@@ -59,7 +59,7 @@ pub async fn set_event_public_signup_for_user(
     event_id: Uuid,
     enabled: bool,
 ) -> Result<Event, ApiError> {
-    require_event_owner_access(state, event_id, user_id).await?;
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
     let current_event = repo::load_event(&state.pool, event_id).await?;
     let should_rotate_token = current_event.public_signup_enabled && !enabled;
     let signup_token = if should_rotate_token {
@@ -81,7 +81,7 @@ pub async fn set_event_public_signup_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event))
+    Ok(as_owner_event(event, is_owner))
 }
 
 pub async fn get_public_signup_info(
@@ -151,7 +151,7 @@ pub async fn accept_signup_request_for_user(
     event_id: Uuid,
     request_id: Uuid,
 ) -> Result<Event, ApiError> {
-    require_event_owner_access(state, event_id, user_id).await?;
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
 
     let Some(request) = repo::get_signup_request(&state.pool, event_id, request_id).await? else {
         return Err(not_found("Signup request not found"));
@@ -173,7 +173,7 @@ pub async fn accept_signup_request_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event))
+    Ok(as_owner_event(event, is_owner))
 }
 
 pub async fn decline_signup_request_for_user(

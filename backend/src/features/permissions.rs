@@ -11,15 +11,22 @@ async fn has_any_app_role(
     user_id: Uuid,
     roles: &[&str],
 ) -> Result<bool, ApiError> {
-    let row = sqlx::query("SELECT role FROM user_roles WHERE user_id = $1")
+    let roles: Vec<String> = roles.iter().map(|role| (*role).to_string()).collect();
+
+    let has_role = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+            SELECT 1
+            FROM user_roles
+            WHERE user_id = $1 AND role = ANY($2)
+        )",
+    )
         .bind(user_id)
-        .fetch_all(&state.pool)
+        .bind(&roles)
+        .fetch_one(&state.pool)
         .await
         .map_err(internal_error)?;
 
-    Ok(row
-        .iter()
-        .any(|value| roles.contains(&value.get::<String, _>("role").as_str())))
+    Ok(has_role)
 }
 
 pub async fn has_global_event_owner_access(
@@ -35,27 +42,6 @@ pub async fn require_event_admin_access(state: &AppState, user_id: Uuid) -> Resu
     }
 
     Err(forbidden("Only app admins and moderators can perform this action"))
-}
-
-pub async fn has_event_owner_access(
-    state: &AppState,
-    event_id: Uuid,
-    user_id: Uuid,
-) -> Result<bool, ApiError> {
-    if has_global_event_owner_access(state, user_id).await? {
-        return Ok(true);
-    }
-
-    let row = sqlx::query(
-        "SELECT id FROM event_memberships WHERE event_id = $1 AND user_id = $2 AND role = 'owner'",
-    )
-    .bind(event_id)
-    .bind(user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .map_err(internal_error)?;
-
-    Ok(row.is_some())
 }
 
 pub async fn require_event_view_access(
@@ -98,10 +84,15 @@ pub async fn require_event_owner_access(
     state: &AppState,
     event_id: Uuid,
     user_id: Uuid,
-) -> Result<(), ApiError> {
+) -> Result<bool, ApiError> {
+    let has_global_access = has_global_event_owner_access(state, user_id).await?;
+    if has_global_access {
+        return Ok(false);
+    }
+
     let role = require_event_view_access(state, event_id, user_id).await?;
     if role == "owner" {
-        return Ok(());
+        return Ok(true);
     }
 
     Err(forbidden("Only event owners can perform this action"))

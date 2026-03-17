@@ -4,7 +4,7 @@ use crate::{
     app::state::AppState,
     features::{
         events::models::{Event, EventsKpiResponse, ListEventsQuery, PaginatedEventsResponse},
-        permissions::{has_event_owner_access, has_global_event_owner_access},
+        permissions::has_global_event_owner_access,
     },
     shared::errors::ApiError,
 };
@@ -15,6 +15,7 @@ async fn apply_event_access(
     state: &AppState,
     event: &mut Event,
     viewer_user_id: Option<Uuid>,
+    has_global_manage_access: bool,
 ) -> Result<(), ApiError> {
     let Some(user_id) = viewer_user_id else {
         event.is_owner = false;
@@ -23,7 +24,7 @@ async fn apply_event_access(
     };
 
     event.is_owner = repo::is_event_owner(&state.pool, event.id, user_id).await?;
-    event.can_manage = has_event_owner_access(state, event.id, user_id).await?;
+    event.can_manage = event.is_owner || has_global_manage_access;
 
     Ok(())
 }
@@ -43,9 +44,14 @@ pub async fn list_events_public(
         .map(|value| value.trim().to_uppercase())
         .filter(|value| matches!(value.as_str(), "PUG" | "TOURNEY"));
 
+    let has_global_manage_access = match viewer_user_id {
+        Some(user_id) => has_global_event_owner_access(state, user_id).await?,
+        None => false,
+    };
+
     let owner_only_user_id = match query.owner.as_deref() {
         Some("mine") => match viewer_user_id {
-            Some(user_id) if !has_global_event_owner_access(state, user_id).await? => Some(user_id),
+            Some(user_id) if !has_global_manage_access => Some(user_id),
             _ => None,
         },
         _ => None,
@@ -86,7 +92,7 @@ pub async fn list_events_public(
     let mut events = Vec::with_capacity(listing.event_ids.len());
     for event_id in listing.event_ids {
         let mut event = repo::load_event(&state.pool, event_id).await?;
-        apply_event_access(state, &mut event, viewer_user_id).await?;
+        apply_event_access(state, &mut event, viewer_user_id, has_global_manage_access).await?;
         events.push(event);
     }
 
@@ -104,7 +110,11 @@ pub async fn get_event_public(
     viewer_user_id: Option<Uuid>,
 ) -> Result<Event, ApiError> {
     let mut event = repo::load_event(&state.pool, event_id).await?;
-    apply_event_access(state, &mut event, viewer_user_id).await?;
+    let has_global_manage_access = match viewer_user_id {
+        Some(user_id) => has_global_event_owner_access(state, user_id).await?,
+        None => false,
+    };
+    apply_event_access(state, &mut event, viewer_user_id, has_global_manage_access).await?;
     Ok(event)
 }
 
@@ -117,7 +127,11 @@ pub async fn get_featured_event_public(
     };
 
     let mut event = repo::load_event(&state.pool, event_id).await?;
-    apply_event_access(state, &mut event, viewer_user_id).await?;
+    let has_global_manage_access = match viewer_user_id {
+        Some(user_id) => has_global_event_owner_access(state, user_id).await?,
+        None => false,
+    };
+    apply_event_access(state, &mut event, viewer_user_id, has_global_manage_access).await?;
 
     Ok(Some(event))
 }

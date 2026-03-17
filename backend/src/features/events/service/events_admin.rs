@@ -4,7 +4,7 @@ use crate::{
     app::state::AppState,
     features::{
         events::models::{CreateEventInput, Event, UpdateEventInput},
-        permissions::{has_event_owner_access, require_event_admin_access, require_event_owner_access},
+        permissions::{require_event_admin_access, require_event_owner_access},
     },
     shared::{
         errors::{not_found, ApiError},
@@ -45,7 +45,7 @@ pub async fn create_event_for_user(
     repo::insert_event_owner_membership(&state.pool, event_id, user_id).await?;
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event))
+    Ok(as_owner_event(event, true))
 }
 
 pub async fn update_event_for_user(
@@ -54,7 +54,7 @@ pub async fn update_event_for_user(
     event_id: Uuid,
     payload: UpdateEventInput,
 ) -> Result<Event, ApiError> {
-    require_event_owner_access(state, event_id, user_id).await?;
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
     validate_update_event_input(&payload)?;
     let normalized_start_date = normalize_optional_start_date(&payload.start_date)?;
 
@@ -75,7 +75,7 @@ pub async fn update_event_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event))
+    Ok(as_owner_event(event, is_owner))
 }
 
 pub async fn delete_event_for_user(
@@ -112,6 +112,6 @@ pub async fn set_featured_event_for_user(
 
     let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = repo::is_event_owner(&state.pool, event_id, user_id).await?;
-    event.can_manage = has_event_owner_access(state, event_id, user_id).await?;
+    event.can_manage = true;
     Ok(event)
 }
