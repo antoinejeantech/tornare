@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    as_owner_event, average_team_elo_from_players, ensure_event_exists, format_team_size,
+    average_team_elo_from_players, ensure_event_exists, format_team_size,
     pug_role_targets_for_format, rank_elo_for_balance, repo, role_overflow_penalty,
     unique_team_name, BalancePlayer, BalanceTeamState,
 };
@@ -43,7 +43,7 @@ pub async fn create_event_team_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, is_owner))
+    Ok(event.into_owner(is_owner))
 }
 
 pub async fn auto_create_solo_teams_for_user(
@@ -101,7 +101,7 @@ pub async fn auto_create_solo_teams_for_user(
     tx.commit().await.map_err(internal_error)?;
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, is_owner))
+    Ok(event.into_owner(is_owner))
 }
 
 pub async fn auto_balance_teams_for_user(
@@ -206,7 +206,7 @@ pub async fn auto_balance_teams_for_user(
 
     tx.commit().await.map_err(internal_error)?;
 
-    let updated_event = as_owner_event(repo::load_event(&state.pool, event_id).await?, is_owner);
+    let updated_event = repo::load_event(&state.pool, event_id).await?.into_owner(is_owner);
 
     let mut team_summaries = Vec::new();
     let mut min_avg = f64::MAX;
@@ -253,8 +253,6 @@ pub async fn delete_event_team_for_user(
 ) -> Result<MessageResponse, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
 
-    ensure_event_exists(state, event_id).await?;
-
     let played_matches = repo::count_played_matches_for_team(&state.pool, event_id, team_id).await?;
     if played_matches > 0 {
         return Err(bad_request(
@@ -262,13 +260,16 @@ pub async fn delete_event_team_for_user(
         ));
     }
 
-    let deleted = repo::delete_event_team_by_id(&state.pool, event_id, team_id).await?;
+    let mut tx = state.pool.begin().await.map_err(internal_error)?;
 
+    let deleted = repo::delete_event_team_by_id_in_tx(&mut tx, event_id, team_id).await?;
     if !deleted {
         return Err(not_found("Team not found in this event"));
     }
 
-    repo::clear_team_from_event_matches(&state.pool, event_id, team_id).await?;
+    repo::clear_team_from_event_matches_in_tx(&mut tx, event_id, team_id).await?;
+
+    tx.commit().await.map_err(internal_error)?;
 
     Ok(MessageResponse {
         message: "Team deleted".to_string(),
@@ -300,5 +301,5 @@ pub async fn update_event_team_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, is_owner))
+    Ok(event.into_owner(is_owner))
 }

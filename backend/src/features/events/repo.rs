@@ -519,62 +519,18 @@ pub async fn insert_event_team(
     event_id: Uuid,
     team_name: &str,
 ) -> Result<bool, crate::shared::errors::ApiError> {
-    let inserted = sqlx::query("INSERT INTO event_teams (id, event_id, name) VALUES ($1, $2, $3)")
+    let result = sqlx::query("INSERT INTO event_teams (id, event_id, name) VALUES ($1, $2, $3)")
         .bind(Uuid::new_v4())
         .bind(event_id)
         .bind(team_name)
         .execute(pool)
         .await;
 
-    Ok(inserted.is_ok())
-}
-
-pub async fn delete_event_team_by_id(
-    pool: &PgPool,
-    event_id: Uuid,
-    team_id: Uuid,
-) -> Result<bool, crate::shared::errors::ApiError> {
-    let deleted =
-        sqlx::query("DELETE FROM event_teams WHERE id = $1 AND event_id = $2 RETURNING id")
-            .bind(team_id)
-            .bind(event_id)
-            .fetch_optional(pool)
-            .await
-            .map_err(internal_error)?;
-
-    Ok(deleted.is_some())
-}
-
-pub async fn clear_team_from_event_matches(
-    pool: &PgPool,
-    event_id: Uuid,
-    team_id: Uuid,
-) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query(
-        "UPDATE event_matches
-         SET team_a_id = NULL,
-             updated_at = NOW()
-         WHERE event_id = $1 AND team_a_id = $2",
-    )
-        .bind(event_id)
-        .bind(team_id)
-        .execute(pool)
-        .await
-        .map_err(internal_error)?;
-
-    sqlx::query(
-        "UPDATE event_matches
-         SET team_b_id = NULL,
-             updated_at = NOW()
-         WHERE event_id = $1 AND team_b_id = $2",
-    )
-        .bind(event_id)
-        .bind(team_id)
-        .execute(pool)
-        .await
-        .map_err(internal_error)?;
-
-    Ok(())
+    match result {
+        Ok(_) => Ok(true),
+        Err(sqlx::Error::Database(e)) if e.is_unique_violation() => Ok(false),
+        Err(e) => Err(internal_error(e)),
+    }
 }
 
 pub async fn count_played_matches_for_team(
@@ -618,14 +574,10 @@ pub async fn update_event_team_name_by_id(
     .await;
 
     match updated {
-        Ok(value) => {
-            if value.is_some() {
-                Ok(TeamNameUpdateOutcome::Updated)
-            } else {
-                Ok(TeamNameUpdateOutcome::NotFound)
-            }
-        }
-        Err(_) => Ok(TeamNameUpdateOutcome::DuplicateName),
+        Ok(Some(_)) => Ok(TeamNameUpdateOutcome::Updated),
+        Ok(None) => Ok(TeamNameUpdateOutcome::NotFound),
+        Err(sqlx::Error::Database(e)) if e.is_unique_violation() => Ok(TeamNameUpdateOutcome::DuplicateName),
+        Err(e) => Err(internal_error(e)),
     }
 }
 
@@ -740,6 +692,95 @@ pub async fn clear_event_team_memberships_in_tx(
         .map_err(internal_error)?;
 
     Ok(())
+}
+
+pub async fn delete_event_team_by_id_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    team_id: Uuid,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let deleted =
+        sqlx::query("DELETE FROM event_teams WHERE id = $1 AND event_id = $2 RETURNING id")
+            .bind(team_id)
+            .bind(event_id)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(internal_error)?;
+
+    Ok(deleted.is_some())
+}
+
+pub async fn clear_team_from_event_matches_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    team_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "UPDATE event_matches
+         SET team_a_id = NULL, updated_at = NOW()
+         WHERE event_id = $1 AND team_a_id = $2",
+    )
+    .bind(event_id)
+    .bind(team_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    sqlx::query(
+        "UPDATE event_matches
+         SET team_b_id = NULL, updated_at = NOW()
+         WHERE event_id = $1 AND team_b_id = $2",
+    )
+    .bind(event_id)
+    .bind(team_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn insert_event_player_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    name: &str,
+    role: &str,
+    rank: &str,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO event_players (id, event_id, name, role, rank) VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(event_id)
+    .bind(name)
+    .bind(role)
+    .bind(rank)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn update_signup_request_status_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    request_id: Uuid,
+    status: &str,
+) -> Result<u64, crate::shared::errors::ApiError> {
+    let result = sqlx::query(
+        "UPDATE event_signup_requests
+             SET status = $1
+             WHERE event_id = $2 AND id = $3 AND status = 'pending'",
+    )
+    .bind(status)
+    .bind(event_id)
+    .bind(request_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(result.rows_affected())
 }
 
 pub async fn is_event_owner(
@@ -1069,7 +1110,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         .map_err(|_| bad_request("Invalid event format value in database"))?;
     let players = load_event_players_for_event(pool, db_id).await?;
     let teams = load_event_teams_for_event(pool, db_id).await?;
-    let matches = load_matches_for_event(pool, db_id).await?;
+    let matches = load_matches_for_event(pool, db_id, &players).await?;
 
     Ok(Event {
         id: db_id,
@@ -1102,8 +1143,8 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
 pub async fn load_matches_for_event(
     pool: &PgPool,
     event_id: Uuid,
+    players: &[Player],
 ) -> Result<Vec<Match>, crate::shared::errors::ApiError> {
-    let players = load_event_players_for_event(pool, event_id).await?;
     let rows = sqlx::query(
         "SELECT
             g.id,
@@ -1163,7 +1204,7 @@ pub async fn load_matches_for_event(
             created_at: row.get::<OffsetDateTime, _>("created_at"),
             updated_at: row.get::<OffsetDateTime, _>("updated_at"),
             start_date: row.get::<Option<OffsetDateTime>, _>("start_date"),
-            players: players.clone(),
+            players: players.to_vec(),
         });
     }
 
@@ -1232,29 +1273,36 @@ pub async fn load_event_teams_for_event(
             .await
             .map_err(internal_error)?;
 
-    let mut teams = Vec::with_capacity(team_rows.len());
-    for row in team_rows {
-        let team_id = row.get::<Uuid, _>("id");
-        let member_rows = sqlx::query(
-            "SELECT event_player_id FROM event_team_members WHERE event_id = $1 AND event_team_id = $2 ORDER BY event_player_id ASC",
-        )
-        .bind(event_id)
-        .bind(team_id)
-        .fetch_all(pool)
-        .await
-        .map_err(internal_error)?;
+    // Load all team memberships for this event in a single query.
+    let member_rows = sqlx::query(
+        "SELECT event_team_id, event_player_id
+         FROM event_team_members
+         WHERE event_id = $1
+         ORDER BY event_player_id ASC",
+    )
+    .bind(event_id)
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
 
-        let mut player_ids = Vec::with_capacity(member_rows.len());
-        for member in member_rows {
-            player_ids.push(member.get::<Uuid, _>("event_player_id"));
-        }
-
-        teams.push(EventTeam {
-            id: team_id,
-            name: row.get("name"),
-            player_ids,
-        });
+    // Group player IDs by team.
+    let mut members_by_team: std::collections::HashMap<Uuid, Vec<Uuid>> = std::collections::HashMap::new();
+    for member in member_rows {
+        let team_id: Uuid = member.get("event_team_id");
+        let player_id: Uuid = member.get("event_player_id");
+        members_by_team.entry(team_id).or_default().push(player_id);
     }
 
-    Ok(teams)
+    Ok(team_rows
+        .into_iter()
+        .map(|row| {
+            let team_id: Uuid = row.get("id");
+            let player_ids = members_by_team.remove(&team_id).unwrap_or_default();
+            EventTeam {
+                id: team_id,
+                name: row.get("name"),
+                player_ids,
+            }
+        })
+        .collect())
 }
