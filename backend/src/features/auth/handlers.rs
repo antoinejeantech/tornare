@@ -18,7 +18,7 @@ pub async fn register(
     headers: HeaderMap,
     Json(payload): Json<RegisterInput>,
 ) -> ApiResult<AuthResponse> {
-    if !state.public_signup_enabled {
+    if !state.config.public_signup_enabled {
         return Err(forbidden("Public signup is disabled for now. It will be available soon."));
     }
 

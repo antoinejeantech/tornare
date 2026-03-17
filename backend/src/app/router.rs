@@ -19,8 +19,9 @@ use crate::{
 pub fn build_app(state: AppState) -> Router {
     let request_id_header = HeaderName::from_static("x-request-id");
 
-    let allow_any = state.cors_allowed_origins.iter().any(|origin| origin == "*");
+    let allow_any = state.config.cors_allowed_origins.iter().any(|origin| origin == "*");
     let parsed_allowed_origins: Vec<HeaderValue> = state
+        .config
         .cors_allowed_origins
         .iter()
         .filter_map(|origin| origin.parse::<HeaderValue>().ok())
