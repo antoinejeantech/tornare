@@ -4,6 +4,7 @@ mod shared;
 
 use app::{router::build_app, state::AppState};
 use app::security::RateLimiter;
+use dotenvy::{dotenv, from_filename};
 use shared::db::init_schema;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
@@ -12,6 +13,9 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() {
+    let _ = from_filename("backend/.env");
+    let _ = dotenv();
+
     init_logging();
 
     let is_production = is_production_env();
