@@ -27,7 +27,7 @@ pub async fn create_event_team_for_user(
     event_id: Uuid,
     payload: CreateEventTeamInput,
 ) -> Result<Event, ApiError> {
-    require_event_owner_access(state, event_id, user_id).await?;
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
 
     let name = payload.name.trim();
     if name.is_empty() {
@@ -43,7 +43,7 @@ pub async fn create_event_team_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event))
+    Ok(as_owner_event(event, is_owner))
 }
 
 pub async fn auto_create_solo_teams_for_user(
@@ -51,7 +51,7 @@ pub async fn auto_create_solo_teams_for_user(
     user_id: Uuid,
     event_id: Uuid,
 ) -> Result<Event, ApiError> {
-    require_event_owner_access(state, event_id, user_id).await?;
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
 
     ensure_event_exists(state, event_id).await?;
 
@@ -101,7 +101,7 @@ pub async fn auto_create_solo_teams_for_user(
     tx.commit().await.map_err(internal_error)?;
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event))
+    Ok(as_owner_event(event, is_owner))
 }
 
 pub async fn auto_balance_teams_for_user(
@@ -109,7 +109,7 @@ pub async fn auto_balance_teams_for_user(
     user_id: Uuid,
     event_id: Uuid,
 ) -> Result<AutoBalanceTeamsResponse, ApiError> {
-    require_event_owner_access(state, event_id, user_id).await?;
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
 
     let event = repo::load_event(&state.pool, event_id).await?;
     if event.teams.is_empty() {
@@ -206,7 +206,7 @@ pub async fn auto_balance_teams_for_user(
 
     tx.commit().await.map_err(internal_error)?;
 
-    let updated_event = as_owner_event(repo::load_event(&state.pool, event_id).await?);
+    let updated_event = as_owner_event(repo::load_event(&state.pool, event_id).await?, is_owner);
 
     let mut team_summaries = Vec::new();
     let mut min_avg = f64::MAX;
@@ -282,7 +282,7 @@ pub async fn update_event_team_for_user(
     team_id: Uuid,
     payload: UpdateEventTeamInput,
 ) -> Result<Event, ApiError> {
-    require_event_owner_access(state, event_id, user_id).await?;
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
     validate_event_team_name(&payload.name)?;
 
     let outcome =
@@ -300,5 +300,5 @@ pub async fn update_event_team_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event))
+    Ok(as_owner_event(event, is_owner))
 }

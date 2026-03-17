@@ -82,7 +82,8 @@ async fn ensure_event_has_capacity_for_new_player(
     Ok(())
 }
 
-fn as_owner_event(mut event: Event) -> Event {
-    event.is_owner = true;
+fn as_owner_event(mut event: Event, is_owner: bool) -> Event {
+    event.is_owner = is_owner;
+    event.can_manage = true;
     event
 }

@@ -21,6 +21,8 @@ services:
       dockerfile: Dockerfile
     image: tornare-backend:latest
     container_name: tornare-backend
+    env_file:
+      - ./backend/.env
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/tornare
     ports:
