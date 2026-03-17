@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use rand::seq::SliceRandom;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime, UtcOffset};
 use uuid::Uuid;
 
 use crate::{
@@ -20,6 +19,7 @@ use crate::{
         errors::{bad_request, internal_error, not_found, ApiError},
         models::MessageResponse,
         numeric::i32_to_u8,
+        validation::normalize_optional_rfc3339_timestamp,
     },
 };
 
@@ -591,7 +591,7 @@ async fn create_match_record(
 ) -> Result<Match, ApiError> {
     validate_create_match_input(&payload)?;
 
-    let normalized_start_date = normalize_optional_start_date(payload.start_date)?;
+    let normalized_start_date = normalize_optional_rfc3339_timestamp(payload.start_date.as_deref())?;
 
     let match_id = Uuid::new_v4();
 
@@ -626,7 +626,7 @@ pub async fn update_match_start_date_for_user(
         return Err(not_found("Match not found in this event"));
     }
 
-    let normalized_start_date = normalize_optional_start_date(payload.start_date)?;
+    let normalized_start_date = normalize_optional_rfc3339_timestamp(payload.start_date.as_deref())?;
 
     repo::set_match_start_date(&state.pool, match_id, normalized_start_date).await?;
     repo::load_match(&state.pool, match_id).await
@@ -649,23 +649,6 @@ fn validate_create_match_input(payload: &CreateMatchInput) -> Result<(), ApiErro
     }
 
     Ok(())
-}
-
-fn normalize_optional_start_date(value: Option<String>) -> Result<Option<OffsetDateTime>, ApiError> {
-    let Some(value) = value else {
-        return Ok(None);
-    };
-
-    let raw = value.trim();
-    if raw.is_empty() {
-        return Ok(None);
-    }
-
-    let parsed = OffsetDateTime::parse(raw, &Rfc3339).map_err(|_| {
-        bad_request("start_date must be a valid RFC3339 timestamp with a timezone offset")
-    })?;
-
-    Ok(Some(parsed.to_offset(UtcOffset::UTC)))
 }
 
 struct BracketMatchPlan {
@@ -838,7 +821,9 @@ mod tests {
     use axum::http::StatusCode;
     use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
-    use super::{can_regenerate_bracket, normalize_optional_start_date};
+    use crate::shared::validation::normalize_optional_rfc3339_timestamp;
+
+    use super::can_regenerate_bracket;
 
     #[test]
     fn regeneration_allowed_when_no_matches_exist() {
@@ -857,7 +842,7 @@ mod tests {
 
     #[test]
     fn normalize_start_date_accepts_utc_rfc3339() {
-        let normalized = match normalize_optional_start_date(Some("2026-03-17T19:30:00Z".to_string())) {
+        let normalized = match normalize_optional_rfc3339_timestamp(Some("2026-03-17T19:30:00Z")) {
             Ok(value) => value,
             Err(_) => panic!("expected valid UTC timestamp to normalize"),
         };
@@ -872,7 +857,7 @@ mod tests {
 
     #[test]
     fn normalize_start_date_converts_offsets_to_utc() {
-        let normalized = match normalize_optional_start_date(Some("2026-03-17T20:30:00+01:00".to_string())) {
+        let normalized = match normalize_optional_rfc3339_timestamp(Some("2026-03-17T20:30:00+01:00")) {
             Ok(value) => value,
             Err(_) => panic!("expected offset timestamp to normalize"),
         };
@@ -887,7 +872,7 @@ mod tests {
 
     #[test]
     fn normalize_start_date_treats_blank_values_as_none() {
-        let normalized = match normalize_optional_start_date(Some("   ".to_string())) {
+        let normalized = match normalize_optional_rfc3339_timestamp(Some("   ")) {
             Ok(value) => value,
             Err(_) => panic!("expected blank timestamp to clear start date"),
         };
@@ -897,7 +882,7 @@ mod tests {
 
     #[test]
     fn normalize_start_date_rejects_invalid_timestamp_strings() {
-        let error = match normalize_optional_start_date(Some("not-a-date".to_string())) {
+        let error = match normalize_optional_rfc3339_timestamp(Some("not-a-date")) {
             Ok(_) => panic!("expected invalid timestamp to be rejected"),
             Err(error) => error,
         };
@@ -908,7 +893,7 @@ mod tests {
 
     #[test]
     fn normalize_start_date_rejects_timezone_less_strings() {
-        let error = match normalize_optional_start_date(Some("2026-03-17T19:30:00".to_string())) {
+        let error = match normalize_optional_rfc3339_timestamp(Some("2026-03-17T19:30:00")) {
             Ok(_) => panic!("expected timestamp without timezone to be rejected"),
             Err(error) => error,
         };

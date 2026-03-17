@@ -6,9 +6,12 @@ use crate::{
         },
         users::models::OVERWATCH_RANKS,
     },
-    shared::errors::{bad_request, ApiError},
+    shared::{
+        errors::{bad_request, ApiError},
+        validation::{normalize_optional_rfc3339_timestamp, parse_rfc3339_timestamp},
+    },
 };
-use time::{format_description::well_known::Rfc3339, OffsetDateTime, UtcOffset};
+use time::OffsetDateTime;
 
 pub(super) fn validate_create_event_input(payload: &CreateEventInput) -> Result<(), ApiError> {
     let name = payload.name.trim();
@@ -33,9 +36,7 @@ pub(super) fn validate_create_event_input(payload: &CreateEventInput) -> Result<
             return Err(bad_request("Event start date is too long"));
         }
 
-        OffsetDateTime::parse(start_date.as_str(), &Rfc3339).map_err(|_| {
-            bad_request("start_date must be a valid RFC3339 timestamp with a timezone offset")
-        })?;
+        parse_rfc3339_timestamp(start_date.as_str())?;
     }
 
     if !(2..=99).contains(&payload.max_players) {
@@ -78,15 +79,7 @@ pub(super) fn normalize_optional_string(value: &Option<String>) -> Option<String
 pub(super) fn normalize_optional_start_date(
     value: &Option<String>,
 ) -> Result<Option<OffsetDateTime>, ApiError> {
-    let Some(start_date) = normalize_optional_string(value) else {
-        return Ok(None);
-    };
-
-    let parsed = OffsetDateTime::parse(start_date.as_str(), &Rfc3339).map_err(|_| {
-        bad_request("start_date must be a valid RFC3339 timestamp with a timezone offset")
-    })?;
-
-    Ok(Some(parsed.to_offset(UtcOffset::UTC)))
+    normalize_optional_rfc3339_timestamp(value.as_deref())
 }
 
 pub(super) fn validate_add_player_input(payload: &AddPlayerInput) -> Result<(), ApiError> {
