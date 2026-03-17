@@ -46,6 +46,7 @@ pub fn normalize_optional_rfc3339_timestamp(
 #[cfg(test)]
 mod tests {
     use axum::http::StatusCode;
+    use time::format_description::well_known::Rfc3339;
 
     use super::{normalize_optional_rfc3339_timestamp, parse_rfc3339_timestamp};
 
@@ -56,7 +57,12 @@ mod tests {
             Err(_) => panic!("expected offset timestamp to parse"),
         };
 
-        assert_eq!(parsed.to_string(), "2026-03-17 19:30:00.0 +00:00:00");
+        let formatted = match parsed.format(&Rfc3339) {
+            Ok(value) => value,
+            Err(_) => panic!("expected normalized timestamp to format as RFC3339"),
+        };
+
+        assert_eq!(formatted, "2026-03-17T19:30:00Z");
     }
 
     #[test]

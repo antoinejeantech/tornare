@@ -64,7 +64,7 @@ const nextMatches = computed(() => {
       return aFuture ? a.ts - b.ts : b.ts - a.ts
     })
     .map((x) => x.match)
-  const withoutDate = ctx.event.matches.filter((m) => !m.start_date)
+  const withoutDate = ctx.event.matches.filter((m) => getDateTimestamp(m.start_date) === null)
   return [...withDate, ...withoutDate].slice(0, 3)
 })
 

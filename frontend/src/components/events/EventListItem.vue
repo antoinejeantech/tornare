@@ -54,7 +54,7 @@ const statusLabel = computed(() => {
     return 'Full'
   }
 
-  if (startAt && !Number.isNaN(startAt)) {
+  if (startAt !== null) {
     const now = Date.now()
     if (startAt <= now) {
       return 'Ongoing'
