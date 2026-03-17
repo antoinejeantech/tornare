@@ -100,7 +100,14 @@ pub async fn update_user_profile_fields(
     display_name: &str,
     email: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE users SET username = $1, display_name = $2, email = $3 WHERE id = $4")
+    sqlx::query(
+        "UPDATE users
+         SET username = $1,
+             display_name = $2,
+             email = $3,
+             updated_at = NOW()
+         WHERE id = $4",
+    )
         .bind(username)
         .bind(display_name)
         .bind(email)
@@ -137,7 +144,12 @@ pub async fn update_user_password_hash(
     user_id: Uuid,
     password_hash: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE users SET password_hash = $1 WHERE id = $2")
+    sqlx::query(
+        "UPDATE users
+         SET password_hash = $1,
+             updated_at = NOW()
+         WHERE id = $2",
+    )
         .bind(password_hash)
         .bind(user_id)
         .execute(pool)

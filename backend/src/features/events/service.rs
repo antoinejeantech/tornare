@@ -23,10 +23,6 @@ use team_balance::{
     BalancePlayer, BalanceTeamState, average_team_elo_from_players, format_team_size,
     pug_role_targets_for_format, rank_elo_for_balance, role_overflow_penalty, unique_team_name,
 };
-use validation::{
-    normalize_optional_string,
-};
-
 pub use signup::{
     accept_signup_request_for_user, create_public_signup_request, decline_signup_request_for_user,
     get_event_signup_link_for_user, get_public_signup_info, list_signup_requests_for_user,

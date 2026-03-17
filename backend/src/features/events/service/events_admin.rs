@@ -12,8 +12,10 @@ use crate::{
     },
 };
 
-use super::{as_owner_event, normalize_optional_string, repo};
-use super::validation::{validate_create_event_input, validate_update_event_input};
+use super::{as_owner_event, repo};
+use super::validation::{
+    normalize_optional_start_date, validate_create_event_input, validate_update_event_input,
+};
 
 pub async fn create_event_for_user(
     state: &AppState,
@@ -24,7 +26,7 @@ pub async fn create_event_for_user(
 
     let event_id = Uuid::new_v4();
     let signup_token = Uuid::new_v4().to_string();
-    let normalized_start_date = normalize_optional_string(&payload.start_date);
+    let normalized_start_date = normalize_optional_start_date(&payload.start_date)?;
 
     repo::insert_event(
         &state.pool,
@@ -54,7 +56,7 @@ pub async fn update_event_for_user(
 ) -> Result<Event, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
     validate_update_event_input(&payload)?;
-    let normalized_start_date = normalize_optional_string(&payload.start_date);
+    let normalized_start_date = normalize_optional_start_date(&payload.start_date)?;
 
     let updated = repo::update_event_details(
         &state.pool,

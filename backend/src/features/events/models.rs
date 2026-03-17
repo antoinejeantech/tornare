@@ -1,5 +1,31 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime, UtcOffset};
 use uuid::Uuid;
+
+fn serialize_timestamp<S>(value: &OffsetDateTime, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let formatted = value
+        .to_offset(UtcOffset::UTC)
+        .format(&Rfc3339)
+        .map_err(serde::ser::Error::custom)?;
+
+    serializer.serialize_str(&formatted)
+}
+
+fn serialize_optional_timestamp<S>(
+    value: &Option<OffsetDateTime>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(value) => serialize_timestamp(value, serializer),
+        None => serializer.serialize_none(),
+    }
+}
 
 fn default_bracket_generation_mode() -> BracketGenerationMode {
     BracketGenerationMode::Random
@@ -95,9 +121,12 @@ pub struct Match {
     pub winner_team_name: Option<String>,
     pub is_bracket: bool,
     pub status: String,
-    pub created_at: String,
-    pub updated_at: String,
-    pub start_date: Option<String>,
+    #[serde(serialize_with = "serialize_timestamp")]
+    pub created_at: OffsetDateTime,
+    #[serde(serialize_with = "serialize_timestamp")]
+    pub updated_at: OffsetDateTime,
+    #[serde(serialize_with = "serialize_optional_timestamp")]
+    pub start_date: Option<OffsetDateTime>,
     pub players: Vec<Player>,
 }
 
@@ -113,7 +142,8 @@ pub struct Event {
     pub id: Uuid,
     pub name: String,
     pub description: String,
-    pub start_date: Option<String>,
+    #[serde(serialize_with = "serialize_optional_timestamp")]
+    pub start_date: Option<OffsetDateTime>,
     pub event_type: EventType,
     pub format: EventFormat,
     pub is_featured: bool,
@@ -295,7 +325,8 @@ pub struct PublicEventSignupInfo {
     pub event_id: Uuid,
     pub event_name: String,
     pub event_description: String,
-    pub start_date: Option<String>,
+    #[serde(serialize_with = "serialize_optional_timestamp")]
+    pub start_date: Option<OffsetDateTime>,
     pub event_type: EventType,
     pub format: EventFormat,
     pub max_players: u8,

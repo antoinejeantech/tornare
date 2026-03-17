@@ -3,16 +3,27 @@ ALTER TABLE event_matches
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     ADD COLUMN IF NOT EXISTS start_date TIMESTAMPTZ;
 
--- Auto-update updated_at on every row modification
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $$
+DO $$
 BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE TRIGGER event_matches_set_updated_at
-    BEFORE UPDATE ON event_matches
-    FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at();
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'events'
+          AND column_name = 'start_date'
+          AND data_type = 'text'
+    ) THEN
+        EXECUTE $migration$
+            ALTER TABLE events
+            ALTER COLUMN start_date TYPE TIMESTAMPTZ
+            USING (
+                CASE
+                    WHEN start_date IS NULL OR btrim(start_date) = '' THEN NULL
+                    WHEN start_date ~ '(Z|[+-][0-9]{2}:[0-9]{2})$' THEN start_date::timestamptz
+                    WHEN start_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}(:[0-9]{2}(\.[0-9]{1,6})?)?$' THEN start_date::timestamp AT TIME ZONE 'UTC'
+                    ELSE NULL
+                END
+            )
+        $migration$;
+    END IF;
+END $$;
