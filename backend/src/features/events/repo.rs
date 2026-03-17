@@ -6,8 +6,8 @@ use crate::shared::errors::{bad_request, internal_error, not_found};
 use crate::shared::numeric::i32_to_u8;
 
 use crate::features::events::models::{
-    Event, EventFormat, EventSignupRequest, EventTeam, EventType, Match, Player,
-    PublicEventSignupInfo,
+    Event, EventFormat, EventSignupRequest, EventTeam, EventType, Match, MatchStatus, Player,
+    PlayerRank, PlayerRole, PublicEventSignupInfo, SignupStatus,
 };
 
 #[derive(Clone, Copy)]
@@ -1014,13 +1014,21 @@ pub async fn list_signup_requests_for_event(
 
     Ok(rows
         .into_iter()
-        .map(|row| EventSignupRequest {
-            id: row.get("id"),
-            event_id: row.get("event_id"),
-            name: row.get("name"),
-            role: row.get("role"),
-            rank: row.get("rank"),
-            status: row.get("status"),
+        .map(|row| {
+            let role_str: String = row.get("role");
+            let rank_str: String = row.get("rank");
+            let status_str: String = row.get("status");
+            EventSignupRequest {
+                id: row.get("id"),
+                event_id: row.get("event_id"),
+                name: row.get("name"),
+                role: PlayerRole::try_from(role_str.as_str())
+                    .unwrap_or_else(|_| PlayerRole::Tank),
+                rank: PlayerRank::try_from(rank_str.as_str())
+                    .unwrap_or(PlayerRank::Unranked),
+                status: SignupStatus::try_from(status_str.as_str())
+                    .unwrap_or(SignupStatus::Pending),
+            }
         })
         .collect())
 }
@@ -1041,13 +1049,21 @@ pub async fn get_signup_request(
     .await
     .map_err(internal_error)?;
 
-    Ok(row.map(|value| EventSignupRequest {
-        id: value.get("id"),
-        event_id: value.get("event_id"),
-        name: value.get("name"),
-        role: value.get("role"),
-        rank: value.get("rank"),
-        status: value.get("status"),
+    Ok(row.map(|value| {
+        let role_str: String = value.get("role");
+        let rank_str: String = value.get("rank");
+        let status_str: String = value.get("status");
+        EventSignupRequest {
+            id: value.get("id"),
+            event_id: value.get("event_id"),
+            name: value.get("name"),
+            role: PlayerRole::try_from(role_str.as_str())
+                .unwrap_or_else(|_| PlayerRole::Tank),
+            rank: PlayerRank::try_from(rank_str.as_str())
+                .unwrap_or(PlayerRank::Unranked),
+            status: SignupStatus::try_from(status_str.as_str())
+                .unwrap_or(SignupStatus::Pending),
+        }
     }))
 }
 
@@ -1200,7 +1216,10 @@ pub async fn load_matches_for_event(
             winner_team_id: row.get::<Option<Uuid>, _>("winner_team_id"),
             winner_team_name: row.get("winner_team_name"),
             is_bracket: row.get::<bool, _>("is_bracket"),
-            status: row.get::<String, _>("status"),
+            status: {
+                let s: String = row.get("status");
+                MatchStatus::try_from(s.as_str()).unwrap_or(MatchStatus::Open)
+            },
             created_at: row.get::<OffsetDateTime, _>("created_at"),
             updated_at: row.get::<OffsetDateTime, _>("updated_at"),
             start_date: row.get::<Option<OffsetDateTime>, _>("start_date"),
@@ -1249,11 +1268,13 @@ pub async fn load_event_players_for_event(
 
     let mut players = Vec::with_capacity(rows.len());
     for row in rows {
+        let role_str: String = row.get("role");
+        let rank_str: String = row.get("rank");
         players.push(Player {
             id: row.get::<Uuid, _>("id"),
             name: row.get("name"),
-            role: row.get("role"),
-            rank: row.get("rank"),
+            role: PlayerRole::try_from(role_str.as_str()).unwrap_or_else(|_| PlayerRole::Tank),
+            rank: PlayerRank::try_from(rank_str.as_str()).unwrap_or(PlayerRank::Unranked),
             team_id: row.get::<Option<Uuid>, _>("team_id"),
             team: row.get("team_name"),
         });

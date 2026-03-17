@@ -136,8 +136,8 @@ pub async fn auto_balance_teams_for_user(
         .iter()
         .map(|player| BalancePlayer {
             id: player.id,
-            role: player.role.clone(),
-            elo: rank_elo_for_balance(&player.rank),
+            role: player.role,
+            elo: rank_elo_for_balance(player.rank),
         })
         .collect();
 
@@ -169,7 +169,7 @@ pub async fn auto_balance_teams_for_user(
             let avg_penalty = (projected_avg - target_team_avg).abs();
 
             let role_penalty = match role_targets {
-                Some(targets) => role_overflow_penalty(team, &player.role, targets),
+                Some(targets) => role_overflow_penalty(team, player.role, targets),
                 None => 0.0,
             };
 

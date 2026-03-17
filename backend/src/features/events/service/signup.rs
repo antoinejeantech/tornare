@@ -5,7 +5,7 @@ use crate::{
     features::{
         events::models::{
             CreateEventSignupRequestInput, Event, EventSignupLinkResponse, EventSignupRequest,
-            PublicEventSignupInfo,
+            PublicEventSignupInfo, SignupStatus,
         },
         permissions::require_event_owner_access,
     },
@@ -155,7 +155,7 @@ pub async fn accept_signup_request_for_user(
         return Err(not_found("Signup request not found"));
     };
 
-    if request.status != "pending" {
+    if request.status != SignupStatus::Pending {
         return Err(bad_request("This signup request has already been reviewed"));
     }
 
@@ -164,14 +164,25 @@ pub async fn accept_signup_request_for_user(
     let mut tx = state.pool.begin().await.map_err(internal_error)?;
 
     // Atomically claim the request; a concurrent accept for the same request gets 0 rows.
-    let claimed =
-        repo::update_signup_request_status_in_tx(&mut tx, event_id, request_id, "accepted").await?;
+    let claimed = repo::update_signup_request_status_in_tx(
+        &mut tx,
+        event_id,
+        request_id,
+        SignupStatus::Accepted.as_db_value(),
+    )
+    .await?;
     if claimed == 0 {
         return Err(bad_request("This signup request has already been reviewed"));
     }
 
-    repo::insert_event_player_in_tx(&mut tx, event_id, &request.name, &request.role, &request.rank)
-        .await?;
+    repo::insert_event_player_in_tx(
+        &mut tx,
+        event_id,
+        &request.name,
+        request.role.as_db_value(),
+        request.rank.as_db_value(),
+    )
+    .await?;
 
     tx.commit().await.map_err(internal_error)?;
 
@@ -187,8 +198,13 @@ pub async fn decline_signup_request_for_user(
 ) -> Result<MessageResponse, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
 
-    let updated_count =
-        repo::update_signup_request_status(&state.pool, event_id, request_id, "declined").await?;
+    let updated_count = repo::update_signup_request_status(
+        &state.pool,
+        event_id,
+        request_id,
+        SignupStatus::Declined.as_db_value(),
+    )
+    .await?;
     if updated_count == 0 {
         return Err(not_found("Pending signup request not found"));
     }

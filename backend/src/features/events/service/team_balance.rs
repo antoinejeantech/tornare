@@ -2,12 +2,12 @@ use std::collections::HashSet;
 
 use uuid::Uuid;
 
-use crate::features::events::models::{EventFormat, Player};
+use crate::features::events::models::{EventFormat, Player, PlayerRank, PlayerRole};
 
 #[derive(Clone)]
 pub(super) struct BalancePlayer {
     pub id: Uuid,
-    pub role: String,
+    pub role: PlayerRole,
     pub elo: i32,
 }
 
@@ -19,21 +19,19 @@ struct RoleCounts {
 }
 
 impl RoleCounts {
-    fn add(&mut self, role: &str) {
+    fn add(&mut self, role: PlayerRole) {
         match role {
-            "Tank" => self.tank += 1,
-            "DPS" => self.dps += 1,
-            "Support" => self.support += 1,
-            _ => {}
+            PlayerRole::Tank => self.tank += 1,
+            PlayerRole::Dps => self.dps += 1,
+            PlayerRole::Support => self.support += 1,
         }
     }
 
-    fn get(&self, role: &str) -> usize {
+    fn get(&self, role: PlayerRole) -> usize {
         match role {
-            "Tank" => self.tank,
-            "DPS" => self.dps,
-            "Support" => self.support,
-            _ => 0,
+            PlayerRole::Tank => self.tank,
+            PlayerRole::Dps => self.dps,
+            PlayerRole::Support => self.support,
         }
     }
 }
@@ -59,10 +57,10 @@ impl BalanceTeamState {
     pub fn add_player(&mut self, player: &BalancePlayer) {
         self.player_ids.push(player.id);
         self.elo_sum += player.elo;
-        self.role_counts.add(&player.role);
+        self.role_counts.add(player.role);
     }
 
-    fn role_count(&self, role: &str) -> usize {
+    fn role_count(&self, role: PlayerRole) -> usize {
         self.role_counts.get(role)
     }
 }
@@ -75,12 +73,11 @@ pub(super) struct PugRoleTargets {
 }
 
 impl PugRoleTargets {
-    fn get(&self, role: &str) -> usize {
+    fn get(&self, role: PlayerRole) -> usize {
         match role {
-            "Tank" => self.tank,
-            "DPS" => self.dps,
-            "Support" => self.support,
-            _ => usize::MAX,
+            PlayerRole::Tank => self.tank,
+            PlayerRole::Dps => self.dps,
+            PlayerRole::Support => self.support,
         }
     }
 }
@@ -111,14 +108,11 @@ pub(super) fn pug_role_targets_for_format(format: &EventFormat) -> Option<PugRol
 
 pub(super) fn role_overflow_penalty(
     team: &BalanceTeamState,
-    role: &str,
+    role: PlayerRole,
     targets: PugRoleTargets,
 ) -> f64 {
     let current = team.role_count(role);
     let target = targets.get(role);
-    if target == usize::MAX {
-        return 500.0;
-    }
 
     if current + 1 <= target {
         return 0.0;
@@ -127,18 +121,16 @@ pub(super) fn role_overflow_penalty(
     ((current + 1 - target) as f64) * 400.0
 }
 
-pub(super) fn rank_elo_for_balance(rank: &str) -> i32 {
+pub(super) fn rank_elo_for_balance(rank: PlayerRank) -> i32 {
     match rank {
-        "Bronze" => 1000,
-        "Silver" => 1500,
-        "Gold" => 2000,
-        "Platinum" => 2500,
-        "Diamond" => 3000,
-        "Master" => 3500,
-        "Grandmaster" => 4000,
-        "Champion" => 4500,
-        // Frontend exposes Unranked as null ELO; use Gold midpoint for balancing.
-        _ => 2000,
+        PlayerRank::Bronze => 1000,
+        PlayerRank::Silver => 1500,
+        PlayerRank::Gold | PlayerRank::Unranked => 2000,
+        PlayerRank::Platinum => 2500,
+        PlayerRank::Diamond => 3000,
+        PlayerRank::Master => 3500,
+        PlayerRank::Grandmaster => 4000,
+        PlayerRank::Champion => 4500,
     }
 }
 
@@ -147,7 +139,7 @@ pub(super) fn average_team_elo_from_players(players: &[&Player]) -> Option<f64> 
     let mut count = 0usize;
 
     for player in players {
-        total += rank_elo_for_balance(&player.rank);
+        total += rank_elo_for_balance(player.rank);
         count += 1;
     }
 
