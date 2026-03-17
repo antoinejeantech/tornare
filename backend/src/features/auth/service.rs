@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{PasswordHash, PasswordVerifier},
     Argon2,
 };
 use axum::http::{header::AUTHORIZATION, HeaderMap};
@@ -14,8 +14,9 @@ use crate::{
     app::state::AppState,
     features::auth::models::{AuthResponse, AuthUser, LoginInput, RegisterInput},
     shared::{
-        errors::{bad_request, forbidden, unauthorized, ApiError},
-        validation::normalize_username,
+        crypto::hash_password,
+        errors::{bad_request, forbidden, internal_error, unauthorized, ApiError},
+        validation::{normalize_email, normalize_username},
     },
 };
 
@@ -189,17 +190,7 @@ fn validate_register_input(payload: &RegisterInput) -> Result<(), ApiError> {
     Ok(())
 }
 
-fn normalize_email(email: &str) -> String {
-    email.trim().to_lowercase()
-}
 
-fn hash_password(password: &str) -> Result<String, ApiError> {
-    let salt = SaltString::generate(&mut OsRng);
-    Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
-        .map(|hash| hash.to_string())
-        .map_err(|_| bad_request("Failed to hash password"))
-}
 
 fn verify_password(stored_hash: &str, password: &str) -> Result<(), ApiError> {
     let parsed_hash = PasswordHash::new(stored_hash).map_err(|_| unauthorized("Invalid email or password"))?;
@@ -243,7 +234,7 @@ fn build_access_token(user_id: Uuid, jwt_secret: &str) -> Result<String, ApiErro
         &claims,
         &EncodingKey::from_secret(jwt_secret.as_bytes()),
     )
-    .map_err(|_| unauthorized("Failed to generate access token"))
+    .map_err(|e| internal_error(e))
 }
 
 fn hash_refresh_token(refresh_token: &str) -> String {

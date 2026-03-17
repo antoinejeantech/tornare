@@ -1,6 +1,10 @@
 use crate::shared::errors::{bad_request, ApiError};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime, UtcOffset};
 
+pub fn normalize_email(email: &str) -> String {
+    email.trim().to_lowercase()
+}
+
 pub fn normalize_username(username: &str) -> Result<String, ApiError> {
     let normalized = username.trim().to_lowercase();
 
