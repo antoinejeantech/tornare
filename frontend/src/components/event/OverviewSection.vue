@@ -1,7 +1,7 @@
 <script setup>
 import { computed, inject } from 'vue'
 import { RouterLink } from 'vue-router'
-import { formatEventStartDate } from '../../lib/dates'
+import { formatEventStartDate, getDateTimestamp } from '../../lib/dates'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 
@@ -55,7 +55,8 @@ const nextMatches = computed(() => {
   const now = Date.now()
   const withDate = ctx.event.matches
     .filter((m) => m.start_date)
-    .map((m) => ({ match: m, ts: new Date(m.start_date).getTime() }))
+    .map((m) => ({ match: m, ts: getDateTimestamp(m.start_date) }))
+    .filter((entry) => entry.ts !== null)
     .sort((a, b) => {
       const aFuture = a.ts >= now
       const bFuture = b.ts >= now

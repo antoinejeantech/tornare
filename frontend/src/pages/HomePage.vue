@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { apiCall } from '../lib/api'
 import torbjornImage from '../assets/branding/torbjorn.webp'
-import { formatEventStartDate } from '../lib/dates'
+import { formatEventStartDate, formatShortMonthDay, getDateTimestamp } from '../lib/dates'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
@@ -120,12 +120,7 @@ const activityDisplayRows = computed(() => {
 })
 
 function normalizeDate(value) {
-  if (!value) {
-    return null
-  }
-
-  const parsed = new Date(value).getTime()
-  return Number.isNaN(parsed) ? null : parsed
+  return getDateTimestamp(value)
 }
 
 function countdownLabel(startDate) {
@@ -147,15 +142,7 @@ function countdownLabel(startDate) {
 }
 
 function formatShortDate(value) {
-  const normalized = normalizeDate(value)
-  if (normalized === null) {
-    return '--'
-  }
-
-  return new Date(normalized).toLocaleDateString([], {
-    month: 'short',
-    day: '2-digit',
-  })
+  return formatShortMonthDay(value, '--')
 }
 
 function eventStatusForDashboard(event, players, maxPlayers) {

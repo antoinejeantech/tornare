@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import spotlightEventBackground from '../../assets/branding/spotlight-event-bg.jpg'
+import { formatMediumDate } from '../../lib/dates'
 import ActionCtaButton from '../ui/ActionCtaButton.vue'
 
 const props = defineProps({
@@ -20,21 +21,7 @@ const eventLink = computed(() => {
 })
 
 const eventDateText = computed(() => {
-  const value = props.event?.start_date
-  if (!value) {
-    return 'Date TBD'
-  }
-
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return 'Date TBD'
-  }
-
-  return parsed.toLocaleDateString([], {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-  })
+  return formatMediumDate(props.event?.start_date, 'Date TBD')
 })
 
 const eventTypeText = computed(() => {

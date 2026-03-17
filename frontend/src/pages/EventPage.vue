@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, provide, proxyRefs, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { datetimeLocalToIsoString, getDateTimestamp, isoToDatetimeLocalValue, parseDateValue } from '../lib/dates'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { formatOptionsForType } from '../lib/event-format'
 import { useAlert } from '../lib/alerts'
@@ -96,8 +97,8 @@ const eventStartsInLabel = computed(() => {
     return ''
   }
 
-  const startAt = new Date(raw).getTime()
-  if (Number.isNaN(startAt)) {
+  const startAt = getDateTimestamp(raw)
+  if (startAt === null) {
     return ''
   }
 
@@ -132,8 +133,8 @@ const eventStartDateTimeLabel = computed(() => {
     return ''
   }
 
-  const parsed = new Date(raw)
-  if (Number.isNaN(parsed.getTime())) {
+  const parsed = parseDateValue(raw)
+  if (!parsed) {
     return ''
   }
 
@@ -217,6 +218,34 @@ function setNotice(message) {
   alert.success(message)
 }
 
+function normalizeMatchStartDateInput(value) {
+  const raw = String(value || '').trim()
+  if (!raw) {
+    return null
+  }
+
+  const normalized = datetimeLocalToIsoString(raw)
+  if (!normalized) {
+    throw new Error('Invalid match start date')
+  }
+
+  return normalized
+}
+
+function normalizeEventStartDateInput(value) {
+  const raw = String(value || '').trim()
+  if (!raw) {
+    return null
+  }
+
+  const normalized = datetimeLocalToIsoString(raw)
+  if (!normalized) {
+    throw new Error('Invalid event start date')
+  }
+
+  return normalized
+}
+
 function ensureOwnerAction() {
   if (canManageEvent.value) {
     return true
@@ -250,7 +279,7 @@ function syncEventEditDraftFromEvent() {
 
   editEventName.value = event.value.name || ''
   editEventDescription.value = event.value.description || ''
-  editEventStartDate.value = event.value.start_date || ''
+  editEventStartDate.value = event.value.start_date ? isoToDatetimeLocalValue(event.value.start_date) : ''
   editEventFormat.value = event.value.format || '5v5'
   editEventMaxPlayers.value = Number(event.value.max_players)
 }
@@ -909,12 +938,20 @@ async function createMatch() {
     return
   }
 
+  let normalizedStartDate = null
+  try {
+    normalizedStartDate = normalizeMatchStartDateInput(newMatchStartDate.value)
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Invalid match start date')
+    return
+  }
+
   creatingMatch.value = true
   try {
     const created = await matchStore.createMatchForEvent(eventId.value, {
       title: newMatchTitle.value.trim(),
       map: newMatchMap.value.trim(),
-      start_date: newMatchStartDate.value || null,
+      start_date: normalizedStartDate,
     })
 
     if (event.value) {
@@ -968,8 +1005,16 @@ async function updateMatchStartDate(matchId, startDate) {
   if (!ensureOwnerAction()) return
   if (!eventId.value) return
 
+  let normalizedStartDate = null
   try {
-    const updated = await matchStore.updateMatchStartDate(eventId.value, matchId, startDate || null)
+    normalizedStartDate = normalizeMatchStartDateInput(startDate)
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Invalid match start date')
+    return
+  }
+
+  try {
+    const updated = await matchStore.updateMatchStartDate(eventId.value, matchId, normalizedStartDate)
     if (event.value) {
       event.value = {
         ...event.value,
@@ -1243,6 +1288,14 @@ async function saveEventEdit() {
     return
   }
 
+  let normalizedStartDate = null
+  try {
+    normalizedStartDate = normalizeEventStartDateInput(editEventStartDate.value)
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Invalid event start date')
+    return
+  }
+
   updatingEvent.value = true
   try {
     const payloadType = String(event.value.event_type).trim().toUpperCase() === 'TOURNEY' ? 'TOURNEY' : 'PUG'
@@ -1250,7 +1303,7 @@ async function saveEventEdit() {
     const updatedEvent = await eventStore.updateEvent(eventId.value, {
       name: editEventName.value.trim(),
       description: editEventDescription.value.trim(),
-      start_date: editEventStartDate.value ? editEventStartDate.value : null,
+      start_date: normalizedStartDate,
       event_type: payloadType,
       format: editEventFormat.value,
       max_players: editEventMaxPlayers.value,

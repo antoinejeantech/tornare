@@ -1,5 +1,6 @@
 <script setup>
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { getDateTimestamp, isoToDatetimeLocalValue } from '../../lib/dates'
 import { sortPlayersByRoleThenName } from '../../lib/roles'
 import PlayerNameplate from '../player/PlayerNameplate.vue'
 
@@ -173,7 +174,8 @@ const sortedMatches = computed(() => {
   const now = Date.now()
   const withDate = matches
     .filter((m) => m.start_date)
-    .map((m) => ({ m, ts: new Date(m.start_date).getTime() }))
+    .map((m) => ({ m, ts: getDateTimestamp(m.start_date) }))
+    .filter((entry) => entry.ts !== null)
     .sort((a, b) => {
       const aFuture = a.ts >= now
       const bFuture = b.ts >= now
@@ -181,7 +183,7 @@ const sortedMatches = computed(() => {
       return aFuture ? a.ts - b.ts : b.ts - a.ts
     })
     .map((x) => x.m)
-  const withoutDate = matches.filter((m) => !m.start_date)
+  const withoutDate = matches.filter((m) => !m.start_date || getDateTimestamp(m.start_date) === null)
   return [...withDate, ...withoutDate]
 })
 
@@ -194,16 +196,9 @@ const savingStartDate = ref(false)
 watch(() => activeMatchId.value, (newId) => {
   if (newId != null) {
     const m = (ctx.event?.matches ?? []).find((m) => m.id === newId)
-    editStartDate.value = m?.start_date ? toDatetimeLocalValue(m.start_date) : ''
+    editStartDate.value = m?.start_date ? isoToDatetimeLocalValue(m.start_date) : ''
   }
 })
-
-function toDatetimeLocalValue(isoStr) {
-  const d = new Date(isoStr)
-  if (isNaN(d.getTime())) return ''
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`
-}
 
 function formatMatchStartDate(isoStr) {
   const d = new Date(isoStr)
