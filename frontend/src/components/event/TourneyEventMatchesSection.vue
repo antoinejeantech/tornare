@@ -825,29 +825,6 @@ watch(editingMatchups, () => {
   min-width: 0;
 }
 
-.match-title-btn {
-  border: 0;
-  background: none;
-  padding: 0;
-  text-align: left;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  cursor: pointer;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  transition: color 0.15s;
-}
-
-.match-title-btn:hover {
-  color: var(--ink-1);
-}
-
 .match-title-static {
   font-size: 0.72rem;
   font-weight: 700;
