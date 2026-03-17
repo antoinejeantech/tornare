@@ -4,7 +4,7 @@ use crate::{
     app::state::AppState,
     features::{
         events::models::{CreateEventInput, Event, UpdateEventInput},
-        permissions::{require_app_admin, require_event_owner_access},
+        permissions::{has_event_owner_access, require_event_admin_access, require_event_owner_access},
     },
     shared::{
         errors::{not_found, ApiError},
@@ -102,7 +102,7 @@ pub async fn set_featured_event_for_user(
     event_id: Uuid,
     featured: bool,
 ) -> Result<Event, ApiError> {
-    require_app_admin(state, user_id).await?;
+    require_event_admin_access(state, user_id).await?;
 
     if !repo::event_exists(&state.pool, event_id).await? {
         return Err(not_found("Event not found"));
@@ -112,5 +112,6 @@ pub async fn set_featured_event_for_user(
 
     let mut event = repo::load_event(&state.pool, event_id).await?;
     event.is_owner = repo::is_event_owner(&state.pool, event_id, user_id).await?;
+    event.can_manage = has_event_owner_access(state, event_id, user_id).await?;
     Ok(event)
 }

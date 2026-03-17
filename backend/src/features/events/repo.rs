@@ -1080,6 +1080,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         format,
         is_featured: row.get("is_featured"),
         is_owner: false,
+        can_manage: false,
         creator_id: row.get("creator_id"),
         creator_name: row.get("creator_name"),
         public_signup_enabled: row.get("public_signup_enabled"),

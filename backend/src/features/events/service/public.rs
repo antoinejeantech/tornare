@@ -2,11 +2,31 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
-    features::events::models::{Event, EventsKpiResponse, ListEventsQuery, PaginatedEventsResponse},
+    features::{
+        events::models::{Event, EventsKpiResponse, ListEventsQuery, PaginatedEventsResponse},
+        permissions::{has_event_owner_access, has_global_event_owner_access},
+    },
     shared::errors::ApiError,
 };
 
 use super::repo;
+
+async fn apply_event_access(
+    state: &AppState,
+    event: &mut Event,
+    viewer_user_id: Option<Uuid>,
+) -> Result<(), ApiError> {
+    let Some(user_id) = viewer_user_id else {
+        event.is_owner = false;
+        event.can_manage = false;
+        return Ok(());
+    };
+
+    event.is_owner = repo::is_event_owner(&state.pool, event.id, user_id).await?;
+    event.can_manage = has_event_owner_access(state, event.id, user_id).await?;
+
+    Ok(())
+}
 
 pub async fn list_events_public(
     state: &AppState,
@@ -24,7 +44,10 @@ pub async fn list_events_public(
         .filter(|value| matches!(value.as_str(), "PUG" | "TOURNEY"));
 
     let owner_only_user_id = match query.owner.as_deref() {
-        Some("mine") => viewer_user_id,
+        Some("mine") => match viewer_user_id {
+            Some(user_id) if !has_global_event_owner_access(state, user_id).await? => Some(user_id),
+            _ => None,
+        },
         _ => None,
     };
 
@@ -63,10 +86,7 @@ pub async fn list_events_public(
     let mut events = Vec::with_capacity(listing.event_ids.len());
     for event_id in listing.event_ids {
         let mut event = repo::load_event(&state.pool, event_id).await?;
-        event.is_owner = match viewer_user_id {
-            Some(user_id) => repo::is_event_owner(&state.pool, event_id, user_id).await?,
-            None => false,
-        };
+        apply_event_access(state, &mut event, viewer_user_id).await?;
         events.push(event);
     }
 
@@ -84,10 +104,7 @@ pub async fn get_event_public(
     viewer_user_id: Option<Uuid>,
 ) -> Result<Event, ApiError> {
     let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = match viewer_user_id {
-        Some(user_id) => repo::is_event_owner(&state.pool, event_id, user_id).await?,
-        None => false,
-    };
+    apply_event_access(state, &mut event, viewer_user_id).await?;
     Ok(event)
 }
 
@@ -100,10 +117,7 @@ pub async fn get_featured_event_public(
     };
 
     let mut event = repo::load_event(&state.pool, event_id).await?;
-    event.is_owner = match viewer_user_id {
-        Some(user_id) => repo::is_event_owner(&state.pool, event_id, user_id).await?,
-        None => false,
-    };
+    apply_event_access(state, &mut event, viewer_user_id).await?;
 
     Ok(Some(event))
 }

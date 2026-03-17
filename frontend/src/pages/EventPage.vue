@@ -82,8 +82,11 @@ let latestEventLoadRequestId = 0
 let eventLoadController = null
 
 const eventId = computed(() => String(route.params.id || ''))
-const canManageEvent = computed(() => Boolean(event.value?.is_owner))
-const isAppAdmin = computed(() => String(authStore.user?.role || '').toLowerCase() === 'admin')
+const canManageEvent = computed(() => Boolean(event.value?.can_manage))
+const hasEventAdminAccess = computed(() => {
+  const role = String(authStore.user?.role || '').toLowerCase()
+  return role === 'admin' || role === 'moderator'
+})
 const authIdentityKey = computed(() => {
   const initialized = authStore.initialized ? '1' : '0'
   const authenticated = authStore.isAuthenticated ? '1' : '0'
@@ -282,7 +285,7 @@ async function loadEvent() {
     event.value = nextEvent
     syncEventEditDraftFromEvent()
     hydrateSelections()
-    if (event.value?.is_owner) {
+    if (canManageEvent.value) {
       await loadOwnerSignupData()
     } else {
       signupToken.value = ''
@@ -428,8 +431,8 @@ async function setSignupVisibility(enabled) {
 }
 
 async function setFeaturedEvent(featured) {
-  if (!isAppAdmin.value) {
-    setError('Only app admins can change the featured event.')
+  if (!hasEventAdminAccess.value) {
+    setError('Only app admins and moderators can change the featured event.')
     return
   }
 
@@ -1328,14 +1331,6 @@ function openSection(section) {
 }
 
 watch(
-  () => route.params.id,
-  () => {
-    loadEvent()
-  },
-  { immediate: true }
-)
-
-watch(
   () => route.query.section,
   (section) => {
     activeSection.value = normalizeSection(section)
@@ -1363,13 +1358,17 @@ watch(
 )
 
 watch(
-  authIdentityKey,
-  () => {
+  [eventId, authIdentityKey],
+  ([nextEventId], [previousEventId, previousAuthIdentityKey]) => {
     if (!authStore.initialized) {
       return
     }
 
-    if (!eventId.value) {
+    if (!nextEventId) {
+      return
+    }
+
+    if (nextEventId === previousEventId && authIdentityKey.value === previousAuthIdentityKey) {
       return
     }
 
@@ -1555,7 +1554,7 @@ provide('eventCtx', proxyRefs({
             </div>
             <div class="event-header-actions">
               <button
-                v-if="isAppAdmin"
+                v-if="hasEventAdminAccess"
                 class="btn-secondary"
                 :disabled="updatingFeaturedEvent"
                 type="button"

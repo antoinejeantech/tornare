@@ -148,6 +148,7 @@ pub struct Event {
     pub format: EventFormat,
     pub is_featured: bool,
     pub is_owner: bool,
+    pub can_manage: bool,
     pub creator_id: Option<Uuid>,
     pub creator_name: Option<String>,
     pub public_signup_enabled: bool,

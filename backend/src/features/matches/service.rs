@@ -568,6 +568,7 @@ pub async fn cancel_match_winner_for_user(
 
 fn as_owner_event(mut event: Event) -> Event {
     event.is_owner = true;
+    event.can_manage = true;
     event
 }
 
