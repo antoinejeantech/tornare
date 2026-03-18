@@ -13,7 +13,7 @@ help:
 	@echo "  make run         - Run cargo run in rust-dev container"
 	@echo "  make check       - Run cargo check in rust-dev container"
 	@echo "  make test        - Run cargo test in rust-dev container"
-	@echo "  make test-e2e    - Run end-to-end tests (requires postgres)"
+	@echo "  make test-e2e    - Run end-to-end tests against an isolated temp DB on postgres"
 	@echo "  make node-shell  - Open shell in Node dev container"
 	@echo "  make node-install - Install frontend deps"
 	@echo "  make node-build  - Build frontend in node-dev container"
@@ -56,7 +56,10 @@ test:
 	docker compose exec rust-dev cargo test
 
 test-e2e:
-	docker compose exec rust-dev cargo test --test e2e
+	docker compose up -d postgres rust-dev
+	docker compose exec \
+		-e DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres \
+		rust-dev cargo test --test e2e -- --test-threads=1
 
 status:
 	docker compose ps

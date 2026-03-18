@@ -1,11 +1,14 @@
 //! End-to-end integration tests.
 //!
 //! Each test function uses `#[sqlx::test]` which automatically:
-//!   - reads DATABASE_URL from the environment (or backend/.env via dotenvy)
+//!   - reads DATABASE_URL from the environment
 //!   - creates a fresh, randomly-named temporary Postgres database
 //!   - runs all migrations in backend/migrations/
 //!   - provides a ready-to-use PgPool
 //!   - drops the temporary database when the test finishes
+//!
+//! In Docker, DATABASE_URL must point at the `postgres` compose service, not
+//! `localhost`, because the tests run inside the `rust-dev` container.
 //!
 //! Run with:
 //!   cargo test --test e2e
