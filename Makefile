@@ -1,4 +1,4 @@
-.PHONY: help bootstrap up backend frontend db-up db-logs dev-up shell run check test node-shell node-install node-build status restart down
+.PHONY: help bootstrap up backend frontend db-up db-logs dev-up shell run check test test-e2e node-shell node-install node-build status restart down
 
 help:
 	@echo "Available targets:"
@@ -13,6 +13,7 @@ help:
 	@echo "  make run         - Run cargo run in rust-dev container"
 	@echo "  make check       - Run cargo check in rust-dev container"
 	@echo "  make test        - Run cargo test in rust-dev container"
+	@echo "  make test-e2e    - Run end-to-end tests (requires postgres)"
 	@echo "  make node-shell  - Open shell in Node dev container"
 	@echo "  make node-install - Install frontend deps"
 	@echo "  make node-build  - Build frontend in node-dev container"
@@ -53,6 +54,9 @@ check:
 
 test:
 	docker compose exec rust-dev cargo test
+
+test-e2e:
+	docker compose exec rust-dev cargo test --test e2e
 
 status:
 	docker compose ps
