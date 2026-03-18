@@ -6,9 +6,8 @@ use super::domain::{
 };
 use crate::shared::{
     errors::{bad_request, ApiError},
-    validation::{normalize_optional_rfc3339_timestamp, parse_rfc3339_timestamp},
+    validation::parse_rfc3339_timestamp,
 };
-use time::OffsetDateTime;
 
 // ---------------------------------------------------------------------------
 // Helpers shared by event/player validation
@@ -19,12 +18,6 @@ pub(super) fn normalize_optional_string(value: &Option<String>) -> Option<String
         .as_ref()
         .map(|text| text.trim().to_string())
         .filter(|text| !text.is_empty())
-}
-
-pub(super) fn normalize_optional_start_date(
-    value: &Option<String>,
-) -> Result<Option<OffsetDateTime>, ApiError> {
-    normalize_optional_rfc3339_timestamp(value.as_deref())
 }
 
 // ---------------------------------------------------------------------------

@@ -46,13 +46,6 @@ pub(super) fn validate_event_team_name(name: &str) -> Result<(), ApiError> {
 
 // Utilities used by services for date parsing.
 
-pub(super) fn normalize_optional_string(value: &Option<String>) -> Option<String> {
-    value
-        .as_ref()
-        .map(|text| text.trim().to_string())
-        .filter(|text| !text.is_empty())
-}
-
 pub(super) fn normalize_optional_start_date(
     value: &Option<String>,
 ) -> Result<Option<OffsetDateTime>, ApiError> {

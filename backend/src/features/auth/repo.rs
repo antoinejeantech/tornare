@@ -30,9 +30,7 @@ pub struct ActiveSessionRow {
 /// Login credentials looked up by email.
 pub struct UserLoginRow {
     pub id: Uuid,
-    pub email: String,
     pub password_hash: Option<String>,
-    pub display_name: String,
     pub is_active: bool,
 }
 
@@ -40,9 +38,7 @@ pub async fn find_user_login_by_email(
     pool: &PgPool,
     email: &str,
 ) -> Result<Option<UserLoginRow>, crate::shared::errors::ApiError> {
-    let row = sqlx::query(
-        "SELECT id, email, password_hash, display_name, is_active FROM users WHERE email = $1",
-    )
+    let row = sqlx::query("SELECT id, password_hash, is_active FROM users WHERE email = $1")
     .bind(email)
     .fetch_optional(pool)
     .await
@@ -50,9 +46,7 @@ pub async fn find_user_login_by_email(
 
     Ok(row.map(|r| UserLoginRow {
         id: r.get("id"),
-        email: r.get("email"),
         password_hash: r.get("password_hash"),
-        display_name: r.get("display_name"),
         is_active: r.get("is_active"),
     }))
 }

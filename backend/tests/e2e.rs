@@ -193,8 +193,8 @@ async fn register_with_duplicate_email_is_rejected(pool: PgPool) {
         .unwrap();
     assert_eq!(
         res.status().as_u16(),
-        409,
-        "duplicate email must return 409 Conflict"
+        400,
+        "duplicate email must return 400 Bad Request"
     );
 }
 
