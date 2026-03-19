@@ -6,7 +6,7 @@ use crate::shared::{
     errors::{internal_error, not_found},
     numeric::i32_to_u8,
 };
-use crate::features::events::models::{Match, Player};
+use crate::features::events::models::{Match, MatchStatus, Player, PlayerRank, PlayerRole};
 
 pub async fn list_visible_match_ids(
     pool: &PgPool,
@@ -636,7 +636,12 @@ pub async fn load_match(pool: &PgPool, match_id: Uuid) -> Result<Match, crate::s
         winner_team_id: row.get::<Option<Uuid>, _>("winner_team_id"),
         winner_team_name: row.get("winner_team_name"),
         is_bracket: row.get::<bool, _>("is_bracket"),
-        status: row.get::<String, _>("status"),
+        status: {
+            let s: String = row.get("status");
+            MatchStatus::try_from(s.as_str()).map_err(|_| {
+                internal_error(format!("invalid match status in DB: {s}"))
+            })?
+        },
         created_at: row.get::<OffsetDateTime, _>("created_at"),
         updated_at: row.get::<OffsetDateTime, _>("updated_at"),
         start_date: row.get::<Option<OffsetDateTime>, _>("start_date"),
@@ -672,10 +677,27 @@ async fn load_event_players_for_event(
         players.push(Player {
             id: row.get::<Uuid, _>("id"),
             name: row.get("name"),
-            role: row.get("role"),
-            rank: row.get("rank"),
+            role: {
+                let s: String = row.get("role");
+                match s.as_str() {
+                    "FLEX" => PlayerRole::Dps,
+                    _ => PlayerRole::try_from(s.as_str()).map_err(|_| {
+                        internal_error(format!("invalid player role in DB: {s}"))
+                    })?,
+                }
+            },
+            rank: {
+                let s: String = row.get("rank");
+                PlayerRank::try_from(s.as_str()).map_err(|_| {
+                    internal_error(format!("invalid player rank in DB: {s}"))
+                })?
+            },
             team_id: row.get::<Option<Uuid>, _>("team_id"),
             team: row.get("team_name"),
+            assigned_role: None,
+            assigned_rank: None,
+            // Players loaded via match queries don't need signup preferences.
+            roles: vec![],
         });
     }
 

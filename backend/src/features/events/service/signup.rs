@@ -4,18 +4,18 @@ use crate::{
     app::state::AppState,
     features::{
         events::models::{
-            CreateEventSignupRequestInput, Event, EventSignupLinkResponse, EventSignupRequest,
-            PublicEventSignupInfo,
+            CreateEventSignupRequestInput, Event, EventSignupLinkResponse,
+            EventSignupRequest, PublicEventSignupInfo, SignupStatus,
         },
         permissions::require_event_owner_access,
     },
     shared::{
-        errors::{bad_request, not_found, ApiError},
+        errors::{bad_request, internal_error, not_found, ApiError},
         models::MessageResponse,
     },
 };
 
-use super::{as_owner_event, ensure_event_exists, ensure_event_has_capacity_for_new_player, repo};
+use super::{ensure_event_exists, ensure_event_has_capacity_for_new_player, repo};
 use super::validation::validate_signup_request_input;
 
 pub const MAX_SIGNUP_REQUESTS_PER_EVENT: usize = 99;
@@ -81,7 +81,7 @@ pub async fn set_event_public_signup_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, is_owner))
+    Ok(event.into_owner(is_owner))
 }
 
 pub async fn get_public_signup_info(
@@ -123,8 +123,7 @@ pub async fn create_public_signup_request(
         &state.pool,
         info.event_id,
         clean_name,
-        payload.role.trim(),
-        payload.rank.trim(),
+        &payload.roles,
     )
     .await?;
 
@@ -139,7 +138,6 @@ pub async fn list_signup_requests_for_user(
     event_id: Uuid,
 ) -> Result<Vec<EventSignupRequest>, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
-
     ensure_event_exists(state, event_id).await?;
 
     repo::list_signup_requests_for_event(&state.pool, event_id).await
@@ -157,23 +155,52 @@ pub async fn accept_signup_request_for_user(
         return Err(not_found("Signup request not found"));
     };
 
-    if request.status != "pending" {
+    if request.status != SignupStatus::Pending {
         return Err(bad_request("This signup request has already been reviewed"));
     }
 
     ensure_event_has_capacity_for_new_player(state, event_id).await?;
 
-    repo::insert_event_player(&state.pool, event_id, &request.name, &request.role, &request.rank)
-        .await?;
+    let primary = request
+        .roles
+        .first()
+        .ok_or_else(|| bad_request("Signup request has no role preferences"))?;
 
-    let updated_count =
-        repo::update_signup_request_status(&state.pool, event_id, request_id, "accepted").await?;
-    if updated_count == 0 {
+    let role_pairs: Vec<(&str, &str)> = request
+        .roles
+        .iter()
+        .map(|r| (r.role.as_db_value(), r.rank.as_db_value()))
+        .collect();
+
+    let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+    // Atomically claim the request; a concurrent accept for the same request gets 0 rows.
+    let claimed = repo::update_signup_request_status_in_tx(
+        &mut tx,
+        event_id,
+        request_id,
+        SignupStatus::Accepted.as_db_value(),
+    )
+    .await?;
+    if claimed == 0 {
         return Err(bad_request("This signup request has already been reviewed"));
     }
 
+    repo::insert_event_player_in_tx(
+        &mut tx,
+        event_id,
+        &request.name,
+        primary.role.as_db_value(),
+        primary.rank.as_db_value(),
+        Some(request_id),
+        &role_pairs,
+    )
+    .await?;
+
+    tx.commit().await.map_err(internal_error)?;
+
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, is_owner))
+    Ok(event.into_owner(is_owner))
 }
 
 pub async fn decline_signup_request_for_user(
@@ -184,8 +211,13 @@ pub async fn decline_signup_request_for_user(
 ) -> Result<MessageResponse, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
 
-    let updated_count =
-        repo::update_signup_request_status(&state.pool, event_id, request_id, "declined").await?;
+    let updated_count = repo::update_signup_request_status(
+        &state.pool,
+        event_id,
+        request_id,
+        SignupStatus::Declined.as_db_value(),
+    )
+    .await?;
     if updated_count == 0 {
         return Err(not_found("Pending signup request not found"));
     }

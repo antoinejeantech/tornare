@@ -1,8 +1,4 @@
 use uuid::Uuid;
-use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
-    Argon2,
-};
 
 use crate::{
     app::state::AppState,
@@ -11,8 +7,9 @@ use crate::{
         users::models::{UpdateUserProfileInput, OVERWATCH_RANKS},
     },
     shared::{
+        crypto::hash_password,
         errors::{bad_request, forbidden, not_found, ApiError},
-        validation::normalize_username,
+        validation::{normalize_email, normalize_username},
     },
 };
 
@@ -22,26 +19,26 @@ pub async fn get_user_profile_public(
     state: &AppState,
     user_id: Uuid,
 ) -> Result<AuthUser, ApiError> {
-    let Some((id, email, username, display_name, role, battletag, rank_tank, rank_dps, rank_support, is_active)) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
+    let Some(row) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
         return Err(not_found("User not found"));
     };
 
-    if !is_active {
+    if !row.is_active {
         return Err(not_found("User not found"));
     }
 
     let has_battlenet_identity = repo::has_provider_identity(&state.pool, user_id, "battlenet").await?;
 
     Ok(AuthUser {
-        id,
-        email,
-        username,
-        display_name,
-        role,
-        battletag,
-        rank_tank,
-        rank_dps,
-        rank_support,
+        id: row.id,
+        email: row.email,
+        username: row.username,
+        display_name: row.display_name,
+        role: row.role,
+        battletag: row.battletag,
+        rank_tank: row.rank_tank,
+        rank_dps: row.rank_dps,
+        rank_support: row.rank_support,
         can_edit_battletag: !has_battlenet_identity,
     })
 }
@@ -53,7 +50,13 @@ pub async fn update_user_profile_for_user(
     payload: UpdateUserProfileInput,
 ) -> Result<AuthUser, ApiError> {
     if authenticated_user_id != target_user_id {
-        return Err(forbidden("You can only edit your own profile"));
+        let Some(actor) = repo::find_user_profile_by_id(&state.pool, authenticated_user_id).await? else {
+            return Err(forbidden("You do not have permission to edit this profile"));
+        };
+
+        if !actor.is_active || !actor.role.eq_ignore_ascii_case("admin") {
+            return Err(forbidden("You can only edit your own profile unless you are an admin"));
+        }
     }
 
     let display_name = payload.display_name.trim();
@@ -141,10 +144,6 @@ pub async fn update_user_profile_for_user(
     get_user_profile_public(state, target_user_id).await
 }
 
-fn normalize_email(email: &str) -> String {
-    email.trim().to_lowercase()
-}
-
 fn validate_rank(role: &str, rank: &str) -> Result<(), ApiError> {
     if OVERWATCH_RANKS.contains(&rank) {
         return Ok(());
@@ -153,10 +152,3 @@ fn validate_rank(role: &str, rank: &str) -> Result<(), ApiError> {
     Err(bad_request(&format!("Invalid {} rank", role)))
 }
 
-fn hash_password(password: &str) -> Result<String, ApiError> {
-    let salt = SaltString::generate(&mut OsRng);
-    Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
-        .map(|hash| hash.to_string())
-        .map_err(|_| bad_request("Failed to hash password"))
-}

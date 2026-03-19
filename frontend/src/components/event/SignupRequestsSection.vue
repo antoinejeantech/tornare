@@ -2,6 +2,7 @@
 import { computed, inject } from 'vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
+import { getRoleIcon } from '../../lib/roles'
 
 const ctx = inject('eventCtx')
 const isPublicRegistration = computed(() => Boolean(ctx.event?.public_signup_enabled))
@@ -85,23 +86,39 @@ const reviewedRequests = computed(() => {
         <p v-else-if="pendingRequests.length === 0" class="muted">No pending requests yet.</p>
         <ul v-else class="signup-request-list">
           <li v-for="request in pendingRequests" :key="request.id" class="signup-request-item">
-            <div class="signup-request-main">
-              <strong>{{ request.name }}</strong>
-              <span class="muted">{{ request.role }} · {{ request.rank }}</span>
+            <div class="signup-request-identity">
+              <strong class="signup-request-name">{{ request.name }}</strong>
+              <div class="signup-request-roles">
+                <span
+                  v-for="(rp, i) in (request.roles || [])"
+                  :key="i"
+                  class="req-role-badge"
+                  :class="{ 'is-preferred': i === 0 }"
+                >
+                  <span class="material-symbols-rounded req-role-icon" aria-hidden="true">{{ getRoleIcon(rp.role) }}</span>
+                  <span class="req-role-label">{{ rp.role }}</span>
+                  <span class="req-role-sep" aria-hidden="true">·</span>
+                  <span class="req-role-rank">{{ rp.rank }}</span>
+                </span>
+              </div>
             </div>
             <div class="signup-request-actions">
               <button
-                class="btn-primary"
+                class="btn-primary signup-action-btn"
                 :disabled="Boolean(ctx.reviewingSignupRequests[request.id])"
                 @click="ctx.acceptSignupRequest(request.id)"
               >
-                {{ ctx.reviewingSignupRequests[request.id] ? 'Saving...' : 'Accept' }}
+                <span class="material-symbols-rounded" aria-hidden="true">
+                  {{ ctx.reviewingSignupRequests[request.id] ? 'hourglass_top' : 'check_circle' }}
+                </span>
+                {{ ctx.reviewingSignupRequests[request.id] ? 'Saving…' : 'Accept' }}
               </button>
               <button
-                class="btn-danger"
+                class="btn-secondary signup-action-btn signup-decline-btn"
                 :disabled="Boolean(ctx.reviewingSignupRequests[request.id])"
                 @click="ctx.declineSignupRequest(request.id)"
               >
+                <span class="material-symbols-rounded" aria-hidden="true">cancel</span>
                 Decline
               </button>
             </div>
@@ -114,9 +131,21 @@ const reviewedRequests = computed(() => {
         <p v-if="reviewedRequests.length === 0" class="muted">No reviewed requests yet.</p>
         <ul v-else class="signup-request-list">
           <li v-for="request in reviewedRequests" :key="request.id" class="signup-request-item reviewed">
-            <div class="signup-request-main">
-              <strong>{{ request.name }}</strong>
-              <span class="muted">{{ request.role }} · {{ request.rank }}</span>
+            <div class="signup-request-identity">
+              <strong class="signup-request-name">{{ request.name }}</strong>
+              <div class="signup-request-roles">
+                <span
+                  v-for="(rp, i) in (request.roles || [])"
+                  :key="i"
+                  class="req-role-badge"
+                  :class="{ 'is-preferred': i === 0 }"
+                >
+                  <span class="material-symbols-rounded req-role-icon" aria-hidden="true">{{ getRoleIcon(rp.role) }}</span>
+                  <span class="req-role-label">{{ rp.role }}</span>
+                  <span class="req-role-sep" aria-hidden="true">·</span>
+                  <span class="req-role-rank">{{ rp.rank }}</span>
+                </span>
+              </div>
             </div>
             <AppBadge
               :variant="request.status === 'accepted' ? 'ok' : 'danger'"
@@ -201,30 +230,91 @@ const reviewedRequests = computed(() => {
   border: 1px solid color-mix(in srgb, var(--line) 90%, var(--brand-1) 10%);
   border-radius: 9px;
   background: color-mix(in srgb, var(--card) 94%, #f6f9ff 6%);
-  padding: 0.5rem;
+  padding: 0.6rem 0.65rem;
   display: flex;
-  justify-content: space-between;
-  gap: 0.6rem;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
 }
 
 .signup-request-item.reviewed {
-  opacity: 0.88;
+  opacity: 0.82;
 }
 
-.signup-request-main {
+.signup-request-identity {
   display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.signup-request-name {
+  font-size: 0.9rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.signup-request-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.26rem;
+}
+
+.req-role-badge {
+  display: inline-flex;
+  align-items: center;
   gap: 0.2rem;
+  padding: 0.14rem 0.48rem 0.14rem 0.34rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--line) 84%, transparent 16%);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--ink-2) 72%, transparent 28%);
+  letter-spacing: 0.01em;
+}
+
+.req-role-badge.is-preferred {
+  color: var(--primary-300);
+  border-color: color-mix(in srgb, var(--primary-500) 55%, var(--line) 45%);
+  background: color-mix(in srgb, var(--primary-700) 20%, transparent 80%);
+  font-weight: 700;
+}
+
+.req-role-icon {
+  font-size: 0.86rem;
+  line-height: 1;
+}
+
+.req-role-sep {
+  color: color-mix(in srgb, currentColor 44%, transparent 56%);
+  font-size: 0.65rem;
 }
 
 .signup-request-actions {
   display: flex;
-  gap: 0.4rem;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.3rem;
 }
 
-.signup-request-actions .btn-primary,
-.signup-request-actions .btn-danger {
-  min-width: 78px;
+.signup-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  font-size: 0.82rem;
+  padding: 0.34rem 0.68rem;
+}
+
+.signup-action-btn .material-symbols-rounded {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.signup-decline-btn {
+  color: color-mix(in srgb, var(--ink-2) 90%, transparent 10%);
 }
 
 @media (max-width: 960px) {

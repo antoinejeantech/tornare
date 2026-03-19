@@ -52,6 +52,42 @@ const rotatingSignupLink = ref(false)
 const updatingSignupVisibility = ref(false)
 const updatingFeaturedEvent = ref(false)
 const lastBalanceSummary = ref('')
+const lastBalancedFingerprint = ref(null)
+
+function teamsFingerprint(ev) {
+  if (!Array.isArray(ev?.players)) return null
+  return JSON.stringify(
+    {
+      format: String(ev?.format || ''),
+      teams: Array.isArray(ev?.teams)
+        ? ev.teams
+          .map(team => String(team.id || ''))
+          .sort()
+        : [],
+      players: ev.players
+        .map((player) => ({
+          id: String(player?.id || ''),
+          team_id: player?.team_id || null,
+          role: player?.role || null,
+          rank: player?.rank || null,
+          assigned_role: player?.assigned_role || null,
+          assigned_rank: player?.assigned_rank || null,
+          roles: Array.isArray(player?.roles)
+            ? player.roles.map((entry) => ({
+              role: entry?.role || null,
+              rank: entry?.rank || null,
+            }))
+            : [],
+        }))
+        .sort((a, b) => (a.id < b.id ? -1 : 1)),
+    }
+  )
+}
+
+const teamsAreAlreadyBalanced = computed(() => {
+  if (!lastBalancedFingerprint.value) return false
+  return teamsFingerprint(event.value) === lastBalancedFingerprint.value
+})
 
 const newMatchTitle = ref('')
 const newMatchMap = ref('')
@@ -66,6 +102,7 @@ const editingPlayerId = ref(null)
 const editPlayerName = ref('')
 const editPlayerRole = ref('DPS')
 const editPlayerRank = ref('Unranked')
+const editPlayerRoles = ref([{ role: 'DPS', rank: 'Unranked' }])
 const editingTeamId = ref(null)
 const editTeamName = ref('')
 const matchupSelections = ref({})
@@ -573,6 +610,7 @@ async function autoBalanceTeams() {
     event.value = updatedEvent
     hydrateSelections()
     lastBalanceSummary.value = response?.summary || 'Teams auto-balanced by rank ELO'
+    lastBalancedFingerprint.value = teamsFingerprint(updatedEvent)
     setNotice(lastBalanceSummary.value)
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to auto-balance teams')
@@ -737,7 +775,8 @@ async function savePlayerEdit(playerId) {
     return
   }
 
-  if (!eventId.value || !editPlayerName.value.trim() || savingPlayerEdits.value[playerId]) {
+  const validRoles = editPlayerRoles.value.filter(rp => rp.role && rp.rank)
+  if (!eventId.value || !editPlayerName.value.trim() || validRoles.length === 0 || savingPlayerEdits.value[playerId]) {
     return
   }
 
@@ -747,10 +786,12 @@ async function savePlayerEdit(playerId) {
   }
 
   try {
+    const primaryRole = validRoles[0]
     const updatedEvent = await eventStore.updatePlayer(eventId.value, playerId, {
       name: editPlayerName.value.trim(),
-      role: editPlayerRole.value,
-      rank: editPlayerRank.value,
+      role: primaryRole.role,
+      rank: primaryRole.rank,
+      roles: validRoles,
     })
 
     event.value = updatedEvent
@@ -759,6 +800,7 @@ async function savePlayerEdit(playerId) {
     editPlayerName.value = ''
     editPlayerRole.value = 'DPS'
     editPlayerRank.value = 'Unranked'
+    editPlayerRoles.value = [{ role: 'DPS', rank: 'Unranked' }]
     setNotice('Player updated')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to update player')
@@ -789,6 +831,7 @@ async function setPlayerTeam(playerId, teamId) {
 
     event.value = updatedEvent
     hydrateSelections()
+    lastBalancedFingerprint.value = null
     setNotice('Team assignment saved')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to assign team')
@@ -802,6 +845,24 @@ async function setPlayerTeam(playerId, teamId) {
 
 async function assignPlayerToTeam(playerId, teamId) {
   await setPlayerTeam(playerId, teamId)
+}
+
+async function assignPlayerToTeamWithRole(playerId, teamId, role, rank) {
+  if (!ensureOwnerAction() || !eventId.value) return
+  if (savingPlayerTeams.value[playerId]) return
+
+  savingPlayerTeams.value = { ...savingPlayerTeams.value, [playerId]: true }
+  try {
+    const updatedEvent = await eventStore.assignPlayerTeam(eventId.value, playerId, teamId, role, rank)
+    event.value = updatedEvent
+    hydrateSelections()
+    lastBalancedFingerprint.value = null
+    setNotice('Team assignment saved')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to assign player')
+  } finally {
+    savingPlayerTeams.value = { ...savingPlayerTeams.value, [playerId]: false }
+  }
 }
 
 async function removePlayerFromTeam(playerId) {
@@ -1427,6 +1488,7 @@ provide('eventCtx', proxyRefs({
   editPlayerName,
   editPlayerRole,
   editPlayerRank,
+  editPlayerRoles,
   editingPlayerId,
   matchupSelections,
   canCreateTeam,
@@ -1442,6 +1504,7 @@ provide('eventCtx', proxyRefs({
   signupShareUrl,
   signupToken,
   lastBalanceSummary,
+  teamsAreAlreadyBalanced,
   editEventName,
   editEventDescription,
   editEventStartDate,
@@ -1464,6 +1527,7 @@ provide('eventCtx', proxyRefs({
   saveTeamEdit,
   deleteTeam,
   assignPlayerToTeam,
+  assignPlayerToTeamWithRole,
   removePlayerFromTeam,
   savePlayerEdit,
   addPlayer,

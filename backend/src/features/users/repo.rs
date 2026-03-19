@@ -3,10 +3,27 @@ use uuid::Uuid;
 
 use crate::shared::errors::internal_error;
 
+// ---------------------------------------------------------------------------
+// Named row type (replaces anonymous 10-tuple at DB boundary)
+// ---------------------------------------------------------------------------
+
+pub struct UserProfileRow {
+    pub id: Uuid,
+    pub email: String,
+    pub username: String,
+    pub display_name: String,
+    pub role: String,
+    pub battletag: Option<String>,
+    pub rank_tank: String,
+    pub rank_dps: String,
+    pub rank_support: String,
+    pub is_active: bool,
+}
+
 pub async fn find_user_profile_by_id(
     pool: &PgPool,
     user_id: Uuid,
-) -> Result<Option<(Uuid, String, String, String, String, Option<String>, String, String, String, bool)>, crate::shared::errors::ApiError> {
+) -> Result<Option<UserProfileRow>, crate::shared::errors::ApiError> {
     let row = sqlx::query(
                 "SELECT
                         u.id,
@@ -47,19 +64,17 @@ pub async fn find_user_profile_by_id(
         .await
         .map_err(internal_error)?;
 
-    Ok(row.map(|r| {
-        (
-            r.get("id"),
-            r.get("email"),
-            r.get("username"),
-            r.get("display_name"),
-            r.get("role"),
-            r.get("battletag"),
-            r.get("rank_tank"),
-            r.get("rank_dps"),
-            r.get("rank_support"),
-            r.get("is_active"),
-        )
+    Ok(row.map(|r| UserProfileRow {
+        id: r.get("id"),
+        email: r.get("email"),
+        username: r.get("username"),
+        display_name: r.get("display_name"),
+        role: r.get("role"),
+        battletag: r.get("battletag"),
+        rank_tank: r.get("rank_tank"),
+        rank_dps: r.get("rank_dps"),
+        rank_support: r.get("rank_support"),
+        is_active: r.get("is_active"),
     }))
 }
 

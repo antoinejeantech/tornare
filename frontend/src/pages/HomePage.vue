@@ -152,7 +152,7 @@ function eventStatusForDashboard(event, players, maxPlayers) {
 
   const startAt = normalizeDate(event?.start_date)
   if (startAt !== null && startAt <= Date.now()) {
-    return 'Progress'
+    return 'Ongoing'
   }
 
   return 'Open'
@@ -279,7 +279,7 @@ onMounted(async () => {
                 </span>
                 <span class="home-activity-players-value">{{ row.placeholder ? '\u00A0' : row.players }}</span>
               </span>
-              <AppBadge v-if="!row.placeholder" :variant="{ Open: 'ok', Full: 'danger', Progress: 'info' }[row.status] || 'neutral'" :label="row.status" />
+              <AppBadge v-if="!row.placeholder" :variant="{ Open: 'ok', Full: 'danger', Ongoing: 'info' }[row.status] || 'neutral'" :label="row.status" />
             </article>
           </div>
         </div>

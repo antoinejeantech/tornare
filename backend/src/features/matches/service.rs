@@ -7,13 +7,15 @@ use crate::{
     features::{
         events::{
             models::{
-                BracketGenerationMode, CreateEventMatchInput, CreateMatchInput, Event, EventType, Match,
-                ReportMatchWinnerInput, SetMatchupInput, UpdateMatchStartDateInput,
+                BracketGenerationMode, CreateEventMatchInput, CreateMatchInput, Event, EventType,
+                Match, MatchStatus, ReportMatchWinnerInput, SetMatchupInput,
+                UpdateMatchStartDateInput,
             },
             repo as events_repo,
         },
-        permissions::{require_event_manage_access, require_event_view_access},
-        permissions::require_event_owner_access,
+        permissions::{
+            require_event_manage_access, require_event_owner_access, require_event_view_access,
+        },
     },
     shared::{
         errors::{bad_request, internal_error, not_found, ApiError},
@@ -183,7 +185,7 @@ pub async fn generate_tourney_bracket_for_user(
                 next_match_id: None,
                 next_match_slot: None,
                 winner_team_id: None,
-                status: "OPEN".to_string(),
+                status: MatchStatus::Open,
             });
         }
     }
@@ -236,9 +238,9 @@ pub async fn generate_tourney_bracket_for_user(
                 next_match_slot: None,
                 winner_team_id: None,
                 status: if team_a_id.is_some() && team_b_id.is_some() {
-                    "READY".to_string()
+                    MatchStatus::Ready
                 } else {
-                    "OPEN".to_string()
+                    MatchStatus::Open
                 },
             });
         }
@@ -297,9 +299,9 @@ pub async fn generate_tourney_bracket_for_user(
         }
 
         plan.status = if plan.team_a_id.is_some() && plan.team_b_id.is_some() {
-            "READY".to_string()
+            MatchStatus::Ready
         } else {
-            "OPEN".to_string()
+            MatchStatus::Open
         };
     }
 
@@ -325,7 +327,7 @@ pub async fn generate_tourney_bracket_for_user(
                 round: plan.round,
                 position: plan.position,
                 winner_team_id: plan.winner_team_id,
-                status: plan.status.as_str(),
+                status: plan.status.as_db_value(),
             },
         )
         .await?;
@@ -345,7 +347,7 @@ pub async fn generate_tourney_bracket_for_user(
     tx.commit().await.map_err(internal_error)?;
 
     let event = events_repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, is_owner))
+    Ok(event.into_owner(is_owner))
 }
 
 pub async fn clear_tourney_bracket_for_user(
@@ -380,7 +382,7 @@ pub async fn clear_tourney_bracket_for_user(
     }
 
     let event = events_repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, is_owner))
+    Ok(event.into_owner(is_owner))
 }
 
 pub async fn report_match_winner_for_user(
@@ -566,12 +568,6 @@ pub async fn cancel_match_winner_for_user(
     repo::load_match(&state.pool, match_id).await
 }
 
-fn as_owner_event(mut event: Event, is_owner: bool) -> Event {
-    event.is_owner = is_owner;
-    event.can_manage = true;
-    event
-}
-
 fn can_regenerate_bracket(existing_match_count: i64, played_match_count: i64) -> bool {
     existing_match_count <= 0 || played_match_count <= 0
 }
@@ -664,7 +660,7 @@ struct BracketMatchPlan {
     next_match_id: Option<Uuid>,
     next_match_slot: Option<String>,
     winner_team_id: Option<Uuid>,
-    status: String,
+    status: MatchStatus,
 }
 
 fn bracket_rounds(bracket_size: usize) -> usize {
@@ -767,13 +763,13 @@ async fn propagate_match_winners(
 
         match (team_a_id, team_b_id) {
             (Some(_), Some(_)) => {
-                repo::set_match_status_in_tx(tx, next_match_id, "READY").await?;
+                repo::set_match_status_in_tx(tx, next_match_id, MatchStatus::Ready.as_db_value()).await?;
             }
             (Some(_), None) | (None, Some(_)) => {
-                repo::set_match_status_in_tx(tx, next_match_id, "OPEN").await?;
+                repo::set_match_status_in_tx(tx, next_match_id, MatchStatus::Open.as_db_value()).await?;
             }
             (None, None) => {
-                repo::set_match_status_in_tx(tx, next_match_id, "OPEN").await?;
+                repo::set_match_status_in_tx(tx, next_match_id, MatchStatus::Open.as_db_value()).await?;
             }
         }
     }
@@ -801,8 +797,8 @@ async fn invalidate_match_winner_and_downstream(
         }
 
         let next_status = match (team_a_id, team_b_id) {
-            (Some(_), Some(_)) => "READY",
-            _ => "OPEN",
+            (Some(_), Some(_)) => MatchStatus::Ready.as_db_value(),
+            _ => MatchStatus::Open.as_db_value(),
         };
         repo::set_match_status_in_tx(tx, match_id, next_status).await?;
 

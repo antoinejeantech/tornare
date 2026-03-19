@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{PasswordHash, PasswordVerifier},
     Argon2,
 };
 use axum::http::{header::AUTHORIZATION, HeaderMap};
@@ -14,8 +14,9 @@ use crate::{
     app::state::AppState,
     features::auth::models::{AuthResponse, AuthUser, LoginInput, RegisterInput},
     shared::{
-        errors::{bad_request, forbidden, unauthorized, ApiError},
-        validation::normalize_username,
+        crypto::hash_password,
+        errors::{bad_request, forbidden, internal_error, unauthorized, ApiError},
+        validation::{normalize_email, normalize_username},
     },
 };
 
@@ -69,23 +70,23 @@ pub async fn login_user(state: &AppState, payload: LoginInput) -> Result<AuthRes
         return Err(bad_request("Email and password are required"));
     }
 
-    let Some((id, _email, password_hash, _display_name, is_active)) =
+    let Some(login) =
         repo::find_user_login_by_email(&state.pool, &normalized_email).await?
     else {
         return Err(unauthorized("Invalid email or password"));
     };
 
-    if !is_active {
+    if !login.is_active {
         return Err(forbidden("User account is inactive"));
     }
 
-    let Some(password_hash) = password_hash else {
+    let Some(password_hash) = login.password_hash else {
         return Err(unauthorized("Invalid email or password"));
     };
 
     verify_password(&password_hash, &payload.password)?;
 
-    let user = get_auth_user_by_id(state, id).await?;
+    let user = get_auth_user_by_id(state, login.id).await?;
 
     issue_auth_response(state, user, None).await
 }
@@ -96,12 +97,12 @@ pub async fn refresh_auth(state: &AppState, refresh_token: &str) -> Result<AuthR
     }
 
     let refresh_hash = hash_refresh_token(refresh_token);
-    let Some((session_id, user_id)) = repo::find_active_session_by_hash(&state.pool, &refresh_hash).await? else {
+    let Some(session) = repo::find_active_session_by_hash(&state.pool, &refresh_hash).await? else {
         return Err(unauthorized("Invalid or expired refresh token"));
     };
 
-    let user = get_auth_user_by_id(state, user_id).await?;
-    issue_auth_response(state, user, Some(session_id)).await
+    let user = get_auth_user_by_id(state, session.user_id).await?;
+    issue_auth_response(state, user, Some(session.id)).await
 }
 
 pub async fn logout_session(state: &AppState, refresh_token: &str) -> Result<(), ApiError> {
@@ -125,7 +126,7 @@ pub fn require_authenticated_user_id(state: &AppState, headers: &HeaderMap) -> R
 
     let token_data = decode::<AccessClaims>(
         token,
-        &DecodingKey::from_secret(state.jwt_secret.as_bytes()),
+        &DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
         &Validation::default(),
     )
     .map_err(|_| unauthorized("Invalid access token"))?;
@@ -142,26 +143,26 @@ pub fn maybe_authenticated_user_id(state: &AppState, headers: &HeaderMap) -> Opt
 }
 
 pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<AuthUser, ApiError> {
-    let Some((id, email, username, display_name, role, battletag, rank_tank, rank_dps, rank_support, is_active)) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
+    let Some(row) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
         return Err(unauthorized("User not found"));
     };
 
-    if !is_active {
+    if !row.is_active {
         return Err(forbidden("User account is inactive"));
     }
 
     let has_battlenet_identity = repo::has_provider_identity(&state.pool, user_id, "battlenet").await?;
 
     Ok(AuthUser {
-        id,
-        email,
-        username,
-        display_name,
-        role,
-        battletag,
-        rank_tank,
-        rank_dps,
-        rank_support,
+        id: row.id,
+        email: row.email,
+        username: row.username,
+        display_name: row.display_name,
+        role: row.role,
+        battletag: row.battletag,
+        rank_tank: row.rank_tank,
+        rank_dps: row.rank_dps,
+        rank_support: row.rank_support,
         can_edit_battletag: !has_battlenet_identity,
     })
 }
@@ -189,17 +190,7 @@ fn validate_register_input(payload: &RegisterInput) -> Result<(), ApiError> {
     Ok(())
 }
 
-fn normalize_email(email: &str) -> String {
-    email.trim().to_lowercase()
-}
 
-fn hash_password(password: &str) -> Result<String, ApiError> {
-    let salt = SaltString::generate(&mut OsRng);
-    Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
-        .map(|hash| hash.to_string())
-        .map_err(|_| bad_request("Failed to hash password"))
-}
 
 fn verify_password(stored_hash: &str, password: &str) -> Result<(), ApiError> {
     let parsed_hash = PasswordHash::new(stored_hash).map_err(|_| unauthorized("Invalid email or password"))?;
@@ -213,7 +204,7 @@ async fn issue_auth_response(
     user: AuthUser,
     existing_session_id: Option<Uuid>,
 ) -> Result<AuthResponse, ApiError> {
-    let access_token = build_access_token(user.id, &state.jwt_secret)?;
+    let access_token = build_access_token(user.id, &state.config.jwt_secret)?;
     let refresh_token = format!("{}.{}", Uuid::new_v4(), Uuid::new_v4());
     let refresh_hash = hash_refresh_token(&refresh_token);
 
@@ -243,7 +234,7 @@ fn build_access_token(user_id: Uuid, jwt_secret: &str) -> Result<String, ApiErro
         &claims,
         &EncodingKey::from_secret(jwt_secret.as_bytes()),
     )
-    .map_err(|_| unauthorized("Failed to generate access token"))
+    .map_err(|e| internal_error(e))
 }
 
 fn hash_refresh_token(refresh_token: &str) -> String {

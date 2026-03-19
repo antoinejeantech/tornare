@@ -50,11 +50,12 @@ pub fn not_found(message: &str) -> ApiError {
     )
 }
 
-pub fn internal_error(error: sqlx::Error) -> ApiError {
+pub fn internal_error(error: impl std::fmt::Display) -> ApiError {
+    tracing::error!("{error}");
     (
         StatusCode::INTERNAL_SERVER_ERROR,
         Json(ErrorResponse {
-            error: format!("Database query failed: {error}"),
+            error: "Internal server error".to_string(),
         }),
     )
 }

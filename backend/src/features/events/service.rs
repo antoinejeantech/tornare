@@ -1,7 +1,6 @@
 use uuid::Uuid;
 
 mod events_admin;
-mod matches;
 mod players;
 mod public;
 mod signup;
@@ -11,7 +10,7 @@ mod validation;
 
 use crate::{
     app::state::AppState,
-    features::events::models::Event,
+    features::{matches::service as matches_service},
     shared::{
         errors::{bad_request, not_found, ApiError},
         numeric::{i32_to_usize, i64_to_usize},
@@ -20,8 +19,9 @@ use crate::{
 
 use super::repo;
 use team_balance::{
-    BalancePlayer, BalanceTeamState, average_team_elo_from_players, format_team_size,
-    pug_role_targets_for_format, rank_elo_for_balance, role_overflow_penalty, unique_team_name,
+    BalancePlayer, BalanceTeamState, PlayerRoleAssignment, RoleOption,
+    average_team_elo_from_players, check_role_feasibility, find_best_role_balance,
+    format_team_size, pug_role_targets_for_format, rank_elo_for_balance, unique_team_name,
 };
 pub use signup::{
     accept_signup_request_for_user, create_public_signup_request, decline_signup_request_for_user,
@@ -32,7 +32,7 @@ pub use players::{
     add_event_player_for_user, assign_event_player_team_for_user, delete_event_player_for_user,
     update_event_player_for_user,
 };
-pub use matches::{
+pub use matches_service::{
     cancel_match_winner_for_user, clear_tourney_bracket_for_user, create_event_match_for_user,
     generate_tourney_bracket_for_user, report_match_winner_for_user,
     set_matchup_for_user, update_match_start_date_for_user,
@@ -80,10 +80,4 @@ async fn ensure_event_has_capacity_for_new_player(
     }
 
     Ok(())
-}
-
-fn as_owner_event(mut event: Event, is_owner: bool) -> Event {
-    event.is_owner = is_owner;
-    event.can_manage = true;
-    event
 }

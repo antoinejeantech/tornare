@@ -3,26 +3,51 @@ use uuid::Uuid;
 
 use crate::shared::errors::internal_error;
 
+// ---------------------------------------------------------------------------
+// Named row types (replace anonymous tuples at DB boundary)
+// ---------------------------------------------------------------------------
+
+/// Profile data loaded from the DB for authentication / user-info endpoints.
+pub struct UserProfileRow {
+    pub id: Uuid,
+    pub email: String,
+    pub username: String,
+    pub display_name: String,
+    pub role: String,
+    pub battletag: Option<String>,
+    pub rank_tank: String,
+    pub rank_dps: String,
+    pub rank_support: String,
+    pub is_active: bool,
+}
+
+/// Active session looked up by refresh-token hash.
+pub struct ActiveSessionRow {
+    pub id: Uuid,
+    pub user_id: Uuid,
+}
+
+/// Login credentials looked up by email.
+pub struct UserLoginRow {
+    pub id: Uuid,
+    pub password_hash: Option<String>,
+    pub is_active: bool,
+}
+
 pub async fn find_user_login_by_email(
     pool: &PgPool,
     email: &str,
-) -> Result<Option<(Uuid, String, Option<String>, String, bool)>, crate::shared::errors::ApiError> {
-    let row = sqlx::query(
-        "SELECT id, email, password_hash, display_name, is_active FROM users WHERE email = $1",
-    )
+) -> Result<Option<UserLoginRow>, crate::shared::errors::ApiError> {
+    let row = sqlx::query("SELECT id, password_hash, is_active FROM users WHERE email = $1")
     .bind(email)
     .fetch_optional(pool)
     .await
     .map_err(internal_error)?;
 
-    Ok(row.map(|r| {
-        (
-            r.get("id"),
-            r.get("email"),
-            r.get("password_hash"),
-            r.get("display_name"),
-            r.get("is_active"),
-        )
+    Ok(row.map(|r| UserLoginRow {
+        id: r.get("id"),
+        password_hash: r.get("password_hash"),
+        is_active: r.get("is_active"),
     }))
 }
 
@@ -98,7 +123,7 @@ pub async fn insert_default_role(pool: &PgPool, user_id: Uuid) -> Result<(), cra
 pub async fn find_user_profile_by_id(
     pool: &PgPool,
     user_id: Uuid,
-) -> Result<Option<(Uuid, String, String, String, String, Option<String>, String, String, String, bool)>, crate::shared::errors::ApiError> {
+) -> Result<Option<UserProfileRow>, crate::shared::errors::ApiError> {
     let row = sqlx::query(
                 "SELECT
                         u.id,
@@ -139,19 +164,17 @@ pub async fn find_user_profile_by_id(
         .await
         .map_err(internal_error)?;
 
-    Ok(row.map(|r| {
-        (
-            r.get("id"),
-            r.get("email"),
-            r.get("username"),
-            r.get("display_name"),
-            r.get("role"),
-            r.get("battletag"),
-            r.get("rank_tank"),
-            r.get("rank_dps"),
-            r.get("rank_support"),
-            r.get("is_active"),
-        )
+    Ok(row.map(|r| UserProfileRow {
+        id: r.get("id"),
+        email: r.get("email"),
+        username: r.get("username"),
+        display_name: r.get("display_name"),
+        role: r.get("role"),
+        battletag: r.get("battletag"),
+        rank_tank: r.get("rank_tank"),
+        rank_dps: r.get("rank_dps"),
+        rank_support: r.get("rank_support"),
+        is_active: r.get("is_active"),
     }))
 }
 
@@ -173,7 +196,7 @@ pub async fn has_provider_identity(
 pub async fn find_active_session_by_hash(
     pool: &PgPool,
     refresh_hash: &str,
-) -> Result<Option<(Uuid, Uuid)>, crate::shared::errors::ApiError> {
+) -> Result<Option<ActiveSessionRow>, crate::shared::errors::ApiError> {
     let row = sqlx::query(
         "SELECT id, user_id
          FROM auth_sessions
@@ -186,7 +209,10 @@ pub async fn find_active_session_by_hash(
     .await
     .map_err(internal_error)?;
 
-    Ok(row.map(|r| (r.get("id"), r.get("user_id"))))
+    Ok(row.map(|r| ActiveSessionRow {
+        id: r.get("id"),
+        user_id: r.get("user_id"),
+    }))
 }
 
 pub async fn rotate_session(

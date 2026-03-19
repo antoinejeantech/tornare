@@ -2,7 +2,7 @@ mod app;
 mod features;
 mod shared;
 
-use app::{router::build_app, state::AppState};
+use app::{router::build_app, state::{AppConfig, AppState}};
 use app::security::RateLimiter;
 use dotenvy::{dotenv, from_filename};
 use shared::db::init_schema;
@@ -54,10 +54,12 @@ async fn main() {
 
     let state = AppState {
         pool,
-        jwt_secret,
-        cors_allowed_origins,
         rate_limiter: RateLimiter::new(),
-        public_signup_enabled,
+        config: AppConfig {
+            jwt_secret,
+            cors_allowed_origins,
+            public_signup_enabled,
+        },
     };
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")
         .await

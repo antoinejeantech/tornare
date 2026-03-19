@@ -12,7 +12,7 @@ use crate::{
     },
 };
 
-use super::{as_owner_event, repo};
+use super::repo;
 use super::validation::{
     normalize_optional_start_date, validate_create_event_input, validate_update_event_input,
 };
@@ -45,7 +45,7 @@ pub async fn create_event_for_user(
     repo::insert_event_owner_membership(&state.pool, event_id, user_id).await?;
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, true))
+    Ok(event.into_owner(true))
 }
 
 pub async fn update_event_for_user(
@@ -75,7 +75,7 @@ pub async fn update_event_for_user(
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
-    Ok(as_owner_event(event, is_owner))
+    Ok(event.into_owner(is_owner))
 }
 
 pub async fn delete_event_for_user(

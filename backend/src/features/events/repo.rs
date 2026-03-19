@@ -2,13 +2,79 @@ use sqlx::{Postgres, QueryBuilder, PgPool, Row, Transaction};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::shared::errors::{bad_request, internal_error, not_found};
+use crate::shared::errors::{internal_error, not_found};
 use crate::shared::numeric::i32_to_u8;
 
 use crate::features::events::models::{
-    Event, EventFormat, EventSignupRequest, EventTeam, EventType, Match, Player,
-    PublicEventSignupInfo,
+    Event, EventFormat, EventSignupRequest, EventTeam, EventType, Match, MatchStatus, Player,
+    PlayerRank, PlayerRole, PublicEventSignupInfo, RolePreference, RolePreferenceInput, SignupStatus,
 };
+
+fn parse_player_rank_db(rank_str: &str) -> Result<PlayerRank, crate::shared::errors::ApiError> {
+    PlayerRank::try_from(rank_str)
+        .map_err(|_| internal_error(format!("invalid player rank in DB: {rank_str}")))
+}
+
+fn expand_db_role_preferences(
+    role_str: &str,
+    rank: PlayerRank,
+) -> Result<Vec<RolePreference>, crate::shared::errors::ApiError> {
+    match role_str {
+        "Tank" => Ok(vec![RolePreference {
+            role: PlayerRole::Tank,
+            rank,
+        }]),
+        "DPS" => Ok(vec![RolePreference {
+            role: PlayerRole::Dps,
+            rank,
+        }]),
+        "Support" => Ok(vec![RolePreference {
+            role: PlayerRole::Support,
+            rank,
+        }]),
+        // Legacy compatibility for old rosters stored before multi-role support.
+        // We keep FLEX-specific tolerance at the DB boundary only.
+        "FLEX" => Ok(vec![
+            RolePreference {
+                role: PlayerRole::Dps,
+                rank,
+            },
+            RolePreference {
+                role: PlayerRole::Tank,
+                rank,
+            },
+            RolePreference {
+                role: PlayerRole::Support,
+                rank,
+            },
+        ]),
+        other => Err(internal_error(format!("invalid player role in DB: {other}"))),
+    }
+}
+
+fn push_role_preferences(target: &mut Vec<RolePreference>, preferences: Vec<RolePreference>) {
+    for preference in preferences {
+        if target.iter().any(|existing| existing.role == preference.role) {
+            continue;
+        }
+        target.push(preference);
+    }
+}
+
+fn primary_role_from_db(
+    role_str: &str,
+    preferences: &[RolePreference],
+) -> Result<PlayerRole, crate::shared::errors::ApiError> {
+    if role_str == "FLEX" {
+        return preferences
+            .first()
+            .map(|preference| preference.role)
+            .ok_or_else(|| internal_error("legacy FLEX player has no expanded role preferences"));
+    }
+
+    PlayerRole::try_from(role_str)
+        .map_err(|_| internal_error(format!("invalid player role in DB: {role_str}")))
+}
 
 #[derive(Clone, Copy)]
 pub enum EventListSort {
@@ -369,7 +435,7 @@ pub async fn event_type_for_event(
 
     let event_type_db: String = row.get("event_type");
     let event_type = EventType::try_from(event_type_db.as_str())
-        .map_err(|_| bad_request("Invalid event type value in database"))?;
+           .map_err(|_| internal_error(format!("invalid event type in DB: {event_type_db}")))?;
 
     Ok(Some(event_type))
 }
@@ -394,18 +460,33 @@ pub async fn insert_event_player(
     role: &str,
     rank: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
+    let player_id = Uuid::new_v4();
+    let mut tx = pool.begin().await.map_err(internal_error)?;
+
     sqlx::query(
         "INSERT INTO event_players (id, event_id, name, role, rank) VALUES ($1, $2, $3, $4, $5)",
     )
-    .bind(Uuid::new_v4())
+    .bind(player_id)
     .bind(event_id)
     .bind(name)
     .bind(role)
     .bind(rank)
-    .execute(pool)
+    .execute(&mut *tx)
     .await
     .map_err(internal_error)?;
 
+    sqlx::query(
+        "INSERT INTO event_player_roles (id, event_player_id, role, rank, display_order) VALUES ($1, $2, $3, $4, 0)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(player_id)
+    .bind(role)
+    .bind(rank)
+    .execute(&mut *tx)
+    .await
+    .map_err(internal_error)?;
+
+    tx.commit().await.map_err(internal_error)?;
     Ok(())
 }
 
@@ -448,22 +529,82 @@ pub async fn update_event_player_by_id(
     Ok(updated.is_some())
 }
 
+pub async fn update_event_player_by_id_in_tx(
+    tx: &mut Transaction<'_, Postgres>,
+    event_id: Uuid,
+    player_id: Uuid,
+    name: &str,
+    role: &str,
+    rank: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let updated = sqlx::query(
+        "UPDATE event_players SET name = $1, role = $2, rank = $3 WHERE id = $4 AND event_id = $5 RETURNING id",
+    )
+    .bind(name)
+    .bind(role)
+    .bind(rank)
+    .bind(player_id)
+    .bind(event_id)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(updated.is_some())
+}
+
+/// Replaces all role preferences for a player.
+/// Pass an empty slice to clear all roles.
+pub async fn replace_player_roles(
+    tx: &mut Transaction<'_, Postgres>,
+    player_id: Uuid,
+    roles: &[(&str, &str)],
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("DELETE FROM event_player_roles WHERE event_player_id = $1")
+        .bind(player_id)
+        .execute(&mut **tx)
+        .await
+        .map_err(internal_error)?;
+
+    for (i, (role, rank)) in roles.iter().enumerate() {
+        sqlx::query(
+            "INSERT INTO event_player_roles (id, event_player_id, role, rank, display_order)
+             VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(Uuid::new_v4())
+        .bind(player_id)
+        .bind(role)
+        .bind(rank)
+        .bind(i as i32)
+        .execute(&mut **tx)
+        .await
+        .map_err(internal_error)?;
+    }
+
+    Ok(())
+}
+
 pub async fn upsert_event_player_team_membership(
     pool: &PgPool,
     event_id: Uuid,
     team_id: Uuid,
     player_id: Uuid,
+    assigned_role: Option<&str>,
+    assigned_rank: Option<&str>,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO event_team_members (id, event_id, event_team_id, event_player_id)
-         VALUES ($1, $2, $3, $4)
+        "INSERT INTO event_team_members (id, event_id, event_team_id, event_player_id, assigned_role, assigned_rank)
+         VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT (event_id, event_player_id)
-         DO UPDATE SET event_team_id = EXCLUDED.event_team_id",
+         DO UPDATE SET event_team_id = EXCLUDED.event_team_id,
+                       assigned_role = EXCLUDED.assigned_role,
+                       assigned_rank = EXCLUDED.assigned_rank",
     )
     .bind(Uuid::new_v4())
     .bind(event_id)
     .bind(team_id)
     .bind(player_id)
+    .bind(assigned_role)
+    .bind(assigned_rank)
     .execute(pool)
     .await
     .map_err(internal_error)?;
@@ -519,62 +660,18 @@ pub async fn insert_event_team(
     event_id: Uuid,
     team_name: &str,
 ) -> Result<bool, crate::shared::errors::ApiError> {
-    let inserted = sqlx::query("INSERT INTO event_teams (id, event_id, name) VALUES ($1, $2, $3)")
+    let result = sqlx::query("INSERT INTO event_teams (id, event_id, name) VALUES ($1, $2, $3)")
         .bind(Uuid::new_v4())
         .bind(event_id)
         .bind(team_name)
         .execute(pool)
         .await;
 
-    Ok(inserted.is_ok())
-}
-
-pub async fn delete_event_team_by_id(
-    pool: &PgPool,
-    event_id: Uuid,
-    team_id: Uuid,
-) -> Result<bool, crate::shared::errors::ApiError> {
-    let deleted =
-        sqlx::query("DELETE FROM event_teams WHERE id = $1 AND event_id = $2 RETURNING id")
-            .bind(team_id)
-            .bind(event_id)
-            .fetch_optional(pool)
-            .await
-            .map_err(internal_error)?;
-
-    Ok(deleted.is_some())
-}
-
-pub async fn clear_team_from_event_matches(
-    pool: &PgPool,
-    event_id: Uuid,
-    team_id: Uuid,
-) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query(
-        "UPDATE event_matches
-         SET team_a_id = NULL,
-             updated_at = NOW()
-         WHERE event_id = $1 AND team_a_id = $2",
-    )
-        .bind(event_id)
-        .bind(team_id)
-        .execute(pool)
-        .await
-        .map_err(internal_error)?;
-
-    sqlx::query(
-        "UPDATE event_matches
-         SET team_b_id = NULL,
-             updated_at = NOW()
-         WHERE event_id = $1 AND team_b_id = $2",
-    )
-        .bind(event_id)
-        .bind(team_id)
-        .execute(pool)
-        .await
-        .map_err(internal_error)?;
-
-    Ok(())
+    match result {
+        Ok(_) => Ok(true),
+        Err(sqlx::Error::Database(e)) if e.is_unique_violation() => Ok(false),
+        Err(e) => Err(internal_error(e)),
+    }
 }
 
 pub async fn count_played_matches_for_team(
@@ -618,14 +715,10 @@ pub async fn update_event_team_name_by_id(
     .await;
 
     match updated {
-        Ok(value) => {
-            if value.is_some() {
-                Ok(TeamNameUpdateOutcome::Updated)
-            } else {
-                Ok(TeamNameUpdateOutcome::NotFound)
-            }
-        }
-        Err(_) => Ok(TeamNameUpdateOutcome::DuplicateName),
+        Ok(Some(_)) => Ok(TeamNameUpdateOutcome::Updated),
+        Ok(None) => Ok(TeamNameUpdateOutcome::NotFound),
+        Err(sqlx::Error::Database(e)) if e.is_unique_violation() => Ok(TeamNameUpdateOutcome::DuplicateName),
+        Err(e) => Err(internal_error(e)),
     }
 }
 
@@ -713,15 +806,19 @@ pub async fn insert_event_team_membership_in_tx(
     event_id: Uuid,
     team_id: Uuid,
     player_id: Uuid,
+    assigned_role: Option<&str>,
+    assigned_rank: Option<&str>,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO event_team_members (id, event_id, event_team_id, event_player_id)
-         VALUES ($1, $2, $3, $4)",
+        "INSERT INTO event_team_members (id, event_id, event_team_id, event_player_id, assigned_role, assigned_rank)
+         VALUES ($1, $2, $3, $4, $5, $6)",
     )
     .bind(Uuid::new_v4())
     .bind(event_id)
     .bind(team_id)
     .bind(player_id)
+    .bind(assigned_role)
+    .bind(assigned_rank)
     .execute(&mut **tx)
     .await
     .map_err(internal_error)?;
@@ -740,6 +837,113 @@ pub async fn clear_event_team_memberships_in_tx(
         .map_err(internal_error)?;
 
     Ok(())
+}
+
+pub async fn delete_event_team_by_id_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    team_id: Uuid,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let deleted =
+        sqlx::query("DELETE FROM event_teams WHERE id = $1 AND event_id = $2 RETURNING id")
+            .bind(team_id)
+            .bind(event_id)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(internal_error)?;
+
+    Ok(deleted.is_some())
+}
+
+pub async fn clear_team_from_event_matches_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    team_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "UPDATE event_matches
+         SET team_a_id = NULL, updated_at = NOW()
+         WHERE event_id = $1 AND team_a_id = $2",
+    )
+    .bind(event_id)
+    .bind(team_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    sqlx::query(
+        "UPDATE event_matches
+         SET team_b_id = NULL, updated_at = NOW()
+         WHERE event_id = $1 AND team_b_id = $2",
+    )
+    .bind(event_id)
+    .bind(team_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn insert_event_player_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    name: &str,
+    role: &str,
+    rank: &str,
+    signup_request_id: Option<Uuid>,
+    roles: &[(&str, &str)],
+) -> Result<(), crate::shared::errors::ApiError> {
+    let player_id = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO event_players (id, event_id, name, role, rank, signup_request_id) VALUES ($1, $2, $3, $4, $5, $6)",
+    )
+    .bind(player_id)
+    .bind(event_id)
+    .bind(name)
+    .bind(role)
+    .bind(rank)
+    .bind(signup_request_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    for (i, (r, rk)) in roles.iter().enumerate() {
+        sqlx::query(
+            "INSERT INTO event_player_roles (id, event_player_id, role, rank, display_order) VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(Uuid::new_v4())
+        .bind(player_id)
+        .bind(r)
+        .bind(rk)
+        .bind(i as i32)
+        .execute(&mut **tx)
+        .await
+        .map_err(internal_error)?;
+    }
+
+    Ok(())
+}
+
+pub async fn update_signup_request_status_in_tx(
+    tx: &mut Transaction<'_, sqlx::Postgres>,
+    event_id: Uuid,
+    request_id: Uuid,
+    status: &str,
+) -> Result<u64, crate::shared::errors::ApiError> {
+    let result = sqlx::query(
+        "UPDATE event_signup_requests
+             SET status = $1
+             WHERE event_id = $2 AND id = $3 AND status = 'pending'",
+    )
+    .bind(status)
+    .bind(event_id)
+    .bind(request_id)
+    .execute(&mut **tx)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(result.rows_affected())
 }
 
 pub async fn is_event_owner(
@@ -827,21 +1031,21 @@ pub async fn event_signup_info_by_token(
 
     let event_type_db: String = row.get("event_type");
     let event_type = EventType::try_from(event_type_db.as_str())
-        .map_err(|_| bad_request("Invalid event type value in database"))?;
+           .map_err(|_| internal_error(format!("invalid event type in DB: {event_type_db}")))?;
     let format_db: String = row.get("format");
     let format = EventFormat::try_from(format_db.as_str())
-        .map_err(|_| bad_request("Invalid event format value in database"))?;
+           .map_err(|_| internal_error(format!("invalid event format in DB: {format_db}")))?;
 
     let current_players_i64: i64 = row.get("current_players");
     let current_players = usize::try_from(current_players_i64)
-        .map_err(|_| bad_request("Invalid current players value in database"))?;
+        .map_err(|_| internal_error(format!("invalid current_players in DB: {current_players_i64}")))?;
 
     let current_signup_requests_i64: i64 = row.get("current_signup_requests");
     let current_signup_requests = usize::try_from(current_signup_requests_i64)
-        .map_err(|_| bad_request("Invalid current signup requests value in database"))?;
+        .map_err(|_| internal_error(format!("invalid current_signup_requests in DB: {current_signup_requests_i64}")))?;
 
     let max_players = u8::try_from(row.get::<i32, _>("max_players"))
-        .map_err(|_| bad_request("Invalid max players value in database"))?;
+        .map_err(|_| internal_error("invalid max_players in DB"))?;
 
     Ok(Some(PublicEventSignupInfo {
         event_id: row.get("id"),
@@ -915,22 +1119,39 @@ pub async fn create_signup_request(
     pool: &PgPool,
     event_id: Uuid,
     name: &str,
-    role: &str,
-    rank: &str,
+    roles: &[RolePreferenceInput],
 ) -> Result<(), crate::shared::errors::ApiError> {
+    let request_id = Uuid::new_v4();
+    let mut tx = pool.begin().await.map_err(internal_error)?;
+
     sqlx::query(
-        "INSERT INTO event_signup_requests (id, event_id, name, role, rank, status)
-             VALUES ($1, $2, $3, $4, $5, 'pending')",
+        "INSERT INTO event_signup_requests (id, event_id, name, status)
+             VALUES ($1, $2, $3, 'pending')",
     )
-    .bind(Uuid::new_v4())
+    .bind(request_id)
     .bind(event_id)
     .bind(name)
-    .bind(role)
-    .bind(rank)
-    .execute(pool)
+    .execute(&mut *tx)
     .await
     .map_err(internal_error)?;
 
+    for (i, rp) in roles.iter().enumerate() {
+        sqlx::query(
+            "INSERT INTO event_signup_request_roles
+                 (id, signup_request_id, role, rank, display_order)
+             VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(Uuid::new_v4())
+        .bind(request_id)
+        .bind(rp.role.trim())
+        .bind(rp.rank.trim())
+        .bind(i as i32)
+        .execute(&mut *tx)
+        .await
+        .map_err(internal_error)?;
+    }
+
+    tx.commit().await.map_err(internal_error)?;
     Ok(())
 }
 
@@ -961,7 +1182,7 @@ pub async fn list_signup_requests_for_event(
     event_id: Uuid,
 ) -> Result<Vec<EventSignupRequest>, crate::shared::errors::ApiError> {
     let rows = sqlx::query(
-        "SELECT id, event_id, name, role, rank, status
+        "SELECT id, event_id, name, status
              FROM event_signup_requests
              WHERE event_id = $1
              ORDER BY created_at DESC",
@@ -971,17 +1192,51 @@ pub async fn list_signup_requests_for_event(
     .await
     .map_err(internal_error)?;
 
-    Ok(rows
-        .into_iter()
-        .map(|row| EventSignupRequest {
-            id: row.get("id"),
+    if rows.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let request_ids: Vec<Uuid> = rows.iter().map(|r| r.get("id")).collect();
+    let role_rows = sqlx::query(
+        "SELECT signup_request_id, role, rank
+         FROM event_signup_request_roles
+         WHERE signup_request_id = ANY($1)
+         ORDER BY signup_request_id, display_order ASC",
+    )
+    .bind(&request_ids[..])
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
+
+    let mut roles_by_request: std::collections::HashMap<Uuid, Vec<RolePreference>> =
+        std::collections::HashMap::new();
+    for rr in role_rows {
+        let req_id: Uuid = rr.get("signup_request_id");
+        let role_str: String = rr.get("role");
+        let rank_str: String = rr.get("rank");
+        let rank = parse_player_rank_db(rank_str.as_str())?;
+        let preferences = expand_db_role_preferences(role_str.as_str(), rank)?;
+        let target = roles_by_request.entry(req_id).or_default();
+        push_role_preferences(target, preferences);
+    }
+
+    let mut requests = Vec::with_capacity(rows.len());
+    for row in rows {
+        let id: Uuid = row.get("id");
+        let status_str: String = row.get("status");
+        let status = SignupStatus::try_from(status_str.as_str())
+            .map_err(|_| internal_error(format!("invalid signup status in DB: {status_str}")))?;
+        let roles = roles_by_request.remove(&id).unwrap_or_default();
+        requests.push(EventSignupRequest {
+            id,
             event_id: row.get("event_id"),
             name: row.get("name"),
-            role: row.get("role"),
-            rank: row.get("rank"),
-            status: row.get("status"),
-        })
-        .collect())
+            roles,
+            status,
+        });
+    }
+
+    Ok(requests)
 }
 
 pub async fn get_signup_request(
@@ -990,7 +1245,7 @@ pub async fn get_signup_request(
     request_id: Uuid,
 ) -> Result<Option<EventSignupRequest>, crate::shared::errors::ApiError> {
     let row = sqlx::query(
-        "SELECT id, event_id, name, role, rank, status
+        "SELECT id, event_id, name, status
              FROM event_signup_requests
              WHERE event_id = $1 AND id = $2",
     )
@@ -1000,13 +1255,42 @@ pub async fn get_signup_request(
     .await
     .map_err(internal_error)?;
 
-    Ok(row.map(|value| EventSignupRequest {
-        id: value.get("id"),
-        event_id: value.get("event_id"),
-        name: value.get("name"),
-        role: value.get("role"),
-        rank: value.get("rank"),
-        status: value.get("status"),
+    let Some(row) = row else {
+        return Ok(None);
+    };
+
+    let role_rows = sqlx::query(
+        "SELECT role, rank
+         FROM event_signup_request_roles
+         WHERE signup_request_id = $1
+         ORDER BY display_order ASC",
+    )
+    .bind(request_id)
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
+
+    let roles: Vec<RolePreference> = {
+        let mut acc = Vec::with_capacity(role_rows.len());
+        for rr in role_rows {
+            let role_str: String = rr.get("role");
+            let rank_str: String = rr.get("rank");
+            let rank = parse_player_rank_db(rank_str.as_str())?;
+            let preferences = expand_db_role_preferences(role_str.as_str(), rank)?;
+            push_role_preferences(&mut acc, preferences);
+        }
+        acc
+    };
+
+    let status_str: String = row.get("status");
+    let status = SignupStatus::try_from(status_str.as_str())
+        .map_err(|_| internal_error(format!("invalid signup status in DB: {status_str}")))?;
+    Ok(Some(EventSignupRequest {
+        id: row.get("id"),
+        event_id: row.get("event_id"),
+        name: row.get("name"),
+        roles,
+        status,
     }))
 }
 
@@ -1063,13 +1347,13 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
     let db_id: Uuid = row.get("id");
     let db_event_type: String = row.get("event_type");
     let event_type = EventType::try_from(db_event_type.as_str())
-        .map_err(|_| bad_request("Invalid event type value in database"))?;
+           .map_err(|_| internal_error(format!("invalid event type in DB: {db_event_type}")))?;
     let db_format: String = row.get("format");
     let format = EventFormat::try_from(db_format.as_str())
-        .map_err(|_| bad_request("Invalid event format value in database"))?;
+           .map_err(|_| internal_error(format!("invalid event format in DB: {db_format}")))?;
     let players = load_event_players_for_event(pool, db_id).await?;
     let teams = load_event_teams_for_event(pool, db_id).await?;
-    let matches = load_matches_for_event(pool, db_id).await?;
+    let matches = load_matches_for_event(pool, db_id, &players).await?;
 
     Ok(Event {
         id: db_id,
@@ -1102,8 +1386,8 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
 pub async fn load_matches_for_event(
     pool: &PgPool,
     event_id: Uuid,
+    players: &[Player],
 ) -> Result<Vec<Match>, crate::shared::errors::ApiError> {
-    let players = load_event_players_for_event(pool, event_id).await?;
     let rows = sqlx::query(
         "SELECT
             g.id,
@@ -1159,11 +1443,15 @@ pub async fn load_matches_for_event(
             winner_team_id: row.get::<Option<Uuid>, _>("winner_team_id"),
             winner_team_name: row.get("winner_team_name"),
             is_bracket: row.get::<bool, _>("is_bracket"),
-            status: row.get::<String, _>("status"),
+            status: {
+                let s: String = row.get("status");
+                MatchStatus::try_from(s.as_str())
+                    .map_err(|_| internal_error(format!("invalid match status in DB: {s}")))?
+            },
             created_at: row.get::<OffsetDateTime, _>("created_at"),
             updated_at: row.get::<OffsetDateTime, _>("updated_at"),
             start_date: row.get::<Option<OffsetDateTime>, _>("start_date"),
-            players: players.clone(),
+            players: players.to_vec(),
         });
     }
 
@@ -1194,7 +1482,9 @@ pub async fn load_event_players_for_event(
             ep.role,
             ep.rank,
             et.id AS team_id,
-            et.name AS team_name
+            et.name AS team_name,
+            etm.assigned_role,
+            etm.assigned_rank
          FROM event_players ep
          LEFT JOIN event_team_members etm ON etm.event_player_id = ep.id
          LEFT JOIN event_teams et ON et.id = etm.event_team_id
@@ -1206,15 +1496,69 @@ pub async fn load_event_players_for_event(
     .await
     .map_err(internal_error)?;
 
+    let player_ids: Vec<Uuid> = rows.iter().map(|r| r.get::<Uuid, _>("id")).collect();
+    let mut roles_by_player: std::collections::HashMap<Uuid, Vec<RolePreference>> =
+        std::collections::HashMap::new();
+
+    if !player_ids.is_empty() {
+        let role_rows = sqlx::query(
+            "SELECT event_player_id, role, rank
+             FROM event_player_roles
+             WHERE event_player_id = ANY($1)
+             ORDER BY event_player_id, display_order ASC",
+        )
+        .bind(&player_ids[..])
+        .fetch_all(pool)
+        .await
+        .map_err(internal_error)?;
+
+        for rr in role_rows {
+            let pid: Uuid = rr.get("event_player_id");
+            let role_str: String = rr.get("role");
+            let rank_str: String = rr.get("rank");
+            let rank = parse_player_rank_db(rank_str.as_str())?;
+            let preferences = expand_db_role_preferences(role_str.as_str(), rank)?;
+            let target = roles_by_player.entry(pid).or_default();
+            push_role_preferences(target, preferences);
+        }
+    }
+
     let mut players = Vec::with_capacity(rows.len());
     for row in rows {
+        let role_str: String = row.get("role");
+        let rank_str: String = row.get("rank");
+        let rank = parse_player_rank_db(rank_str.as_str())?;
+        let player_id: Uuid = row.get("id");
+        let mut roles = roles_by_player.remove(&player_id).unwrap_or_default();
+        if roles.is_empty() {
+            push_role_preferences(&mut roles, expand_db_role_preferences(role_str.as_str(), rank)?);
+        }
+        let assigned_role = row
+            .get::<Option<String>, _>("assigned_role")
+            .as_deref()
+                .map(|s| {
+                    PlayerRole::try_from(s)
+                        .map_err(|_| internal_error(format!("invalid assigned player role in DB: {s}")))
+                })
+                .transpose()?;
+        let assigned_rank = row
+            .get::<Option<String>, _>("assigned_rank")
+            .as_deref()
+                .map(|s| {
+                    PlayerRank::try_from(s)
+                        .map_err(|_| internal_error(format!("invalid assigned player rank in DB: {s}")))
+                })
+                .transpose()?;
         players.push(Player {
-            id: row.get::<Uuid, _>("id"),
+            id: player_id,
             name: row.get("name"),
-            role: row.get("role"),
-            rank: row.get("rank"),
+            role: primary_role_from_db(role_str.as_str(), &roles)?,
+            rank,
             team_id: row.get::<Option<Uuid>, _>("team_id"),
             team: row.get("team_name"),
+            assigned_role,
+            assigned_rank,
+            roles,
         });
     }
 
@@ -1232,29 +1576,36 @@ pub async fn load_event_teams_for_event(
             .await
             .map_err(internal_error)?;
 
-    let mut teams = Vec::with_capacity(team_rows.len());
-    for row in team_rows {
-        let team_id = row.get::<Uuid, _>("id");
-        let member_rows = sqlx::query(
-            "SELECT event_player_id FROM event_team_members WHERE event_id = $1 AND event_team_id = $2 ORDER BY event_player_id ASC",
-        )
-        .bind(event_id)
-        .bind(team_id)
-        .fetch_all(pool)
-        .await
-        .map_err(internal_error)?;
+    // Load all team memberships for this event in a single query.
+    let member_rows = sqlx::query(
+        "SELECT event_team_id, event_player_id
+         FROM event_team_members
+         WHERE event_id = $1
+         ORDER BY event_player_id ASC",
+    )
+    .bind(event_id)
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
 
-        let mut player_ids = Vec::with_capacity(member_rows.len());
-        for member in member_rows {
-            player_ids.push(member.get::<Uuid, _>("event_player_id"));
-        }
-
-        teams.push(EventTeam {
-            id: team_id,
-            name: row.get("name"),
-            player_ids,
-        });
+    // Group player IDs by team.
+    let mut members_by_team: std::collections::HashMap<Uuid, Vec<Uuid>> = std::collections::HashMap::new();
+    for member in member_rows {
+        let team_id: Uuid = member.get("event_team_id");
+        let player_id: Uuid = member.get("event_player_id");
+        members_by_team.entry(team_id).or_default().push(player_id);
     }
 
-    Ok(teams)
+    Ok(team_rows
+        .into_iter()
+        .map(|row| {
+            let team_id: Uuid = row.get("id");
+            let player_ids = members_by_team.remove(&team_id).unwrap_or_default();
+            EventTeam {
+                id: team_id,
+                name: row.get("name"),
+                player_ids,
+            }
+        })
+        .collect())
 }
