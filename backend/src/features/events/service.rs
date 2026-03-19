@@ -19,8 +19,9 @@ use crate::{
 
 use super::repo;
 use team_balance::{
-    BalancePlayer, BalanceTeamState, average_team_elo_from_players, format_team_size,
-    pug_role_targets_for_format, rank_elo_for_balance, role_overflow_penalty, unique_team_name,
+    BalancePlayer, BalanceTeamState, PlayerRoleAssignment, RoleOption,
+    average_team_elo_from_players, check_role_feasibility, find_best_role_balance,
+    format_team_size, pug_role_targets_for_format, rank_elo_for_balance, unique_team_name,
 };
 pub use signup::{
     accept_signup_request_for_user, create_public_signup_request, decline_signup_request_for_user,

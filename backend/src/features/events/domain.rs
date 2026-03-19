@@ -197,6 +197,17 @@ impl TryFrom<&str> for PlayerRank {
 }
 
 // ---------------------------------------------------------------------------
+// Role preference (used in signup requests)
+// ---------------------------------------------------------------------------
+
+/// A single role+rank preference submitted by an applicant.
+#[derive(Serialize, Clone)]
+pub struct RolePreference {
+    pub role: PlayerRole,
+    pub rank: PlayerRank,
+}
+
+// ---------------------------------------------------------------------------
 // Signup request status
 // ---------------------------------------------------------------------------
 
@@ -278,6 +289,15 @@ pub struct Player {
     pub rank: PlayerRank,
     pub team_id: Option<Uuid>,
     pub team: Option<String>,
+    /// Role this player is assigned to play in their current team.
+    /// Set by auto-balance or manual assignment with role; `None` when the
+    /// player has no team or was moved without an explicit role choice.
+    pub assigned_role: Option<PlayerRole>,
+    pub assigned_rank: Option<PlayerRank>,
+    /// Role preferences for this player, always populated.
+    /// For manually-added players these are owner-set; for accepted signup
+    /// requests they are copied from the original application.
+    pub roles: Vec<RolePreference>,
 }
 
 #[derive(Serialize, Clone)]
@@ -353,8 +373,7 @@ pub struct EventSignupRequest {
     pub id: Uuid,
     pub event_id: Uuid,
     pub name: String,
-    pub role: PlayerRole,
-    pub rank: PlayerRank,
+    pub roles: Vec<RolePreference>,
     pub status: SignupStatus,
 }
 

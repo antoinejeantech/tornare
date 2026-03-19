@@ -7,7 +7,7 @@ use crate::{
         permissions::require_event_owner_access,
     },
     shared::{
-        errors::{not_found, ApiError},
+        errors::{internal_error, not_found, ApiError},
         models::MessageResponse,
     },
 };
@@ -70,18 +70,59 @@ pub async fn update_event_player_for_user(
     let is_owner = require_event_owner_access(state, event_id, user_id).await?;
     validate_event_player_update_input(&payload)?;
 
-    let updated = repo::update_event_player_by_id(
-        &state.pool,
-        event_id,
-        player_id,
-        payload.name.trim(),
-        payload.role.trim(),
-        payload.rank.trim(),
-    )
-    .await?;
+    // Derive primary role/rank: use roles[0] when a roles list is provided.
+    let (primary_role, primary_rank) = match payload.roles.as_deref() {
+        Some([first, ..]) => (first.role.trim().to_string(), first.rank.trim().to_string()),
+        _ => (payload.role.trim().to_string(), payload.rank.trim().to_string()),
+    };
 
-    if !updated {
-        return Err(not_found("Player not found in this event"));
+    if payload.roles.is_some() {
+        // Use a transaction to atomically update the player and replace role prefs.
+        let mut tx = state.pool.begin().await.map_err(internal_error)?;
+
+        let updated = repo::update_event_player_by_id_in_tx(
+            &mut tx,
+            event_id,
+            player_id,
+            payload.name.trim(),
+            &primary_role,
+            &primary_rank,
+        )
+        .await?;
+
+        if !updated {
+            return Err(not_found("Player not found in this event"));
+        }
+
+        let role_pairs: Vec<(String, String)> = payload
+            .roles
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|rp| (rp.role.trim().to_string(), rp.rank.trim().to_string()))
+            .collect();
+        let role_pairs_ref: Vec<(&str, &str)> = role_pairs
+            .iter()
+            .map(|(r, k)| (r.as_str(), k.as_str()))
+            .collect();
+
+        repo::replace_player_roles(&mut tx, player_id, &role_pairs_ref).await?;
+
+        tx.commit().await.map_err(internal_error)?;
+    } else {
+        let updated = repo::update_event_player_by_id(
+            &state.pool,
+            event_id,
+            player_id,
+            payload.name.trim(),
+            &primary_role,
+            &primary_rank,
+        )
+        .await?;
+
+        if !updated {
+            return Err(not_found("Player not found in this event"));
+        }
     }
 
     let event = repo::load_event(&state.pool, event_id).await?;
@@ -105,8 +146,15 @@ pub async fn assign_event_player_team_for_user(
             return Err(not_found("Team not found in this event"));
         }
 
-        repo::upsert_event_player_team_membership(&state.pool, event_id, team_id, payload.player_id)
-            .await?;
+        repo::upsert_event_player_team_membership(
+            &state.pool,
+            event_id,
+            team_id,
+            payload.player_id,
+            payload.assigned_role.as_deref(),
+            payload.assigned_rank.as_deref(),
+        )
+        .await?;
     } else {
         repo::delete_event_player_team_membership(&state.pool, event_id, payload.player_id)
             .await?;

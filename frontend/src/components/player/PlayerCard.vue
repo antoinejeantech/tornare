@@ -12,7 +12,13 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['select'])
+const emit = defineEmits(['select', 'selectRole'])
+
+function emitSelectRole(rp, event) {
+  if (!props.clickable) return
+  event.stopPropagation()
+  emit('selectRole', props.player, rp)
+}
 
 function playerInitials(name) {
   const tokens = String(name || '').trim().split(/\s+/).filter(Boolean)
@@ -64,7 +70,24 @@ function emitSelect() {
       <span class="player-avatar" aria-hidden="true">{{ playerInitials(player.name) }}</span>
       <div class="player-copy">
         <strong class="player-name">{{ player.name }}</strong>
-        <div class="player-meta-pills">
+        <div v-if="!player.team_id && player.roles?.length > 1" class="player-pref-roles">
+          <span
+            v-for="(rp, i) in player.roles"
+            :key="i"
+            class="pref-role-chip"
+            :class="{ 'is-top': i === 0, 'is-interactive': clickable }"
+            :role="clickable ? 'button' : undefined"
+            :tabindex="clickable ? 0 : undefined"
+            :title="clickable ? `Add as ${rp.role} · ${rp.rank}` : undefined"
+            @click="emitSelectRole(rp, $event)"
+            @keydown.enter.stop.prevent="clickable && emitSelectRole(rp, $event)"
+            @keydown.space.stop.prevent="clickable && emitSelectRole(rp, $event)"
+          >
+            <span class="material-symbols-rounded pref-role-icon" aria-hidden="true">{{ getRoleIcon(rp.role) }}</span>
+            {{ rp.role }} · {{ rp.rank }}
+          </span>
+        </div>
+        <div v-else class="player-meta-pills">
           <span class="role-pill">
             <span class="material-symbols-rounded role-inline-icon" aria-hidden="true">{{ getRoleIcon(player.role) }}</span>
             <span>{{ player.role }}</span>
@@ -224,5 +247,58 @@ function emitSelect() {
 .rank-tier-unranked {
   border-color: color-mix(in srgb, var(--line) 82%, var(--brand-1) 18%);
   color: var(--ink-2);
+}
+
+.player-pref-roles {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.26rem;
+}
+
+.pref-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.44rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid color-mix(in srgb, var(--line) 88%, transparent 12%);
+  background: transparent;
+  color: color-mix(in srgb, var(--ink-2) 70%, transparent 30%);
+  user-select: none;
+}
+
+.pref-role-chip.is-top {
+  color: var(--primary-300);
+  border-color: color-mix(in srgb, var(--primary-500) 52%, var(--line) 48%);
+  background: color-mix(in srgb, var(--primary-700) 18%, transparent 82%);
+  font-weight: 700;
+}
+
+.pref-role-chip.is-interactive {
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.pref-role-chip.is-interactive:hover,
+.pref-role-chip.is-interactive:focus-visible {
+  background: color-mix(in srgb, var(--primary-700) 32%, transparent 68%);
+  border-color: var(--primary-400);
+  color: var(--primary-200);
+  outline: none;
+}
+
+.pref-role-chip.is-interactive:not(.is-top):hover,
+.pref-role-chip.is-interactive:not(.is-top):focus-visible {
+  background: color-mix(in srgb, var(--bg-1) 24%, transparent 76%);
+  border-color: color-mix(in srgb, var(--line-strong) 72%, transparent 28%);
+  color: var(--ink-1);
+}
+
+.pref-role-icon {
+  font-size: 0.82rem;
+  line-height: 1;
 }
 </style>

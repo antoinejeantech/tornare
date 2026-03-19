@@ -74,6 +74,20 @@ const maxBalancedTeamsFromRoster = computed(() => {
   return Math.max(0, Math.min(byRole, byTotal))
 })
 
+const autoBalanceSupportsTeamCount = computed(() => {
+  return Number(ctx.event?.teams?.length || 0) <= 2
+})
+
+const autoBalanceDisabled = computed(() => {
+  return (
+    ctx.balancingTeams
+    || ctx.teamsAreAlreadyBalanced
+    || !ctx.event
+    || ctx.event.teams.length === 0
+    || !autoBalanceSupportsTeamCount.value
+  )
+})
+
 function teamCreatedTimestamp(team) {
   const raw = team?.created_at || team?.updated_at || ''
   const parsed = new Date(raw).getTime()
@@ -137,7 +151,17 @@ function searchTokens(value) {
 }
 
 function playerSearchBlob(player) {
-  return normalizeSearch(`${player?.name || ''} ${player?.role || ''} ${player?.rank || ''} ${player?.team || ''}`)
+  const roleBlob = Array.isArray(player?.roles) && player.roles.length > 0
+    ? player.roles.map(rp => `${rp.role || ''} ${rp.rank || ''}`).join(' ')
+    : `${player?.role || ''} ${player?.rank || ''}`
+  return normalizeSearch(`${player?.name || ''} ${roleBlob} ${player?.team || ''}`)
+}
+
+function playerRolesDisplay(player) {
+  if (Array.isArray(player?.roles) && player.roles.length > 0) {
+    return player.roles.map(rp => `${rp.role} · ${rp.rank}`).join(' / ')
+  }
+  return `${player?.role || ''} · ${player?.rank || ''}`
 }
 
 function playerMatchesTokens(player, tokens) {
@@ -176,8 +200,9 @@ function playersForTeam(teamId) {
 function teamRoleCounts(teamId) {
   const counts = { Tank: 0, DPS: 0, Support: 0 }
   for (const player of playersForTeam(teamId)) {
-    if (player.role === 'Tank' || player.role === 'DPS' || player.role === 'Support') {
-      counts[player.role] += 1
+    const displayRole = player.assigned_role || player.role
+    if (displayRole === 'Tank' || displayRole === 'DPS' || displayRole === 'Support') {
+      counts[displayRole] += 1
     }
   }
 
@@ -195,36 +220,6 @@ function roleStatusClass(teamId, role) {
   }
 
   return 'ok'
-}
-
-function teamBalanceNeeds(teamId) {
-  const counts = teamRoleCounts(teamId)
-  const targets = pugRoleTargets.value
-  const needs = []
-
-  for (const role of ['Tank', 'DPS', 'Support']) {
-    const missing = targets[role] - counts[role]
-    if (missing > 0) {
-      needs.push(`${role} x${missing}`)
-    }
-  }
-
-  return needs.join(', ')
-}
-
-function teamBalanceExcess(teamId) {
-  const counts = teamRoleCounts(teamId)
-  const targets = pugRoleTargets.value
-  const extra = []
-
-  for (const role of ['Tank', 'DPS', 'Support']) {
-    const overflow = counts[role] - targets[role]
-    if (overflow > 0) {
-      extra.push(`${role} x${overflow}`)
-    }
-  }
-
-  return extra.join(', ')
 }
 
 function playersAssignableToTeam(teamId) {
@@ -313,6 +308,21 @@ async function assignUnassignedPlayerToPickedTeam(playerId) {
   teamPickerBusyPlayerId.value = String(playerId)
   try {
     await ctx.assignPlayerToTeam(playerId, teamId)
+    closeTeamPicker()
+  } finally {
+    teamPickerBusyPlayerId.value = ''
+  }
+}
+
+async function assignUnassignedPlayerToPickedTeamWithRole(playerId, role, rank) {
+  const teamId = String(teamPickerTeamId.value || '')
+  if (!teamId) {
+    return
+  }
+
+  teamPickerBusyPlayerId.value = String(playerId)
+  try {
+    await ctx.assignPlayerToTeamWithRole(playerId, teamId, role, rank)
     closeTeamPicker()
   } finally {
     teamPickerBusyPlayerId.value = ''
@@ -575,15 +585,18 @@ function formatTeamModified(team) {
           <button
             v-if="!isOneVOneFormat"
             class="btn-secondary sidebar-utility-btn"
-            :disabled="ctx.balancingTeams || ctx.event.teams.length === 0"
+            :disabled="autoBalanceDisabled"
             @click="ctx.autoBalanceTeams"
           >
             <span class="material-symbols-rounded sidebar-utility-btn-icon" aria-hidden="true">auto_fix_high</span>
-            {{ ctx.balancingTeams ? 'Balancing teams...' : 'Best team setup (ELO)' }}
+            {{ ctx.balancingTeams ? 'Balancing teams...' : 'Auto balance teams' }}
           </button>
           <p class="muted solo-team-help">
             <template v-if="isOneVOneFormat">
               "Auto-create" creates one solo team per unassigned player.
+            </template>
+            <template v-else-if="!autoBalanceSupportsTeamCount">
+              Auto-balance is currently limited to 2 teams.
             </template>
             <template v-else>
               "Best setup" rebalances existing teams using rank ELO calculations.
@@ -668,8 +681,6 @@ function formatTeamModified(team) {
                 <AppBadge :variant="{ ok: 'ok', missing: 'warning', excess: 'danger' }[roleStatusClass(team.id, 'DPS')]" :label="`DPS ${teamRoleCounts(team.id).DPS}/${pugRoleTargets.DPS}`" />
                 <AppBadge :variant="{ ok: 'ok', missing: 'warning', excess: 'danger' }[roleStatusClass(team.id, 'Support')]" :label="`Support ${teamRoleCounts(team.id).Support}/${pugRoleTargets.Support}`" />
               </div>
-              <p v-if="ctx.canManageEvent && !ctx.isTourneyEvent && teamBalanceNeeds(team.id)" class="muted team-balance-note">Needs: {{ teamBalanceNeeds(team.id) }}</p>
-              <p v-if="ctx.canManageEvent && !ctx.isTourneyEvent && teamBalanceExcess(team.id)" class="muted team-balance-note">Over target: {{ teamBalanceExcess(team.id) }}</p>
               <ul v-if="playersForTeam(team.id).length > 0" class="team-player-list">
                 <li v-for="player in playersForTeam(team.id)" :key="player.id" class="team-player-item">
                   <span class="team-player-main">
@@ -684,8 +695,8 @@ function formatTeamModified(team) {
                       </span>
                     </span>
                     <span class="team-player-role">
-                      <span class="material-symbols-rounded team-role-icon" aria-hidden="true">{{ getRoleIcon(player.role) }}</span>
-                      <span>{{ player.role }}</span>
+                      <span class="material-symbols-rounded team-role-icon" aria-hidden="true">{{ getRoleIcon(player.assigned_role || player.role) }}</span>
+                      <span>{{ player.assigned_role || player.role }}</span>
                     </span>
                   </span>
                   <button
@@ -734,7 +745,7 @@ function formatTeamModified(team) {
                           <span class="material-symbols-rounded" aria-hidden="true">
                             {{ ctx.savingPlayerTeams[player.id] ? 'hourglass_top' : 'person_add' }}
                           </span>
-                          <span class="team-assign-main">{{ player.name }} · {{ player.role }} · {{ player.rank }}</span>
+                          <span class="team-assign-main">{{ player.name }} · {{ playerRolesDisplay(player) }}</span>
                           <span v-if="assignmentNotice(player)" class="team-assign-notice">{{ assignmentNotice(player) }}</span>
                         </button>
                       </li>
@@ -788,7 +799,8 @@ function formatTeamModified(team) {
       </div>
     </div>
 
-    <div v-if="teamPickerTeamId" class="team-picker-backdrop" @click.self="closeTeamPicker">
+    <Teleport to="body">
+      <div v-if="teamPickerTeamId" class="team-picker-backdrop" @click.self="closeTeamPicker">
       <section
         ref="teamPickerDialogRef"
         class="team-picker-modal"
@@ -811,19 +823,25 @@ function formatTeamModified(team) {
 
         <p v-if="unassignedPlayers.length === 0" class="muted">All players are already assigned.</p>
 
-        <ul v-else class="team-picker-list">
-          <li v-for="player in unassignedPlayers" :key="`picker-player-${player.id}`">
-            <PlayerCard
-              class="team-picker-item"
-              :class="{ 'is-disabled': Boolean(teamPickerBusyPlayerId) }"
-              :player="player"
-              :clickable="!teamPickerBusyPlayerId"
-              @select="assignUnassignedPlayerToPickedTeam(player.id)"
-            />
-          </li>
-        </ul>
+        <template v-else>
+          <p class="team-picker-hint muted">Click a player card to assign with their preferred role, or click a role badge to assign as that role.</p>
+
+          <ul class="team-picker-list">
+            <li v-for="player in unassignedPlayers" :key="`picker-player-${player.id}`">
+              <PlayerCard
+                class="team-picker-item"
+                :class="{ 'is-disabled': Boolean(teamPickerBusyPlayerId) }"
+                :player="player"
+                :clickable="!teamPickerBusyPlayerId"
+                @select="assignUnassignedPlayerToPickedTeam(player.id)"
+                @selectRole="(p, rp) => assignUnassignedPlayerToPickedTeamWithRole(p.id, rp.role, rp.rank)"
+              />
+            </li>
+          </ul>
+        </template>
       </section>
     </div>
+    </Teleport>
 
   </section>
 </template>
@@ -1105,11 +1123,6 @@ function formatTeamModified(team) {
   margin-bottom: 0.5rem;
 }
 
-.team-balance-note {
-  margin: 0;
-  font-size: 0.84rem;
-}
-
 .team-actions {
   position: absolute;
   top: 0.72rem;
@@ -1356,6 +1369,13 @@ function formatTeamModified(team) {
 
 .team-picker-subtitle {
   margin: 0;
+}
+
+.team-picker-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--ink-2);
 }
 
 .team-picker-list {

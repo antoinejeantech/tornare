@@ -638,7 +638,9 @@ pub async fn load_match(pool: &PgPool, match_id: Uuid) -> Result<Match, crate::s
         is_bracket: row.get::<bool, _>("is_bracket"),
         status: {
             let s: String = row.get("status");
-            MatchStatus::try_from(s.as_str()).unwrap_or(MatchStatus::Open)
+            MatchStatus::try_from(s.as_str()).map_err(|_| {
+                internal_error(format!("invalid match status in DB: {s}"))
+            })?
         },
         created_at: row.get::<OffsetDateTime, _>("created_at"),
         updated_at: row.get::<OffsetDateTime, _>("updated_at"),
@@ -677,14 +679,22 @@ async fn load_event_players_for_event(
             name: row.get("name"),
             role: {
                 let s: String = row.get("role");
-                PlayerRole::try_from(s.as_str()).unwrap_or_else(|_| PlayerRole::Tank)
+                PlayerRole::try_from(s.as_str()).map_err(|_| {
+                    internal_error(format!("invalid player role in DB: {s}"))
+                })?
             },
             rank: {
                 let s: String = row.get("rank");
-                PlayerRank::try_from(s.as_str()).unwrap_or(PlayerRank::Unranked)
+                PlayerRank::try_from(s.as_str()).map_err(|_| {
+                    internal_error(format!("invalid player rank in DB: {s}"))
+                })?
             },
             team_id: row.get::<Option<Uuid>, _>("team_id"),
             team: row.get("team_name"),
+            assigned_role: None,
+            assigned_rank: None,
+            // Players loaded via match queries don't need signup preferences.
+            roles: vec![],
         });
     }
 

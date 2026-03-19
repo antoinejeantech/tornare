@@ -143,24 +143,80 @@ pub struct UpdateEventPlayerInput {
     pub name: String,
     pub role: String,
     pub rank: String,
+    /// When provided, replaces the player's role preferences (used by auto-balance).
+    /// `roles[0]` also becomes the player's primary role/rank.
+    pub roles: Option<Vec<RolePreferenceInput>>,
 }
 
 impl UpdateEventPlayerInput {
     pub fn validate(&self) -> Result<(), ApiError> {
-        validate_player_fields(&self.name, &self.role, &self.rank)
+        if let Some(roles) = &self.roles {
+            if roles.is_empty() {
+                return Err(bad_request("At least one role preference is required"));
+            }
+            if roles.len() > 3 {
+                return Err(bad_request("At most 3 role preferences are allowed"));
+            }
+            let mut seen = std::collections::HashSet::new();
+            for rp in roles {
+                PlayerRole::try_from(rp.role.trim())
+                    .map_err(|_| bad_request("Role must be Tank, DPS, or Support"))?;
+                PlayerRank::try_from(rp.rank.trim())
+                    .map_err(|_| bad_request("Invalid player rank"))?;
+                if !seen.insert(rp.role.trim().to_lowercase()) {
+                    return Err(bad_request("Duplicate role preferences are not allowed"));
+                }
+            }
+            // Validate the name using roles[0] as primary
+            let primary = &roles[0];
+            validate_player_fields(&self.name, &primary.role, &primary.rank)
+        } else {
+            validate_player_fields(&self.name, &self.role, &self.rank)
+        }
     }
+}
+
+/// A single role+rank preference as submitted by an applicant.
+#[derive(Deserialize)]
+pub struct RolePreferenceInput {
+    pub role: String,
+    pub rank: String,
 }
 
 #[derive(Deserialize)]
 pub struct CreateEventSignupRequestInput {
     pub name: String,
-    pub role: String,
-    pub rank: String,
+    pub roles: Vec<RolePreferenceInput>,
 }
 
 impl CreateEventSignupRequestInput {
     pub fn validate(&self) -> Result<(), ApiError> {
-        validate_player_fields(&self.name, &self.role, &self.rank)
+        let name = self.name.trim();
+        if name.is_empty() {
+            return Err(bad_request("Player name is required"));
+        }
+        if name.len() > 60 {
+            return Err(bad_request("Player name must be 60 characters or fewer"));
+        }
+        if self.roles.is_empty() {
+            return Err(bad_request("At least one role preference is required"));
+        }
+        if self.roles.len() > 3 {
+            return Err(bad_request("At most 3 role preferences are allowed"));
+        }
+        let mut seen_roles = std::collections::HashSet::new();
+        for entry in &self.roles {
+            let role = entry.role.trim();
+            let rank = entry.rank.trim();
+            PlayerRole::try_from(role)
+                .map_err(|_| bad_request("Role must be Tank, DPS, or Support"))?;
+            PlayerRank::try_from(rank)
+                .map_err(|_| bad_request("Invalid player rank"))?;
+            if !seen_roles.insert(role.to_string()) {
+                return Err(bad_request("Duplicate role preferences are not allowed"));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -208,6 +264,8 @@ pub struct UpdateEventTeamInput {
 pub struct AssignEventPlayerTeamInput {
     pub player_id: Uuid,
     pub team_id: Option<Uuid>,
+    pub assigned_role: Option<String>,
+    pub assigned_rank: Option<String>,
 }
 
 #[derive(Deserialize)]

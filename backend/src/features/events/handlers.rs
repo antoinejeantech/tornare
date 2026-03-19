@@ -10,12 +10,12 @@ use crate::{
     features::{
         auth::{maybe_authenticated_user_id, require_authenticated_user_id},
         events::models::{
-            AddPlayerInput, AssignEventPlayerTeamInput, AutoBalanceTeamsResponse,
-            CreateEventInput, CreateEventMatchInput, CreateEventSignupRequestInput,
-            CreateEventTeamInput, Event, EventSignupLinkResponse, EventSignupRequest, Match,
-            EventsKpiResponse, GenerateTourneyBracketInput, ListEventsQuery, PaginatedEventsResponse, PublicEventSignupInfo, ReportMatchWinnerInput,
-            SetEventFeaturedInput, SetEventPublicSignupInput,
-            SetMatchupInput, UpdateEventInput,
+            AddPlayerInput, AssignEventPlayerTeamInput,
+            AutoBalanceTeamsResponse, CreateEventInput, CreateEventMatchInput,
+            CreateEventSignupRequestInput, CreateEventTeamInput, Event, EventSignupLinkResponse,
+            EventSignupRequest, EventsKpiResponse, GenerateTourneyBracketInput, ListEventsQuery,
+            Match, PaginatedEventsResponse, PublicEventSignupInfo, ReportMatchWinnerInput,
+            SetEventFeaturedInput, SetEventPublicSignupInput, SetMatchupInput, UpdateEventInput,
             UpdateEventPlayerInput, UpdateEventTeamInput, UpdateMatchStartDateInput,
         },
     },

@@ -61,12 +61,14 @@ export const useEventStore = defineStore('event', {
         method: 'DELETE',
       })
     },
-    assignPlayerTeam(eventId, playerId, teamId) {
+    assignPlayerTeam(eventId, playerId, teamId, assignedRole = null, assignedRank = null) {
       return apiCall(`/api/events/${eventId}/team-members`, {
         method: 'POST',
         body: JSON.stringify({
           player_id: playerId,
           team_id: teamId,
+          assigned_role: assignedRole,
+          assigned_rank: assignedRank,
         }),
       })
     },

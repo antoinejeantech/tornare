@@ -18,8 +18,31 @@ const notice = ref('')
 const signupInfo = ref(null)
 
 const playerName = ref('')
-const playerRole = ref('')
-const playerRank = ref('')
+const playerRoles = ref([{ role: '', rank: '' }])
+
+function addRole() {
+  if (playerRoles.value.length < 3) {
+    playerRoles.value.push({ role: '', rank: '' })
+  }
+}
+
+function removeRole(index) {
+  if (playerRoles.value.length > 1) {
+    playerRoles.value.splice(index, 1)
+  }
+}
+
+const usedRoles = computed(() => playerRoles.value.map(rp => rp.role))
+
+function isRoleTaken(role, currentIndex) {
+  if (!role) return false
+  return usedRoles.value.some((r, i) => i !== currentIndex && r === role)
+}
+
+const availableRolesForNewSlot = computed(() => {
+  const all = ['Tank', 'DPS', 'Support']
+  return all.filter(r => !usedRoles.value.includes(r))
+})
 
 const signupToken = computed(() => String(route.params.token || ''))
 const MAX_SIGNUP_REQUESTS_PER_EVENT = 99
@@ -49,8 +72,8 @@ const canSubmit = computed(() => {
   return (
     signupToken.value.length > 0 &&
     playerName.value.trim().length > 0 &&
-    playerRole.value.trim().length > 0 &&
-    playerRank.value.trim().length > 0 &&
+    playerRoles.value.length > 0 &&
+    playerRoles.value.every(rp => rp.role.trim().length > 0 && rp.rank.trim().length > 0) &&
     !submitting.value &&
     !signupRequestsFull.value
   )
@@ -92,8 +115,7 @@ async function submitRequest() {
   try {
     await eventStore.submitPublicSignupRequest(signupToken.value, {
       name: playerName.value.trim(),
-      role: playerRole.value,
-      rank: playerRank.value,
+      roles: playerRoles.value,
     })
 
     const destinationEventId = signupInfo.value?.event_id
@@ -110,8 +132,7 @@ async function submitRequest() {
     }
 
     playerName.value = ''
-    playerRole.value = ''
-    playerRank.value = ''
+    playerRoles.value = [{ role: '', rank: '' }]
     setNotice('Request sent. The event owner will review it soon.')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to submit request')
@@ -204,23 +225,55 @@ onMounted(loadSignupInfo)
             </div>
           </label>
 
-          <label class="join-field">
-            PREFERRED ROLE
-            <select v-model="playerRole">
-              <option value="" disabled hidden></option>
-              <option value="Tank">Tank</option>
-              <option value="DPS">DPS</option>
-              <option value="Support">Support</option>
-            </select>
-          </label>
-
-          <label class="join-field">
-            CURRENT RANK
-            <select v-model="playerRank">
-              <option value="" disabled hidden></option>
-              <option v-for="rank in overwatchRanks" :key="rank" :value="rank">{{ rank }}</option>
-            </select>
-          </label>
+          <div class="join-field-full join-roles-section">
+            <span class="join-roles-label">ROLE PREFERENCES</span>
+            <ul class="join-roles-list">
+              <li
+                v-for="(entry, index) in playerRoles"
+                :key="index"
+                class="join-role-row"
+                :class="{ 'join-role-row--removable': playerRoles.length > 1 }"
+              >
+                <label class="join-field">
+                  <span class="join-role-field-lbl">Role<span v-if="index === 0" class="join-role-pref-hint">preferred</span></span>
+                  <select v-model="entry.role">
+                    <option value="" disabled hidden></option>
+                    <option value="Tank" :disabled="isRoleTaken('Tank', index)">Tank</option>
+                    <option value="DPS" :disabled="isRoleTaken('DPS', index)">DPS</option>
+                    <option value="Support" :disabled="isRoleTaken('Support', index)">Support</option>
+                  </select>
+                </label>
+                <label class="join-field">
+                  Rank
+                  <select v-model="entry.rank">
+                    <option value="" disabled hidden></option>
+                    <option v-for="rank in overwatchRanks" :key="rank" :value="rank">{{ rank }}</option>
+                  </select>
+                </label>
+                <div class="join-role-remove-col">
+                  <span class="join-role-remove-spacer" aria-hidden="true">Role</span>
+                  <button
+                    v-if="playerRoles.length > 1"
+                    type="button"
+                    class="join-role-remove"
+                    :aria-label="`Remove role preference ${index + 1}`"
+                    @click="removeRole(index)"
+                  >
+                    <span class="material-symbols-rounded" aria-hidden="true">delete</span>
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <button
+              v-if="playerRoles.length < 3 && availableRolesForNewSlot.length > 0"
+              type="button"
+              class="join-add-role"
+              @click="addRole"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">add</span>
+              Add role
+            </button>
+          </div>
 
           <div class="join-actions">
             <button type="submit" class="btn-primary" :disabled="!canSubmit">
@@ -465,8 +518,101 @@ onMounted(loadSignupInfo)
 
 .join-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
+}
+
+.join-roles-section {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.join-roles-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.join-roles-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.join-role-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: end;
+  gap: 0.72rem;
+}
+
+.join-role-row--removable {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+.join-role-remove-col {
+  display: grid;
+  gap: 0.32rem;
+  align-self: end;
+}
+
+.join-role-remove-spacer {
+  visibility: hidden;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.join-role-remove {
+  padding: 0.38rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.join-role-remove:hover {
+  color: var(--danger, #f07070);
+}
+
+.join-role-remove .material-symbols-rounded {
+  font-size: 1.1rem;
+}
+
+.join-add-role {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.3rem 0.7rem 0.3rem 0.4rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--line) 78%, var(--brand-1) 22%);
+  background: color-mix(in srgb, var(--bg-0) 64%, var(--card) 36%);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.join-add-role:hover {
+  background: color-mix(in srgb, var(--bg-0) 82%, var(--brand-1) 18%);
+  border-color: color-mix(in srgb, var(--line-strong) 72%, var(--brand-1) 28%);
+  color: color-mix(in srgb, white 88%, var(--ink-1) 12%);
+}
+
+.join-add-role .material-symbols-rounded {
+  font-size: 1rem;
 }
 
 .join-field {
@@ -553,5 +699,23 @@ onMounted(loadSignupInfo)
     width: 100%;
     min-width: 0;
   }
+}
+
+.join-role-field-lbl {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.join-role-pref-hint {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--primary-300);
+  background: color-mix(in srgb, var(--primary-700) 22%, var(--card) 78%);
+  border: 1px solid color-mix(in srgb, var(--primary-500) 38%, var(--line) 62%);
+  border-radius: var(--radius-pill);
+  padding: 0.06rem 0.38rem;
 }
 </style>

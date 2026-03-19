@@ -4,8 +4,8 @@ use crate::{
     app::state::AppState,
     features::{
         events::models::{
-            CreateEventSignupRequestInput, Event, EventSignupLinkResponse, EventSignupRequest,
-            PublicEventSignupInfo, SignupStatus,
+            CreateEventSignupRequestInput, Event, EventSignupLinkResponse,
+            EventSignupRequest, PublicEventSignupInfo, SignupStatus,
         },
         permissions::require_event_owner_access,
     },
@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-use super::{ensure_event_has_capacity_for_new_player, repo};
+use super::{ensure_event_exists, ensure_event_has_capacity_for_new_player, repo};
 use super::validation::validate_signup_request_input;
 
 pub const MAX_SIGNUP_REQUESTS_PER_EVENT: usize = 99;
@@ -123,8 +123,7 @@ pub async fn create_public_signup_request(
         &state.pool,
         info.event_id,
         clean_name,
-        payload.role.trim(),
-        payload.rank.trim(),
+        &payload.roles,
     )
     .await?;
 
@@ -139,6 +138,7 @@ pub async fn list_signup_requests_for_user(
     event_id: Uuid,
 ) -> Result<Vec<EventSignupRequest>, ApiError> {
     require_event_owner_access(state, event_id, user_id).await?;
+    ensure_event_exists(state, event_id).await?;
 
     repo::list_signup_requests_for_event(&state.pool, event_id).await
 }
@@ -161,6 +161,17 @@ pub async fn accept_signup_request_for_user(
 
     ensure_event_has_capacity_for_new_player(state, event_id).await?;
 
+    let primary = request
+        .roles
+        .first()
+        .ok_or_else(|| bad_request("Signup request has no role preferences"))?;
+
+    let role_pairs: Vec<(&str, &str)> = request
+        .roles
+        .iter()
+        .map(|r| (r.role.as_db_value(), r.rank.as_db_value()))
+        .collect();
+
     let mut tx = state.pool.begin().await.map_err(internal_error)?;
 
     // Atomically claim the request; a concurrent accept for the same request gets 0 rows.
@@ -179,8 +190,10 @@ pub async fn accept_signup_request_for_user(
         &mut tx,
         event_id,
         &request.name,
-        request.role.as_db_value(),
-        request.rank.as_db_value(),
+        primary.role.as_db_value(),
+        primary.rank.as_db_value(),
+        Some(request_id),
+        &role_pairs,
     )
     .await?;
 
