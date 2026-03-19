@@ -115,7 +115,7 @@ pub async fn auto_balance_teams_for_user(
     if event.teams.is_empty() {
         return Err(bad_request("Create at least one team before auto-balancing"));
     }
-    if event.teams.len() > 2 {
+    if event.teams.len() != 2 {
         return Err(bad_request("Auto-balance currently supports exactly 2 teams"));
     }
 

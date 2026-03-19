@@ -75,7 +75,7 @@ const maxBalancedTeamsFromRoster = computed(() => {
 })
 
 const autoBalanceSupportsTeamCount = computed(() => {
-  return Number(ctx.event?.teams?.length || 0) <= 2
+  return Number(ctx.event?.teams?.length || 0) === 2
 })
 
 const autoBalanceDisabled = computed(() => {
@@ -596,7 +596,7 @@ function formatTeamModified(team) {
               "Auto-create" creates one solo team per unassigned player.
             </template>
             <template v-else-if="!autoBalanceSupportsTeamCount">
-              Auto-balance is currently limited to 2 teams.
+              Auto-balance currently requires exactly 2 teams.
             </template>
             <template v-else>
               "Best setup" rebalances existing teams using rank ELO calculations.
@@ -810,7 +810,7 @@ function formatTeamModified(team) {
         tabindex="-1"
       >
         <div class="team-picker-header">
-          <h4>Add unassigned player to : {{ teamPickerTarget?.name || 'this team' }}</h4>
+          <h4>Add unassigned player to: {{ teamPickerTarget?.name || 'this team' }}</h4>
           <button ref="teamPickerCloseButtonRef" class="btn-secondary icon-btn" title="Close picker" @click="closeTeamPicker">
             <span class="material-symbols-rounded" aria-hidden="true">close</span>
             <span class="sr-only">Close picker</span>

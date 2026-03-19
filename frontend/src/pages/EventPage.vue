@@ -57,10 +57,30 @@ const lastBalancedFingerprint = ref(null)
 function teamsFingerprint(ev) {
   if (!Array.isArray(ev?.players)) return null
   return JSON.stringify(
-    ev.players
-      .filter(p => p.team_id)
-      .map(p => ({ id: p.id, team_id: p.team_id }))
-      .sort((a, b) => (a.id < b.id ? -1 : 1))
+    {
+      format: String(ev?.format || ''),
+      teams: Array.isArray(ev?.teams)
+        ? ev.teams
+          .map(team => String(team.id || ''))
+          .sort()
+        : [],
+      players: ev.players
+        .map((player) => ({
+          id: String(player?.id || ''),
+          team_id: player?.team_id || null,
+          role: player?.role || null,
+          rank: player?.rank || null,
+          assigned_role: player?.assigned_role || null,
+          assigned_rank: player?.assigned_rank || null,
+          roles: Array.isArray(player?.roles)
+            ? player.roles.map((entry) => ({
+              role: entry?.role || null,
+              rank: entry?.rank || null,
+            }))
+            : [],
+        }))
+        .sort((a, b) => (a.id < b.id ? -1 : 1)),
+    }
   )
 }
 

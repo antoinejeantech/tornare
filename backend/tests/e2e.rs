@@ -125,7 +125,6 @@ fn count_team_role(event: &Value, team_id: &str, role: &str) -> usize {
 /// Happy-path flow: register → login → create event → manage roster/teams/match → fetch event.
 #[sqlx::test]
 async fn user_can_register_login_create_and_read_event(pool: PgPool) {
-    sqlx::migrate!().run(&pool).await.expect("migrations failed");
     let base = spawn_test_server(pool).await;
     let client = Client::new();
 
@@ -361,7 +360,6 @@ async fn user_can_register_login_create_and_read_event(pool: PgPool) {
 /// Duplicate email registration must be rejected.
 #[sqlx::test]
 async fn register_with_duplicate_email_is_rejected(pool: PgPool) {
-    sqlx::migrate!().run(&pool).await.expect("migrations failed");
     let base = spawn_test_server(pool).await;
     let client = Client::new();
 
@@ -394,7 +392,6 @@ async fn register_with_duplicate_email_is_rejected(pool: PgPool) {
 /// Creating an event without a token must return 401.
 #[sqlx::test]
 async fn create_event_without_auth_is_rejected(pool: PgPool) {
-    sqlx::migrate!().run(&pool).await.expect("migrations failed");
     let base = spawn_test_server(pool).await;
     let client = Client::new();
 
@@ -420,7 +417,6 @@ async fn create_event_without_auth_is_rejected(pool: PgPool) {
 
 #[sqlx::test]
 async fn admin_can_edit_another_users_profile(pool: PgPool) {
-    sqlx::migrate!().run(&pool).await.expect("migrations failed");
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
@@ -488,7 +484,6 @@ async fn admin_can_edit_another_users_profile(pool: PgPool) {
 
 #[sqlx::test]
 async fn legacy_flex_players_do_not_break_events_listing(pool: PgPool) {
-    sqlx::migrate!().run(&pool).await.expect("migrations failed");
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
@@ -568,10 +563,54 @@ async fn legacy_flex_players_do_not_break_events_listing(pool: PgPool) {
     assert_eq!(roles.len(), 3, "legacy FLEX role should expand to three preferences");
 }
 
+#[sqlx::test]
+async fn auto_balance_requires_exactly_two_teams(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "owner4@test.local", "owner4").await;
+    assert!(owner["access_token"].is_string(), "owner registration failed: {owner}");
+    let token = owner["access_token"].as_str().unwrap().to_string();
+
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "name": "One Team Balance Guard",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": false,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "create event should return 200");
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().expect("event id missing").to_string();
+
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/teams"))
+        .bearer_auth(&token)
+        .json(&json!({ "name": "Solo" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "team creation should succeed");
+
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/teams/auto-balance"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 400, "auto-balance should require exactly two teams");
+}
+
 /// Public signup flow: submit a request, then the owner accepts it.
 #[sqlx::test]
 async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
-    sqlx::migrate!().run(&pool).await.expect("migrations failed");
     let base = spawn_test_server(pool).await;
     let client = Client::new();
 
@@ -671,7 +710,6 @@ async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
 /// Team assignment with explicit assigned_role must not change the player's preferred role.
 #[sqlx::test]
 async fn team_assignment_with_role_does_not_change_preferred_role(pool: PgPool) {
-    sqlx::migrate!().run(&pool).await.expect("migrations failed");
     let base = spawn_test_server(pool).await;
     let client = Client::new();
 
@@ -751,7 +789,6 @@ async fn team_assignment_with_role_does_not_change_preferred_role(pool: PgPool) 
 /// Auto-balance in 5v5 must always produce 1 Tank, 2 DPS, 2 Supports per team.
 #[sqlx::test]
 async fn auto_balance_5v5_enforces_exact_role_shape(pool: PgPool) {
-    sqlx::migrate!().run(&pool).await.expect("migrations failed");
     let base = spawn_test_server(pool).await;
     let client = Client::new();
 
