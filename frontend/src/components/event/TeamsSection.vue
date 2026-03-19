@@ -810,16 +810,12 @@ function formatTeamModified(team) {
         tabindex="-1"
       >
         <div class="team-picker-header">
-          <h4>Add unassigned player</h4>
+          <h4>Add unassigned player to : {{ teamPickerTarget?.name || 'this team' }}</h4>
           <button ref="teamPickerCloseButtonRef" class="btn-secondary icon-btn" title="Close picker" @click="closeTeamPicker">
             <span class="material-symbols-rounded" aria-hidden="true">close</span>
             <span class="sr-only">Close picker</span>
           </button>
         </div>
-
-        <p class="muted team-picker-subtitle">
-          Assign an available player to {{ teamPickerTarget?.name || 'this team' }}.
-        </p>
 
         <p v-if="unassignedPlayers.length === 0" class="muted">All players are already assigned.</p>
 
