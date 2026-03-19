@@ -679,9 +679,12 @@ async fn load_event_players_for_event(
             name: row.get("name"),
             role: {
                 let s: String = row.get("role");
-                PlayerRole::try_from(s.as_str()).map_err(|_| {
-                    internal_error(format!("invalid player role in DB: {s}"))
-                })?
+                match s.as_str() {
+                    "FLEX" => PlayerRole::Dps,
+                    _ => PlayerRole::try_from(s.as_str()).map_err(|_| {
+                        internal_error(format!("invalid player role in DB: {s}"))
+                    })?,
+                }
             },
             rank: {
                 let s: String = row.get("rank");

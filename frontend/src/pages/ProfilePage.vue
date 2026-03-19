@@ -32,7 +32,15 @@ const editPasswordConfirm = ref('')
 
 const profileId = computed(() => String(route.params.id || ''))
 const viewerId = computed(() => String(authStore.user?.id || ''))
-const canEdit = computed(() => authStore.isAuthenticated && profileId.value && viewerId.value === profileId.value)
+const viewerRole = computed(() => String(authStore.user?.role || '').trim().toLowerCase())
+const isAdminViewer = computed(() => authStore.isAuthenticated && viewerRole.value === 'admin')
+const canEdit = computed(() => {
+  if (!authStore.isAuthenticated || !profileId.value) {
+    return false
+  }
+
+  return viewerId.value === profileId.value || isAdminViewer.value
+})
 const profileInitial = computed(() => {
   const label = String(profile.value?.display_name || profile.value?.username || '').trim()
   return label.length > 0 ? label[0].toUpperCase() : 'A'
@@ -253,9 +261,11 @@ async function saveProfile() {
 
     profile.value = updated
     hydrateFormFromProfile(updated)
-    authStore.user = {
-      ...(authStore.user || {}),
-      ...updated,
+    if (viewerId.value === profileId.value) {
+      authStore.user = {
+        ...(authStore.user || {}),
+        ...updated,
+      }
     }
     editingAccount.value = false
     editingOverwatch.value = false

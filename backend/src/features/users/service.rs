@@ -50,7 +50,13 @@ pub async fn update_user_profile_for_user(
     payload: UpdateUserProfileInput,
 ) -> Result<AuthUser, ApiError> {
     if authenticated_user_id != target_user_id {
-        return Err(forbidden("You can only edit your own profile"));
+        let Some(actor) = repo::find_user_profile_by_id(&state.pool, authenticated_user_id).await? else {
+            return Err(forbidden("You do not have permission to edit this profile"));
+        };
+
+        if !actor.is_active || !actor.role.eq_ignore_ascii_case("admin") {
+            return Err(forbidden("You can only edit your own profile unless you are an admin"));
+        }
     }
 
     let display_name = payload.display_name.trim();

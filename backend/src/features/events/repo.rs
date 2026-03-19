@@ -10,6 +10,72 @@ use crate::features::events::models::{
     PlayerRank, PlayerRole, PublicEventSignupInfo, RolePreference, RolePreferenceInput, SignupStatus,
 };
 
+fn parse_player_rank_db(rank_str: &str) -> Result<PlayerRank, crate::shared::errors::ApiError> {
+    PlayerRank::try_from(rank_str)
+        .map_err(|_| internal_error(format!("invalid player rank in DB: {rank_str}")))
+}
+
+fn expand_db_role_preferences(
+    role_str: &str,
+    rank: PlayerRank,
+) -> Result<Vec<RolePreference>, crate::shared::errors::ApiError> {
+    match role_str {
+        "Tank" => Ok(vec![RolePreference {
+            role: PlayerRole::Tank,
+            rank,
+        }]),
+        "DPS" => Ok(vec![RolePreference {
+            role: PlayerRole::Dps,
+            rank,
+        }]),
+        "Support" => Ok(vec![RolePreference {
+            role: PlayerRole::Support,
+            rank,
+        }]),
+        // Legacy compatibility for old rosters stored before multi-role support.
+        // We keep FLEX-specific tolerance at the DB boundary only.
+        "FLEX" => Ok(vec![
+            RolePreference {
+                role: PlayerRole::Dps,
+                rank,
+            },
+            RolePreference {
+                role: PlayerRole::Tank,
+                rank,
+            },
+            RolePreference {
+                role: PlayerRole::Support,
+                rank,
+            },
+        ]),
+        other => Err(internal_error(format!("invalid player role in DB: {other}"))),
+    }
+}
+
+fn push_role_preferences(target: &mut Vec<RolePreference>, preferences: Vec<RolePreference>) {
+    for preference in preferences {
+        if target.iter().any(|existing| existing.role == preference.role) {
+            continue;
+        }
+        target.push(preference);
+    }
+}
+
+fn primary_role_from_db(
+    role_str: &str,
+    preferences: &[RolePreference],
+) -> Result<PlayerRole, crate::shared::errors::ApiError> {
+    if role_str == "FLEX" {
+        return preferences
+            .first()
+            .map(|preference| preference.role)
+            .ok_or_else(|| internal_error("legacy FLEX player has no expanded role preferences"));
+    }
+
+    PlayerRole::try_from(role_str)
+        .map_err(|_| internal_error(format!("invalid player role in DB: {role_str}")))
+}
+
 #[derive(Clone, Copy)]
 pub enum EventListSort {
     Soonest,
@@ -1148,14 +1214,10 @@ pub async fn list_signup_requests_for_event(
         let req_id: Uuid = rr.get("signup_request_id");
         let role_str: String = rr.get("role");
         let rank_str: String = rr.get("rank");
-        let role = PlayerRole::try_from(role_str.as_str())
-            .map_err(|_| internal_error(format!("invalid player role in DB: {role_str}")))?;
-        let rank = PlayerRank::try_from(rank_str.as_str())
-            .map_err(|_| internal_error(format!("invalid player rank in DB: {rank_str}")))?;
-        roles_by_request
-            .entry(req_id)
-            .or_default()
-            .push(RolePreference { role, rank });
+        let rank = parse_player_rank_db(rank_str.as_str())?;
+        let preferences = expand_db_role_preferences(role_str.as_str(), rank)?;
+        let target = roles_by_request.entry(req_id).or_default();
+        push_role_preferences(target, preferences);
     }
 
     let mut requests = Vec::with_capacity(rows.len());
@@ -1213,11 +1275,9 @@ pub async fn get_signup_request(
         for rr in role_rows {
             let role_str: String = rr.get("role");
             let rank_str: String = rr.get("rank");
-            let role = PlayerRole::try_from(role_str.as_str())
-                .map_err(|_| internal_error(format!("invalid player role in DB: {role_str}")))?;
-            let rank = PlayerRank::try_from(rank_str.as_str())
-                .map_err(|_| internal_error(format!("invalid player rank in DB: {rank_str}")))?;
-            acc.push(RolePreference { role, rank });
+            let rank = parse_player_rank_db(rank_str.as_str())?;
+            let preferences = expand_db_role_preferences(role_str.as_str(), rank)?;
+            push_role_preferences(&mut acc, preferences);
         }
         acc
     };
@@ -1456,14 +1516,10 @@ pub async fn load_event_players_for_event(
             let pid: Uuid = rr.get("event_player_id");
             let role_str: String = rr.get("role");
             let rank_str: String = rr.get("rank");
-            let role = PlayerRole::try_from(role_str.as_str())
-                .map_err(|_| internal_error(format!("invalid player role in DB: {role_str}")))?;
-            let rank = PlayerRank::try_from(rank_str.as_str())
-                .map_err(|_| internal_error(format!("invalid player rank in DB: {rank_str}")))?;
-            roles_by_player
-                .entry(pid)
-                .or_default()
-                .push(RolePreference { role, rank });
+            let rank = parse_player_rank_db(rank_str.as_str())?;
+            let preferences = expand_db_role_preferences(role_str.as_str(), rank)?;
+            let target = roles_by_player.entry(pid).or_default();
+            push_role_preferences(target, preferences);
         }
     }
 
@@ -1471,8 +1527,12 @@ pub async fn load_event_players_for_event(
     for row in rows {
         let role_str: String = row.get("role");
         let rank_str: String = row.get("rank");
+        let rank = parse_player_rank_db(rank_str.as_str())?;
         let player_id: Uuid = row.get("id");
-        let roles = roles_by_player.remove(&player_id).unwrap_or_default();
+        let mut roles = roles_by_player.remove(&player_id).unwrap_or_default();
+        if roles.is_empty() {
+            push_role_preferences(&mut roles, expand_db_role_preferences(role_str.as_str(), rank)?);
+        }
         let assigned_role = row
             .get::<Option<String>, _>("assigned_role")
             .as_deref()
@@ -1492,10 +1552,8 @@ pub async fn load_event_players_for_event(
         players.push(Player {
             id: player_id,
             name: row.get("name"),
-            role: PlayerRole::try_from(role_str.as_str())
-                .map_err(|_| internal_error(format!("invalid player role in DB: {role_str}")))?,
-            rank: PlayerRank::try_from(rank_str.as_str())
-                .map_err(|_| internal_error(format!("invalid player rank in DB: {rank_str}")))?,
+            role: primary_role_from_db(role_str.as_str(), &roles)?,
+            rank,
             team_id: row.get::<Option<Uuid>, _>("team_id"),
             team: row.get("team_name"),
             assigned_role,

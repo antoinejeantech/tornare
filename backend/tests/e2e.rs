@@ -24,6 +24,7 @@ use tornare::app::{
     security::RateLimiter,
     state::{AppConfig, AppState},
 };
+use uuid::Uuid;
 
 // ---------------------------------------------------------------------------
 // Test server helper
@@ -415,6 +416,156 @@ async fn create_event_without_auth_is_rejected(pool: PgPool) {
         401,
         "unauthenticated create event must return 401"
     );
+}
+
+#[sqlx::test]
+async fn admin_can_edit_another_users_profile(pool: PgPool) {
+    sqlx::migrate!().run(&pool).await.expect("migrations failed");
+    let base = spawn_test_server(pool.clone()).await;
+    let client = Client::new();
+
+    let admin = register(&client, &base, "admin@test.local", "admin_user").await;
+    let target = register(&client, &base, "target@test.local", "target_user").await;
+
+    let admin_id = admin["user"]["id"]
+        .as_str()
+        .expect("admin response must include user id")
+        .to_string();
+    let admin_token = admin["access_token"]
+        .as_str()
+        .expect("admin response must include access token")
+        .to_string();
+    let target_id = target["user"]["id"]
+        .as_str()
+        .expect("target response must include user id")
+        .to_string();
+
+    let admin_uuid = Uuid::parse_str(&admin_id).expect("admin id must be a valid uuid");
+
+    sqlx::query("INSERT INTO user_roles (id, user_id, role) VALUES (gen_random_uuid(), $1, 'admin')")
+        .bind(admin_uuid)
+        .execute(&pool)
+        .await
+        .expect("failed to promote admin user");
+
+    let res = client
+        .put(format!("{base}/api/users/{target_id}"))
+        .bearer_auth(&admin_token)
+        .json(&json!({
+            "username": "target_admin_edited",
+            "display_name": "Edited By Admin",
+            "email": "target-edited@test.local",
+            "battletag": null,
+            "rank_tank": "Gold",
+            "rank_dps": "Diamond",
+            "rank_support": "Platinum",
+            "new_password": null,
+            "new_password_confirm": null
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "admin profile edit should succeed");
+
+    let updated: Value = res.json().await.unwrap();
+    assert_eq!(updated["id"].as_str().unwrap(), target_id);
+    assert_eq!(updated["username"].as_str().unwrap(), "target_admin_edited");
+    assert_eq!(updated["display_name"].as_str().unwrap(), "Edited By Admin");
+    assert_eq!(updated["email"].as_str().unwrap(), "target-edited@test.local");
+    assert_eq!(updated["rank_tank"].as_str().unwrap(), "Gold");
+    assert_eq!(updated["rank_dps"].as_str().unwrap(), "Diamond");
+    assert_eq!(updated["rank_support"].as_str().unwrap(), "Platinum");
+
+    let res = client
+        .get(format!("{base}/api/users/{admin_id}"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "admin profile should still be readable");
+    let admin_profile: Value = res.json().await.unwrap();
+    assert_eq!(admin_profile["username"].as_str().unwrap(), "admin_user");
+}
+
+#[sqlx::test]
+async fn legacy_flex_players_do_not_break_events_listing(pool: PgPool) {
+    sqlx::migrate!().run(&pool).await.expect("migrations failed");
+    let base = spawn_test_server(pool.clone()).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "owner-flex@test.local", "owner_flex").await;
+    let token = owner["access_token"]
+        .as_str()
+        .expect("owner response must include access token")
+        .to_string();
+
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "name": "Legacy Flex Event",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": false,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "create event should return 200");
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().expect("event id missing").to_string();
+
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/players"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "name": "Legacy Flex Player",
+            "role": "DPS",
+            "rank": "Gold"
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "add player should return 200");
+    let event: Value = res.json().await.unwrap();
+    let player_id = find_named_item(&event["players"], "Legacy Flex Player")["id"]
+        .as_str()
+        .expect("player id missing")
+        .to_string();
+    let player_uuid = Uuid::parse_str(&player_id).expect("player id must be a valid uuid");
+
+    sqlx::query("UPDATE event_players SET role = 'FLEX' WHERE id = $1")
+        .bind(player_uuid)
+        .execute(&pool)
+        .await
+        .expect("failed to update event_players role to FLEX");
+    sqlx::query("UPDATE event_player_roles SET role = 'FLEX' WHERE event_player_id = $1")
+        .bind(player_uuid)
+        .execute(&pool)
+        .await
+        .expect("failed to update event_player_roles role to FLEX");
+
+    let res = client
+        .get(format!("{base}/api/events?page=1&per_page=12"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "events listing should tolerate legacy FLEX data");
+
+    let payload: Value = res.json().await.unwrap();
+    let listed_event = payload["items"]
+        .as_array()
+        .expect("items must be an array")
+        .iter()
+        .find(|item| item["id"].as_str() == Some(event_id.as_str()))
+        .expect("expected legacy event in listing");
+    let listed_player = find_named_item(&listed_event["players"], "Legacy Flex Player");
+    assert_eq!(listed_player["role"].as_str().unwrap(), "DPS");
+
+    let roles = listed_player["roles"].as_array().expect("player roles must be an array");
+    assert_eq!(roles.len(), 3, "legacy FLEX role should expand to three preferences");
 }
 
 /// Public signup flow: submit a request, then the owner accepts it.
