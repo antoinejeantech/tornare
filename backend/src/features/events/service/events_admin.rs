@@ -115,3 +115,17 @@ pub async fn set_featured_event_for_user(
     event.can_manage = true;
     Ok(event)
 }
+
+pub async fn set_event_ended_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+    ended: bool,
+) -> Result<Event, ApiError> {
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
+
+    repo::set_event_ended_state(&state.pool, event_id, ended).await?;
+
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(event.into_owner(is_owner))
+}

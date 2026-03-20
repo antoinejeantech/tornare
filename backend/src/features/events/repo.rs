@@ -91,6 +91,7 @@ pub struct ListVisibleEventsOptions {
     pub sort: EventListSort,
     pub limit: u32,
     pub offset: u32,
+    pub include_ended: bool,
 }
 
 pub struct ListVisibleEventsResult {
@@ -163,6 +164,7 @@ pub async fn featured_event_id(
          FROM events
          WHERE start_date IS NOT NULL
                      AND start_date >= NOW()
+                     AND is_ended = FALSE
          ORDER BY start_date ASC, id DESC
          LIMIT 1",
     )
@@ -177,6 +179,7 @@ pub async fn featured_event_id(
     let fallback = sqlx::query(
         "SELECT id
          FROM events
+         WHERE is_ended = FALSE
          ORDER BY start_date IS NULL, start_date ASC, id DESC
          LIMIT 1",
     )
@@ -257,6 +260,10 @@ fn apply_event_list_filters(
     query_builder: &mut QueryBuilder<'_, Postgres>,
     options: &ListVisibleEventsOptions,
 ) {
+    if !options.include_ended {
+        query_builder.push(" AND e.is_ended = FALSE");
+    }
+
     if let Some(event_type) = options.event_type.as_ref() {
         query_builder.push(" AND e.event_type = ");
         query_builder.push_bind(event_type.clone());
@@ -1115,6 +1122,21 @@ pub async fn set_featured_event_state(
     Ok(())
 }
 
+pub async fn set_event_ended_state(
+    pool: &PgPool,
+    event_id: Uuid,
+    ended: bool,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("UPDATE events SET is_ended = $1 WHERE id = $2")
+        .bind(ended)
+        .bind(event_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+
+    Ok(())
+}
+
 pub async fn create_signup_request(
     pool: &PgPool,
     event_id: Uuid,
@@ -1325,6 +1347,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
             e.event_type,
             e.format,
             e.is_featured,
+            e.is_ended,
             e.signup_token,
             e.public_signup_enabled,
             e.max_players,
@@ -1363,6 +1386,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         event_type,
         format,
         is_featured: row.get("is_featured"),
+        is_ended: row.get("is_ended"),
         is_owner: false,
         can_manage: false,
         creator_id: row.get("creator_id"),

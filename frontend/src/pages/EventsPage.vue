@@ -24,6 +24,7 @@ const loadingEvents = ref(false)
 const creatingEvent = ref(false)
 const activeOwnerFilter = ref('all')
 const activeTypeFilter = ref('all')
+const showEndedEvents = ref(false)
 const eventSearchQuery = ref('')
 const activeSort = ref('soonest')
 const showCreateModal = ref(false)
@@ -91,7 +92,8 @@ const hasActiveFilters = computed(() => {
     activeOwnerFilter.value !== 'all' ||
     activeTypeFilter.value !== 'all' ||
     normalizedSearchQuery.value.length > 0 ||
-    activeSort.value !== 'soonest'
+    activeSort.value !== 'soonest' ||
+    showEndedEvents.value
   )
 })
 
@@ -125,6 +127,7 @@ function clearFilters() {
   activeTypeFilter.value = 'all'
   eventSearchQuery.value = ''
   activeSort.value = 'soonest'
+  showEndedEvents.value = false
 }
 
 function resetCreateForm() {
@@ -179,6 +182,9 @@ async function loadEvents() {
     }
     if (activeSort.value !== 'soonest') {
       params.set('sort', activeSort.value)
+    }
+    if (showEndedEvents.value) {
+      params.set('include_ended', 'true')
     }
     params.set('page', String(currentPage.value))
     params.set('per_page', String(PAGE_SIZE))
@@ -337,7 +343,7 @@ onMounted(() => {
   window.addEventListener('keydown', handleGlobalKeyDown)
 })
 
-watch([activeOwnerFilter, activeTypeFilter, activeSort], () => {
+watch([activeOwnerFilter, activeTypeFilter, activeSort, showEndedEvents], () => {
   currentPage.value = 1
   loadEvents()
 })
@@ -405,7 +411,7 @@ onBeforeUnmount(() => {
 
     <section class="events-header reveal-block reveal-2">
       <div class="events-toolbar-title-wrap">
-        <h2>UPCOMING EVENTS</h2>
+        <h2>{{ showEndedEvents ? 'ALL EVENTS' : 'UPCOMING EVENTS' }}</h2>
         <p class="muted">Browse public competitive lobbies and claim your spot on the ladder.</p>
       </div>
       <ActionCtaButton
@@ -481,6 +487,12 @@ onBeforeUnmount(() => {
             <option value="players">Most players</option>
             <option value="name">A-Z</option>
           </select>
+        </label>
+
+        <label class="events-ended-toggle" :class="{ active: showEndedEvents }">
+          <input v-model="showEndedEvents" type="checkbox" class="sr-only" />
+          <span class="material-symbols-rounded" aria-hidden="true">archive</span>
+          <span>Show ended</span>
         </label>
 
         <button
@@ -795,6 +807,37 @@ onBeforeUnmount(() => {
   padding: 0.2rem 0.1rem;
   cursor: pointer;
   transition: color 0.16s ease, transform 0.16s ease;
+}
+
+.events-ended-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.24rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent 20%);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card-bg);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+  user-select: none;
+}
+
+.events-ended-toggle .material-symbols-rounded {
+  font-size: 1rem;
+}
+
+.events-ended-toggle:hover {
+  border-color: color-mix(in srgb, var(--brand-2) 48%, var(--line) 52%);
+  color: var(--ink-1);
+}
+
+.events-ended-toggle.active {
+  border-color: color-mix(in srgb, var(--brand-2) 60%, var(--line) 40%);
+  background: color-mix(in srgb, var(--brand-2) 12%, var(--surface-card-bg) 88%);
+  color: var(--ink-1);
 }
 
 .events-clear-link .material-symbols-rounded {

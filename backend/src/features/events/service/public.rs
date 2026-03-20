@@ -85,6 +85,7 @@ pub async fn list_events_public(
         sort,
         limit: normalized_per_page,
         offset,
+        include_ended: query.include_ended.unwrap_or(false),
     };
 
     let listing = repo::list_visible_event_ids(&state.pool, options).await?;

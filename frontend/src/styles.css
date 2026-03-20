@@ -452,6 +452,20 @@ textarea:-webkit-autofill:focus {
     0 0 0 2px rgba(239, 83, 80, 0.12);
 }
 
+.btn-warning {
+  font-weight: 400;
+  border-color: color-mix(in srgb, #e09c2a 38%, var(--line) 62%);
+  color: color-mix(in srgb, #f5c842 90%, var(--ink-1) 10%);
+  background: color-mix(in srgb, #3d2e00 28%, var(--card) 72%);
+}
+
+.btn-warning:hover:not(:disabled) {
+  border-color: color-mix(in srgb, #f5c842 58%, var(--line) 42%);
+  box-shadow:
+    0 10px 18px rgba(200, 140, 0, 0.18),
+    0 0 0 2px rgba(245, 200, 66, 0.1);
+}
+
 .rank-chip {
   display: inline-flex;
   align-items: center;

@@ -46,6 +46,10 @@ const creatorProfileRoute = computed(() => {
 })
 
 const statusLabel = computed(() => {
+  if (props.event?.is_ended) {
+    return 'Ended'
+  }
+
   const maxPlayers = Number(props.event?.max_players) || 0
   const players = playerCount.value
   const startAt = getDateTimestamp(props.event?.start_date)
@@ -69,6 +73,7 @@ const statusLabel = computed(() => {
 })
 
 const statusVariant = computed(() => {
+  if (statusLabel.value === 'Ended') return 'muted'
   if (statusLabel.value === 'Full') return 'danger'
   if (statusLabel.value === 'Ongoing') return 'info'
   return 'ok'

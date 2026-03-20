@@ -82,6 +82,14 @@ const ctx = inject('eventCtx')
         <button class="btn-secondary" :disabled="ctx.updatingEvent" type="button" @click="ctx.syncEventEditDraftFromEvent">
           Reset changes
         </button>
+        <button
+          class="btn-warning"
+          :disabled="ctx.endingEvent || ctx.deletingEvent || ctx.updatingEvent"
+          type="button"
+          @click="ctx.setEventEnded(!ctx.event.is_ended)"
+        >
+          {{ ctx.endingEvent ? 'Updating...' : (ctx.event.is_ended ? 'Reopen event' : 'End event') }}
+        </button>
         <button class="btn-danger" :disabled="ctx.deletingEvent || ctx.updatingEvent" type="button" @click="ctx.deleteEvent">
           {{ ctx.deletingEvent ? 'Deleting event...' : 'Delete event' }}
         </button>
