@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
-    shared::errors::{forbidden, internal_error, ApiError},
+    shared::errors::{forbidden, internal_error, not_found, ApiError},
 };
 
 async fn has_any_app_role(
@@ -49,6 +49,22 @@ pub async fn require_event_view_access(
     event_id: Uuid,
     user_id: Uuid,
 ) -> Result<String, ApiError> {
+    let event_exists = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+            SELECT 1
+            FROM events
+            WHERE id = $1 AND deleted_at IS NULL
+        )",
+    )
+    .bind(event_id)
+    .fetch_one(&state.pool)
+    .await
+    .map_err(internal_error)?;
+
+    if !event_exists {
+        return Err(not_found("Event not found"));
+    }
+
     if has_global_event_owner_access(state, user_id).await? {
         return Ok("owner".to_string());
     }

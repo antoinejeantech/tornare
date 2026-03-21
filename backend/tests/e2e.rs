@@ -892,3 +892,73 @@ async fn auto_balance_5v5_enforces_exact_role_shape(pool: PgPool) {
         assert_eq!(count_team_role(event, team_id, "Support"), 2, "team must have exactly 2 supports");
     }
 }
+
+#[sqlx::test]
+async fn deleting_event_soft_deletes_it_and_hides_it(pool: PgPool) {
+    let base = spawn_test_server(pool.clone()).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "softdelete@test.local", "softdelete").await;
+    assert!(owner["access_token"].is_string(), "owner registration failed: {owner}");
+    let token = owner["access_token"].as_str().unwrap().to_string();
+
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "name": "Soft Delete Me",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": false,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "create event should return 200");
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().unwrap().to_string();
+    let event_uuid = Uuid::parse_str(&event_id).expect("event id must be a uuid");
+
+    let res = client
+        .delete(format!("{base}/api/events/{event_id}"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "delete event should return 200");
+
+    let deleted_at: Option<sqlx::types::time::OffsetDateTime> = sqlx::query_scalar(
+        "SELECT deleted_at FROM events WHERE id = $1",
+    )
+    .bind(event_uuid)
+    .fetch_one(&pool)
+    .await
+    .expect("deleted event row should still exist");
+    assert!(deleted_at.is_some(), "soft-deleted event must retain row with deleted_at set");
+
+    let res = client
+        .get(format!("{base}/api/events/{event_id}"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 404, "deleted event should not be directly readable");
+
+    let res = client
+        .get(format!("{base}/api/events?page=1&per_page=12"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "events listing should still succeed");
+    let payload: Value = res.json().await.unwrap();
+    let still_listed = payload["items"]
+        .as_array()
+        .expect("items must be an array")
+        .iter()
+        .any(|item| item["id"].as_str() == Some(event_id.as_str()));
+    assert!(!still_listed, "soft-deleted event must be hidden from listings");
+}
+
