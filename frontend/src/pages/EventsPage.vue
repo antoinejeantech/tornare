@@ -816,6 +816,8 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   padding: 0.18rem;
   background: var(--surface-card-bg);
+  position: relative;
+  z-index: 1;
 }
 
 .events-subnav-btn {
@@ -830,6 +832,7 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-pill);
   line-height: 1;
   cursor: pointer;
+  user-select: none;
   transition: background 0.16s ease, color 0.16s ease;
 }
 

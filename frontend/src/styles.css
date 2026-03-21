@@ -115,6 +115,9 @@ body {
 }
 
 a {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
   text-decoration: none;
 }
 
@@ -237,6 +240,9 @@ body.theme-light {
   font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 20;
   font-size: 1.1rem;
   line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .icon-btn {
@@ -345,6 +351,8 @@ textarea {
 
 button {
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
   border: 1px solid transparent;
   font-weight: 400;
   transition: box-shadow 0.18s ease, filter 0.18s ease, background 0.18s ease, border-color 0.18s ease;
@@ -539,6 +547,16 @@ textarea:-webkit-autofill:focus {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Guarantee pointer cursor — cannot be overridden by scoped styles */
+a,
+a:hover,
+a:focus,
+a:visited,
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer !important;
 }
 
 

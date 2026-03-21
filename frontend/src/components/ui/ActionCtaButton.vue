@@ -56,6 +56,7 @@ function handleClick(event) {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
   transform: translateY(0);
   transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
