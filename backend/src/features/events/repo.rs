@@ -156,6 +156,7 @@ pub async fn featured_event_id(
          FROM events
                  WHERE is_featured = TRUE
                      AND deleted_at IS NULL
+                     AND is_ended = FALSE
          ORDER BY start_date IS NULL, start_date ASC, id DESC
          LIMIT 1",
     )
@@ -1156,7 +1157,9 @@ pub async fn set_event_ended_state(
     event_id: Uuid,
     ended: bool,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE events SET is_ended = $1 WHERE id = $2 AND deleted_at IS NULL")
+    sqlx::query(
+        "UPDATE events SET is_ended = $1, is_featured = CASE WHEN $1 THEN FALSE ELSE is_featured END WHERE id = $2 AND deleted_at IS NULL"
+    )
         .bind(ended)
         .bind(event_id)
         .execute(pool)

@@ -326,7 +326,6 @@ async function createEvent() {
 
     await Promise.all([
       shouldLoadPageDirectly ? loadEvents() : Promise.resolve(),
-      loadEventsKpis(),
       loadFeaturedEvent(),
     ])
 
@@ -341,7 +340,6 @@ async function createEvent() {
 }
 
 onMounted(() => {
-  loadEventsKpis()
   loadFeaturedEvent()
   loadEvents()
   window.addEventListener('keydown', handleGlobalKeyDown)

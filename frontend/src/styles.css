@@ -116,8 +116,6 @@ body {
 
 a {
   cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
   text-decoration: none;
 }
 
@@ -555,7 +553,7 @@ a:hover,
 a:focus,
 a:visited,
 button:not(:disabled),
-[role="button"]:not(:disabled) {
+[role="button"]:not([aria-disabled="true"]) {
   cursor: pointer !important;
 }
 

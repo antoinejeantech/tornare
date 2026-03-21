@@ -507,7 +507,8 @@ onBeforeUnmount(() => {
 }
 
 .top-nav-user-menu:hover .top-nav-user-dropdown,
-.top-nav-user-trigger:focus-visible ~ .top-nav-user-dropdown {
+.top-nav-user-trigger:focus-visible ~ .top-nav-user-dropdown,
+.top-nav-user-menu:focus-within .top-nav-user-dropdown {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
