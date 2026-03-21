@@ -350,7 +350,7 @@ pub struct ListEventsQuery {
     pub page: Option<u32>,
     pub per_page: Option<u32>,
     pub limit: Option<u32>,
-    pub include_ended: Option<bool>,
+    pub ended_only: Option<bool>,
 }
 
 #[derive(Serialize)]

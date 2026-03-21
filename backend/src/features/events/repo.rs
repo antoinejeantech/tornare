@@ -91,7 +91,7 @@ pub struct ListVisibleEventsOptions {
     pub sort: EventListSort,
     pub limit: u32,
     pub offset: u32,
-    pub include_ended: bool,
+    pub ended_only: bool,
 }
 
 pub struct ListVisibleEventsResult {
@@ -260,7 +260,9 @@ fn apply_event_list_filters(
     query_builder: &mut QueryBuilder<'_, Postgres>,
     options: &ListVisibleEventsOptions,
 ) {
-    if !options.include_ended {
+    if options.ended_only {
+        query_builder.push(" AND e.is_ended = TRUE");
+    } else {
         query_builder.push(" AND e.is_ended = FALSE");
     }
 
