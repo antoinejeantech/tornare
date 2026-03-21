@@ -45,6 +45,39 @@ const ctx = inject('eventCtx')
       </p>
     </div>
 
+    <div class="event-ended-box" :class="ctx.event.is_ended ? 'is-ended' : 'is-active'">
+      <div class="event-ended-header">
+        <p class="event-ended-kicker">Event status</p>
+        <AppBadge
+          :variant="ctx.event.is_ended ? 'muted' : 'ok'"
+          :label="ctx.event.is_ended ? 'Ended' : 'Active'"
+        />
+      </div>
+
+      <p class="event-ended-copy">
+        {{ ctx.event.is_ended
+          ? 'This event is ended and no longer visible in the public event listings.'
+          : 'This event is active and visible in the public event listings.' }}
+      </p>
+
+      <div class="event-ended-actions">
+        <button
+          :class="ctx.event.is_ended ? 'btn-primary' : 'btn-warning'"
+          :disabled="ctx.endingEvent"
+          type="button"
+          @click="ctx.setEventEnded(!ctx.event.is_ended)"
+        >
+          {{ ctx.endingEvent ? 'Updating...' : (ctx.event.is_ended ? 'Reopen event' : 'End event') }}
+        </button>
+      </div>
+
+      <p class="muted event-ended-note">
+        {{ ctx.event.is_ended
+          ? 'Reopening will make this event visible again in public listings. You can end it again at any time.'
+          : 'Ending the event hides it from public listings. The event page remains accessible by direct link. You can reopen it at any time.' }}
+      </p>
+    </div>
+
     <form class="event-edit-form" @submit.prevent="ctx.saveEventEdit">
       <label>
         Event name
@@ -81,14 +114,6 @@ const ctx = inject('eventCtx')
         </button>
         <button class="btn-secondary" :disabled="ctx.updatingEvent" type="button" @click="ctx.syncEventEditDraftFromEvent">
           Reset changes
-        </button>
-        <button
-          class="btn-warning"
-          :disabled="ctx.endingEvent || ctx.deletingEvent || ctx.updatingEvent"
-          type="button"
-          @click="ctx.setEventEnded(!ctx.event.is_ended)"
-        >
-          {{ ctx.endingEvent ? 'Updating...' : (ctx.event.is_ended ? 'Reopen event' : 'End event') }}
         </button>
         <button class="btn-danger" :disabled="ctx.deletingEvent || ctx.updatingEvent" type="button" @click="ctx.deleteEvent">
           {{ ctx.deletingEvent ? 'Deleting event...' : 'Delete event' }}
@@ -170,6 +195,59 @@ const ctx = inject('eventCtx')
   gap: 0.45rem;
 }
 
+.event-ended-box {
+  border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-2) 28%);
+  border-radius: var(--radius-lg);
+  padding: 0.82rem;
+  background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
+  display: grid;
+  gap: 0.62rem;
+  margin-top: 0.75rem;
+}
+
+.event-ended-box.is-ended {
+  border-color: color-mix(in srgb, var(--line) 72%, #555 28%);
+  background: color-mix(in srgb, var(--card) 56%, #1e1e1e 44%);
+}
+
+.event-ended-box.is-active {
+  border-color: color-mix(in srgb, #e09c2a 22%, var(--line) 78%);
+  background: color-mix(in srgb, var(--card) 72%, #27200a 28%);
+}
+
+.event-ended-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.event-ended-kicker {
+  margin: 0;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--ink-2) 82%, var(--brand-1) 18%);
+}
+
+.event-ended-copy {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-1);
+}
+
+.event-ended-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.event-ended-note {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
 @media (max-width: 720px) {
   .event-registration-header {
     flex-direction: column;
@@ -187,6 +265,16 @@ const ctx = inject('eventCtx')
   }
 
   .event-settings-actions button {
+    width: 100%;
+  }
+
+  .event-ended-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .event-ended-actions,
+  .event-ended-actions button {
     width: 100%;
   }
 }
