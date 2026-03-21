@@ -345,6 +345,7 @@ pub struct Event {
     pub event_type: EventType,
     pub format: EventFormat,
     pub is_featured: bool,
+    pub is_ended: bool,
     pub is_owner: bool,
     pub can_manage: bool,
     pub creator_id: Option<Uuid>,

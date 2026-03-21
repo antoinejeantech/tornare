@@ -144,6 +144,10 @@ pub fn build_app(state: AppState) -> Router {
             put(events::set_event_featured),
         )
         .route(
+            "/api/events/{event_id}/ended",
+            put(events::set_event_ended),
+        )
+        .route(
             "/api/events/{event_id}/signup-requests",
             get(events::list_event_signup_requests),
         )

@@ -182,6 +182,8 @@ function getPlayerCount(event) {
   display: grid;
   justify-items: center;
   gap: 0.35rem;
+  cursor: pointer;
+  user-select: none;
 }
 
 .spotlight-cta-note {
@@ -196,15 +198,13 @@ function getPlayerCount(event) {
 @media (max-width: 980px) {
   .spotlight-event-card {
     padding: 1.2rem;
-    padding-right: 1.2rem;
-    padding-bottom: 1.2rem;
   }
 
   .spotlight-cta-stack {
-    right: 50%;
-    transform: translateX(50%);
-    bottom: 0.78rem;
-    top: auto;
+    position: static;
+    transform: none;
+    justify-self: center;
+    margin-top: 0.5rem;
   }
 }
 </style>

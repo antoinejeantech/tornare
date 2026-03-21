@@ -91,6 +91,7 @@ pub struct ListVisibleEventsOptions {
     pub sort: EventListSort,
     pub limit: u32,
     pub offset: u32,
+    pub ended_only: bool,
 }
 
 pub struct ListVisibleEventsResult {
@@ -110,22 +111,29 @@ pub async fn load_events_kpis(
 ) -> Result<EventsKpiRow, crate::shared::errors::ApiError> {
     let row = sqlx::query(
         "SELECT
-            (SELECT COUNT(*) FROM events) AS total_events,
-            (SELECT COUNT(*) FROM event_players) AS total_signups,
+            (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL) AS total_events,
+            (
+                SELECT COUNT(*)
+                FROM event_players ep
+                JOIN events e ON e.id = ep.event_id
+                WHERE e.deleted_at IS NULL
+            ) AS total_signups,
             (
                 SELECT COUNT(*)
                 FROM events e
                 WHERE e.start_date IS NOT NULL
-                                    AND e.start_date >= NOW()
-                                    AND e.start_date <= NOW() + INTERVAL '7 days'
+                  AND e.deleted_at IS NULL
+                  AND e.start_date >= NOW()
+                  AND e.start_date <= NOW() + INTERVAL '7 days'
             ) AS upcoming_events_this_week,
             (
                 SELECT COUNT(*)
                 FROM events e
                 WHERE e.event_type = 'TOURNEY'
+                  AND e.deleted_at IS NULL
                   AND e.start_date IS NOT NULL
-                                    AND e.start_date >= NOW()
-                                    AND e.start_date <= NOW() + INTERVAL '7 days'
+                  AND e.start_date >= NOW()
+                  AND e.start_date <= NOW() + INTERVAL '7 days'
             ) AS upcoming_tourneys_this_week",
     )
     .fetch_one(pool)
@@ -146,7 +154,9 @@ pub async fn featured_event_id(
     let featured = sqlx::query(
         "SELECT id
          FROM events
-         WHERE is_featured = TRUE
+                 WHERE is_featured = TRUE
+                     AND deleted_at IS NULL
+                     AND is_ended = FALSE
          ORDER BY start_date IS NULL, start_date ASC, id DESC
          LIMIT 1",
     )
@@ -162,7 +172,9 @@ pub async fn featured_event_id(
         "SELECT id
          FROM events
          WHERE start_date IS NOT NULL
-                     AND start_date >= NOW()
+           AND deleted_at IS NULL
+           AND start_date >= NOW()
+           AND is_ended = FALSE
          ORDER BY start_date ASC, id DESC
          LIMIT 1",
     )
@@ -177,6 +189,8 @@ pub async fn featured_event_id(
     let fallback = sqlx::query(
         "SELECT id
          FROM events
+                 WHERE deleted_at IS NULL
+                     AND is_ended = FALSE
          ORDER BY start_date IS NULL, start_date ASC, id DESC
          LIMIT 1",
     )
@@ -257,6 +271,14 @@ fn apply_event_list_filters(
     query_builder: &mut QueryBuilder<'_, Postgres>,
     options: &ListVisibleEventsOptions,
 ) {
+    query_builder.push(" AND e.deleted_at IS NULL");
+
+    if options.ended_only {
+        query_builder.push(" AND e.is_ended = TRUE");
+    } else {
+        query_builder.push(" AND e.is_ended = FALSE");
+    }
+
     if let Some(event_type) = options.event_type.as_ref() {
         query_builder.push(" AND e.event_type = ");
         query_builder.push_bind(event_type.clone());
@@ -304,7 +326,7 @@ pub async fn event_exists(
     pool: &PgPool,
     event_id: Uuid,
 ) -> Result<bool, crate::shared::errors::ApiError> {
-    let row = sqlx::query("SELECT id FROM events WHERE id = $1")
+    let row = sqlx::query("SELECT id FROM events WHERE id = $1 AND deleted_at IS NULL")
         .bind(event_id)
         .fetch_optional(pool)
         .await
@@ -376,7 +398,7 @@ pub async fn update_event_details(
     let updated = sqlx::query(
         "UPDATE events
          SET name = $1, description = $2, start_date = $3, event_type = $4, format = $5, max_players = $6
-         WHERE id = $7
+            WHERE id = $7 AND deleted_at IS NULL
          RETURNING id",
     )
     .bind(name)
@@ -397,7 +419,13 @@ pub async fn delete_event_by_id(
     pool: &PgPool,
     event_id: Uuid,
 ) -> Result<u64, crate::shared::errors::ApiError> {
-    let result = sqlx::query("DELETE FROM events WHERE id = $1")
+    let result = sqlx::query(
+        "UPDATE events
+         SET deleted_at = NOW(),
+             is_featured = FALSE,
+             is_ended = TRUE
+         WHERE id = $1 AND deleted_at IS NULL",
+    )
         .bind(event_id)
         .execute(pool)
         .await
@@ -410,7 +438,7 @@ pub async fn event_max_players(
     pool: &PgPool,
     event_id: Uuid,
 ) -> Result<Option<i32>, crate::shared::errors::ApiError> {
-    let row = sqlx::query("SELECT max_players FROM events WHERE id = $1")
+    let row = sqlx::query("SELECT max_players FROM events WHERE id = $1 AND deleted_at IS NULL")
         .bind(event_id)
         .fetch_optional(pool)
         .await
@@ -423,7 +451,7 @@ pub async fn event_type_for_event(
     pool: &PgPool,
     event_id: Uuid,
 ) -> Result<Option<EventType>, crate::shared::errors::ApiError> {
-    let row = sqlx::query("SELECT event_type FROM events WHERE id = $1")
+    let row = sqlx::query("SELECT event_type FROM events WHERE id = $1 AND deleted_at IS NULL")
         .bind(event_id)
         .fetch_optional(pool)
         .await
@@ -954,7 +982,15 @@ pub async fn is_event_owner(
     let row = sqlx::query(
         "SELECT id
              FROM event_memberships
-             WHERE event_id = $1 AND user_id = $2 AND role = 'owner'",
+             WHERE event_id = $1
+               AND user_id = $2
+               AND role = 'owner'
+               AND EXISTS (
+                   SELECT 1
+                   FROM events e
+                   WHERE e.id = event_memberships.event_id
+                     AND e.deleted_at IS NULL
+               )",
     )
     .bind(event_id)
     .bind(user_id)
@@ -969,7 +1005,7 @@ pub async fn signup_token_for_event(
     pool: &PgPool,
     event_id: Uuid,
 ) -> Result<Option<String>, crate::shared::errors::ApiError> {
-    let row = sqlx::query("SELECT signup_token FROM events WHERE id = $1")
+    let row = sqlx::query("SELECT signup_token FROM events WHERE id = $1 AND deleted_at IS NULL")
         .bind(event_id)
         .fetch_optional(pool)
         .await
@@ -983,7 +1019,7 @@ pub async fn rotate_signup_token_for_event(
     event_id: Uuid,
     signup_token: &str,
 ) -> Result<bool, crate::shared::errors::ApiError> {
-    let result = sqlx::query("UPDATE events SET signup_token = $1 WHERE id = $2")
+    let result = sqlx::query("UPDATE events SET signup_token = $1 WHERE id = $2 AND deleted_at IS NULL")
         .bind(signup_token)
         .bind(event_id)
         .execute(pool)
@@ -1018,7 +1054,8 @@ pub async fn event_signup_info_by_token(
                       AND sr.status = 'pending'
                 ) AS current_signup_requests
              FROM events e
-                         WHERE e.signup_token = $1",
+                         WHERE e.signup_token = $1
+                             AND e.deleted_at IS NULL",
     )
     .bind(signup_token)
     .fetch_optional(pool)
@@ -1070,7 +1107,7 @@ pub async fn set_public_signup_enabled_for_event(
         "UPDATE events
          SET public_signup_enabled = $1,
              signup_token = COALESCE($2, signup_token)
-         WHERE id = $3
+         WHERE id = $3 AND deleted_at IS NULL
          RETURNING id",
     )
     .bind(enabled)
@@ -1091,19 +1128,19 @@ pub async fn set_featured_event_state(
     let mut tx = pool.begin().await.map_err(internal_error)?;
 
     if featured {
-        sqlx::query("UPDATE events SET is_featured = FALSE WHERE is_featured = TRUE AND id <> $1")
+        sqlx::query("UPDATE events SET is_featured = FALSE WHERE is_featured = TRUE AND id <> $1 AND deleted_at IS NULL")
             .bind(event_id)
             .execute(&mut *tx)
             .await
             .map_err(internal_error)?;
 
-        sqlx::query("UPDATE events SET is_featured = TRUE WHERE id = $1")
+        sqlx::query("UPDATE events SET is_featured = TRUE WHERE id = $1 AND deleted_at IS NULL")
             .bind(event_id)
             .execute(&mut *tx)
             .await
             .map_err(internal_error)?;
     } else {
-        sqlx::query("UPDATE events SET is_featured = FALSE WHERE id = $1")
+        sqlx::query("UPDATE events SET is_featured = FALSE WHERE id = $1 AND deleted_at IS NULL")
             .bind(event_id)
             .execute(&mut *tx)
             .await
@@ -1111,6 +1148,23 @@ pub async fn set_featured_event_state(
     }
 
     tx.commit().await.map_err(internal_error)?;
+
+    Ok(())
+}
+
+pub async fn set_event_ended_state(
+    pool: &PgPool,
+    event_id: Uuid,
+    ended: bool,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "UPDATE events SET is_ended = $1, is_featured = CASE WHEN $1 THEN FALSE ELSE is_featured END WHERE id = $2 AND deleted_at IS NULL"
+    )
+        .bind(ended)
+        .bind(event_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
 
     Ok(())
 }
@@ -1325,6 +1379,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
             e.event_type,
             e.format,
             e.is_featured,
+            e.is_ended,
             e.signup_token,
             e.public_signup_enabled,
             e.max_players,
@@ -1333,7 +1388,8 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
          FROM events e
          LEFT JOIN event_memberships m ON m.event_id = e.id AND m.role = 'owner'
          LEFT JOIN users u ON u.id = m.user_id
-         WHERE e.id = $1",
+                 WHERE e.id = $1
+                     AND e.deleted_at IS NULL",
     )
     .bind(event_id)
     .fetch_optional(pool)
@@ -1363,6 +1419,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         event_type,
         format,
         is_featured: row.get("is_featured"),
+        is_ended: row.get("is_ended"),
         is_owner: false,
         can_manage: false,
         creator_id: row.get("creator_id"),

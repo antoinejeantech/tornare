@@ -175,7 +175,7 @@ onBeforeUnmount(() => {
               <p class="top-nav-notifications-empty">No notifications right now.</p>
             </div>
           </div>
-          <div class="top-nav-user-menu" tabindex="0">
+          <div class="top-nav-user-menu">
             <button class="top-nav-user-trigger" type="button">
               <span>{{ authLabel }}</span>
               <span class="material-symbols-rounded" aria-hidden="true">expand_more</span>
@@ -507,6 +507,7 @@ onBeforeUnmount(() => {
 }
 
 .top-nav-user-menu:hover .top-nav-user-dropdown,
+.top-nav-user-trigger:focus-visible ~ .top-nav-user-dropdown,
 .top-nav-user-menu:focus-within .top-nav-user-dropdown {
   opacity: 1;
   transform: translateY(0);

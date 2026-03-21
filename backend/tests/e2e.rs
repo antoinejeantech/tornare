@@ -892,3 +892,183 @@ async fn auto_balance_5v5_enforces_exact_role_shape(pool: PgPool) {
         assert_eq!(count_team_role(event, team_id, "Support"), 2, "team must have exactly 2 supports");
     }
 }
+
+#[sqlx::test]
+async fn deleting_event_soft_deletes_it_and_hides_it(pool: PgPool) {
+    let base = spawn_test_server(pool.clone()).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "softdelete@test.local", "softdelete").await;
+    assert!(owner["access_token"].is_string(), "owner registration failed: {owner}");
+    let token = owner["access_token"].as_str().unwrap().to_string();
+
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "name": "Soft Delete Me",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": false,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "create event should return 200");
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().unwrap().to_string();
+    let event_uuid = Uuid::parse_str(&event_id).expect("event id must be a uuid");
+
+    let res = client
+        .delete(format!("{base}/api/events/{event_id}"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "delete event should return 200");
+
+    let deleted_at: Option<sqlx::types::time::OffsetDateTime> = sqlx::query_scalar(
+        "SELECT deleted_at FROM events WHERE id = $1",
+    )
+    .bind(event_uuid)
+    .fetch_one(&pool)
+    .await
+    .expect("deleted event row should still exist");
+    assert!(deleted_at.is_some(), "soft-deleted event must retain row with deleted_at set");
+
+    let res = client
+        .get(format!("{base}/api/events/{event_id}"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 404, "deleted event should not be directly readable");
+
+    let res = client
+        .get(format!("{base}/api/events?page=1&per_page=12"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "events listing should still succeed");
+    let payload: Value = res.json().await.unwrap();
+    let still_listed = payload["items"]
+        .as_array()
+        .expect("items must be an array")
+        .iter()
+        .any(|item| item["id"].as_str() == Some(event_id.as_str()));
+    assert!(!still_listed, "soft-deleted event must be hidden from listings");
+}
+
+#[sqlx::test]
+async fn ending_event_hides_it_from_default_listing_allows_direct_access_and_can_be_reopened(pool: PgPool) {
+    let base = spawn_test_server(pool.clone()).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "endedvis@test.local", "endedvis").await;
+    assert!(owner["access_token"].is_string(), "owner registration failed: {owner}");
+    let token = owner["access_token"].as_str().unwrap().to_string();
+
+    // Create an event
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "name": "Ended Visibility Test",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": false,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "create event failed");
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().unwrap().to_string();
+
+    // End the event
+    let res = client
+        .put(format!("{base}/api/events/{event_id}/ended"))
+        .bearer_auth(&token)
+        .json(&json!({ "ended": true }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "set-ended should return 200");
+    let updated: Value = res.json().await.unwrap();
+    assert_eq!(updated["is_ended"], json!(true), "event should be marked as ended");
+
+    // Ended event must not appear in the default listing
+    let res = client
+        .get(format!("{base}/api/events?page=1&per_page=12"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "events listing should succeed");
+    let payload: Value = res.json().await.unwrap();
+    let in_default_listing = payload["items"]
+        .as_array()
+        .expect("items must be an array")
+        .iter()
+        .any(|item| item["id"].as_str() == Some(event_id.as_str()));
+    assert!(!in_default_listing, "ended event must not appear in the default (non-ended) listing");
+
+    // Ended event must appear in the ended-only listing
+    let res = client
+        .get(format!("{base}/api/events?page=1&per_page=12&ended_only=true"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "ended-only listing should succeed");
+    let payload: Value = res.json().await.unwrap();
+    let in_ended_listing = payload["items"]
+        .as_array()
+        .expect("items must be an array")
+        .iter()
+        .any(|item| item["id"].as_str() == Some(event_id.as_str()));
+    assert!(in_ended_listing, "ended event must appear in the ended-only listing");
+
+    // Direct access to ended event must still work
+    let res = client
+        .get(format!("{base}/api/events/{event_id}"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "ended event should still be directly accessible");
+
+    // Reopen the event
+    let res = client
+        .put(format!("{base}/api/events/{event_id}/ended"))
+        .bearer_auth(&token)
+        .json(&json!({ "ended": false }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "reopen should return 200");
+    let reopened: Value = res.json().await.unwrap();
+    assert_eq!(reopened["is_ended"], json!(false), "event should be marked as not ended after reopen");
+
+    // Reopened event must appear in the default listing again
+    let res = client
+        .get(format!("{base}/api/events?page=1&per_page=12"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "events listing should succeed after reopen");
+    let payload: Value = res.json().await.unwrap();
+    let back_in_listing = payload["items"]
+        .as_array()
+        .expect("items must be an array")
+        .iter()
+        .any(|item| item["id"].as_str() == Some(event_id.as_str()));
+    assert!(back_in_listing, "reopened event must reappear in the default listing");
+}
+

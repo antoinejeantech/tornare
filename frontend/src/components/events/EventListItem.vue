@@ -46,6 +46,10 @@ const creatorProfileRoute = computed(() => {
 })
 
 const statusLabel = computed(() => {
+  if (props.event?.is_ended) {
+    return 'Ended'
+  }
+
   const maxPlayers = Number(props.event?.max_players) || 0
   const players = playerCount.value
   const startAt = getDateTimestamp(props.event?.start_date)
@@ -69,6 +73,7 @@ const statusLabel = computed(() => {
 })
 
 const statusVariant = computed(() => {
+  if (statusLabel.value === 'Ended') return 'muted'
   if (statusLabel.value === 'Full') return 'danger'
   if (statusLabel.value === 'Ongoing') return 'info'
   return 'ok'
@@ -78,6 +83,7 @@ const statusVariant = computed(() => {
 
 <template>
   <li class="event-list-item">
+    <RouterLink class="event-card-overlay" :to="to" aria-label="Open event" tabindex="-1" />
     <div class="event-list-main">
       <span class="event-list-title-wrap">
         <span class="material-symbols-rounded event-list-trophy" aria-hidden="true">trophy</span>
@@ -91,6 +97,13 @@ const statusVariant = computed(() => {
               {{ event.creator_name || 'Unknown' }}
             </RouterLink>
             <span v-else>{{ event.creator_name || 'Unknown' }}</span>
+          </span>
+          <span class="event-mobile-meta">
+            <span>{{ event.event_type || 'PUG' }} ({{ eventFormat }})</span>
+            <span aria-hidden="true"> · </span>
+            <span>{{ playerCount }}/{{ maxPlayers || event.max_players }}</span>
+            <span aria-hidden="true"> · </span>
+            <span>{{ startDateDisplay }} {{ startTimeDisplay }}</span>
           </span>
         </span>
       </span>
@@ -124,23 +137,46 @@ const statusVariant = computed(() => {
 
 <style scoped>
 .event-list-item {
+  position: relative;
   border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
   background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
   border-radius: var(--radius-md);
   padding: 1.02rem 0.95rem;
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(0, 0.85fr) minmax(0, 0.95fr) minmax(0, 1.3fr) auto;
+  grid-template-columns: minmax(0, 1.9fr) minmax(136px, 160px) minmax(96px, 112px) minmax(192px, 224px) 176px;
   align-items: center;
   gap: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.event-list-item:hover {
+  background: color-mix(in srgb, var(--card) 72%, var(--brand-2) 28%);
+  border-color: color-mix(in srgb, var(--line-strong) 42%, var(--brand-1) 28%);
+}
+
+.event-card-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  border-radius: inherit;
+  cursor: pointer !important;
 }
 
 .event-list-main {
   display: grid;
   gap: 0;
   min-width: 0;
+  cursor: pointer;
+  user-select: none;
 }
 
 .event-list-title-link {
+  position: relative;
+  z-index: 2;
   text-decoration: none;
   min-width: 0;
 }
@@ -159,10 +195,29 @@ const statusVariant = computed(() => {
   text-overflow: ellipsis;
 }
 
+.event-mobile-meta {
+  display: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 0.1rem;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  line-height: 1.35;
+  margin-top: 0.18rem;
+}
+
 .event-creator-link {
+  position: relative;
+  z-index: 2;
   margin-left: 0.22rem;
   color: var(--brand-1);
   text-decoration: none;
+  transition: color 0.14s ease;
+}
+
+.event-creator-link:hover {
+  color: color-mix(in srgb, var(--brand-1) 80%, white 20%);
+  text-decoration: underline;
 }
 
 .event-list-title-link:hover .event-list-title {
@@ -201,6 +256,7 @@ const statusVariant = computed(() => {
   width: 100%;
   padding: 0.16rem 0.32rem;
   border-radius: var(--radius-sm);
+  text-align: center;
 }
 
 .event-col-label {
@@ -214,14 +270,16 @@ const statusVariant = computed(() => {
   font-size: 0.82rem;
   line-height: 1;
   color: color-mix(in srgb, var(--brand-1) 86%, #ffe08f 14%);
+  white-space: nowrap;
 }
 
 .event-players-col {
   display: inline-flex;
   align-items: center;
+  justify-self: center;
   gap: 0.2rem;
   min-width: 0;
-  width: 100%;
+  width: max-content;
   justify-content: center;
   padding: 0.2rem 0.36rem;
   border-radius: var(--radius-sm);
@@ -241,6 +299,7 @@ const statusVariant = computed(() => {
   gap: 0.16rem;
   min-width: 0;
   width: 100%;
+  text-align: center;
 }
 
 .event-date-value {
@@ -267,10 +326,20 @@ const statusVariant = computed(() => {
   justify-content: flex-end;
   gap: 0.46rem;
   min-width: 0;
+  width: 100%;
   flex-shrink: 0;
 }
 
+.event-actions-col :deep(.app-badge) {
+  min-width: 82px;
+}
+
 .event-details-btn {
+  position: relative;
+  z-index: 2;
+  min-width: 78px;
+  box-sizing: border-box;
+  text-align: center;
   border: 1px solid color-mix(in srgb, var(--line-strong) 82%, white 18%);
   background: color-mix(in srgb, var(--grey-900) 74%, black 26%);
   color: white;
@@ -291,19 +360,57 @@ const statusVariant = computed(() => {
 
 @media (max-width: 920px) {
   .event-list-item {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    align-items: start;
+    gap: 0.5rem 0.75rem;
+    padding: 0.82rem 0.88rem;
   }
 
-  .event-format-col {
+  .event-list-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  /* Creator line hidden on mobile — meta line takes its place */
+  .event-list-meta-row {
     display: none;
   }
 
+  /* Compact meta line: format · players · date */
+  .event-mobile-meta {
+    display: flex;
+  }
+
+  /* Desktop-only columns */
+  .event-format-col,
+  .event-players-col,
   .event-date-col {
     display: none;
   }
 
   .event-actions-col {
-    min-width: 98px;
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-end;
+    gap: 0.3rem;
+  }
+
+  .event-actions-col :deep(.app-badge) {
+    min-width: auto;
+  }
+
+  .event-details-btn {
+    display: none;
+  }
+
+  .event-list-title {
+    white-space: normal;
+    overflow: visible;
   }
 }
 </style>

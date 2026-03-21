@@ -331,6 +331,11 @@ pub struct SetEventFeaturedInput {
     pub featured: bool,
 }
 
+#[derive(Deserialize)]
+pub struct SetEventEndedInput {
+    pub ended: bool,
+}
+
 // ---------------------------------------------------------------------------
 // Query / response types
 // ---------------------------------------------------------------------------
@@ -345,6 +350,7 @@ pub struct ListEventsQuery {
     pub page: Option<u32>,
     pub per_page: Option<u32>,
     pub limit: Option<u32>,
+    pub ended_only: Option<bool>,
 }
 
 #[derive(Serialize)]

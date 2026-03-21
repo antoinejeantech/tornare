@@ -24,6 +24,8 @@ const loadingEvents = ref(false)
 const creatingEvent = ref(false)
 const activeOwnerFilter = ref('all')
 const activeTypeFilter = ref('all')
+const showEndedEvents = ref(false)
+const showEventsKpis = false
 const eventSearchQuery = ref('')
 const activeSort = ref('soonest')
 const showCreateModal = ref(false)
@@ -31,7 +33,8 @@ const searchDebounceTimer = ref(null)
 let latestLoadRequestId = 0
 let eventsRequestController = null
 const SEARCH_DEBOUNCE_MS = 350
-const PAGE_SIZE = 12
+const pageSize = ref(12)
+const pageSizeOptions = [12, 24, 48]
 const currentPage = ref(1)
 const totalEventsAvailable = ref(0)
 
@@ -80,8 +83,10 @@ const totalEventsCount = computed(() => Number(kpis.value.total_events) || 0)
 
 const totalPages = computed(() => {
   const total = Number(totalEventsAvailable.value) || 0
-  return Math.max(1, Math.ceil(total / PAGE_SIZE))
+  return Math.max(1, Math.ceil(total / pageSize.value))
 })
+
+const visibleEventsCount = computed(() => events.value.length)
 
 const totalPlayersSignedUp = computed(() => Number(kpis.value.total_signups) || 0)
 const weeklyTourneyCount = computed(() => Number(kpis.value.upcoming_tourneys_this_week) || 0)
@@ -91,7 +96,8 @@ const hasActiveFilters = computed(() => {
     activeOwnerFilter.value !== 'all' ||
     activeTypeFilter.value !== 'all' ||
     normalizedSearchQuery.value.length > 0 ||
-    activeSort.value !== 'soonest'
+    activeSort.value !== 'soonest' ||
+    showEndedEvents.value
   )
 })
 
@@ -125,6 +131,7 @@ function clearFilters() {
   activeTypeFilter.value = 'all'
   eventSearchQuery.value = ''
   activeSort.value = 'soonest'
+  showEndedEvents.value = false
 }
 
 function resetCreateForm() {
@@ -180,8 +187,11 @@ async function loadEvents() {
     if (activeSort.value !== 'soonest') {
       params.set('sort', activeSort.value)
     }
+    if (showEndedEvents.value) {
+      params.set('ended_only', 'true')
+    }
     params.set('page', String(currentPage.value))
-    params.set('per_page', String(PAGE_SIZE))
+    params.set('per_page', String(pageSize.value))
 
     const query = params.toString()
     const path = query ? `/api/events?${query}` : '/api/events'
@@ -316,7 +326,6 @@ async function createEvent() {
 
     await Promise.all([
       shouldLoadPageDirectly ? loadEvents() : Promise.resolve(),
-      loadEventsKpis(),
       loadFeaturedEvent(),
     ])
 
@@ -331,13 +340,17 @@ async function createEvent() {
 }
 
 onMounted(() => {
-  loadEventsKpis()
   loadFeaturedEvent()
   loadEvents()
   window.addEventListener('keydown', handleGlobalKeyDown)
 })
 
-watch([activeOwnerFilter, activeTypeFilter, activeSort], () => {
+watch([activeOwnerFilter, activeTypeFilter, activeSort, showEndedEvents], () => {
+  currentPage.value = 1
+  loadEvents()
+})
+
+watch(pageSize, () => {
   currentPage.value = 1
   loadEvents()
 })
@@ -376,7 +389,7 @@ onBeforeUnmount(() => {
       badge-label="Featured Event"
     />
 
-    <section class="events-stats-grid reveal-block reveal-2" aria-label="Event highlights">
+    <section v-if="showEventsKpis" class="events-stats-grid reveal-block reveal-2" aria-label="Event highlights">
       <article class="events-stat-card">
         <span class="material-symbols-rounded events-stat-icon" aria-hidden="true">space_dashboard</span>
         <div class="events-stat-copy">
@@ -405,7 +418,7 @@ onBeforeUnmount(() => {
 
     <section class="events-header reveal-block reveal-2">
       <div class="events-toolbar-title-wrap">
-        <h2>UPCOMING EVENTS</h2>
+        <h2>{{ showEndedEvents ? 'PAST EVENTS' : 'UPCOMING EVENTS' }}</h2>
         <p class="muted">Browse public competitive lobbies and claim your spot on the ladder.</p>
       </div>
       <ActionCtaButton
@@ -474,14 +487,36 @@ onBeforeUnmount(() => {
         </div>
 
         <label class="events-sort">
-          <span class="events-sort-label">Sort</span>
-          <select v-model="activeSort">
-            <option value="soonest">Soonest</option>
-            <option value="newest">Latest</option>
-            <option value="players">Most players</option>
-            <option value="name">A-Z</option>
-          </select>
+          <span class="events-sort-copy">
+            <span class="events-sort-label">Sort</span>
+          </span>
+          <span class="events-sort-field">
+            <select v-model="activeSort" aria-label="Sort events">
+              <option value="soonest">Soonest</option>
+              <option value="newest">Latest</option>
+              <option value="players">Most players</option>
+              <option value="name">A-Z</option>
+            </select>
+            <span class="material-symbols-rounded events-sort-caret" aria-hidden="true">expand_more</span>
+          </span>
         </label>
+
+        <button
+          type="button"
+          class="events-ended-toggle"
+          :class="{ active: showEndedEvents }"
+          role="switch"
+          :aria-checked="showEndedEvents"
+          @click="showEndedEvents = !showEndedEvents"
+        >
+          <span class="events-ended-toggle-copy">
+            <span class="events-ended-toggle-label">Past events</span>
+            <span class="events-ended-toggle-state">{{ showEndedEvents ? 'On' : 'Off' }}</span>
+          </span>
+          <span class="events-ended-toggle-switch" aria-hidden="true">
+            <span class="events-ended-toggle-thumb" />
+          </span>
+        </button>
 
         <button
           type="button"
@@ -519,10 +554,47 @@ onBeforeUnmount(() => {
         />
       </ul>
 
-      <div v-if="totalPages > 1" class="events-pagination" role="navigation" aria-label="Events pagination">
-        <button type="button" class="btn-secondary" :disabled="currentPage <= 1" @click="goToPrevPage">Previous</button>
-        <p class="events-pagination-meta muted">Page {{ currentPage }} of {{ totalPages }}</p>
-        <button type="button" class="btn-secondary" :disabled="currentPage >= totalPages" @click="goToNextPage">Next</button>
+      <div class="events-pagination" role="navigation" aria-label="Events pagination">
+        <p class="events-pagination-meta muted">
+          Page {{ currentPage }} of {{ totalPages }}
+          <span class="events-pagination-divider" aria-hidden="true">•</span>
+          {{ visibleEventsCount }} shown
+          <span class="events-pagination-divider" aria-hidden="true">•</span>
+          {{ totalEventsAvailable }} total
+        </p>
+
+        <label class="events-pagination-size">
+          <span class="events-pagination-size-label">Results per page</span>
+          <span class="events-pagination-size-field">
+            <select v-model.number="pageSize" aria-label="Results per page">
+              <option v-for="option in pageSizeOptions" :key="`page-size-${option}`" :value="option">
+                {{ option }}
+              </option>
+            </select>
+            <span class="material-symbols-rounded events-pagination-size-caret" aria-hidden="true">expand_more</span>
+          </span>
+        </label>
+
+        <div class="events-pagination-actions">
+          <button
+            type="button"
+            class="events-pagination-nav events-pagination-nav--prev"
+            :disabled="currentPage <= 1"
+            @click="goToPrevPage"
+          >
+            <span class="material-symbols-rounded" aria-hidden="true">arrow_back</span>
+            <span>Previous</span>
+          </button>
+          <button
+            type="button"
+            class="events-pagination-nav events-pagination-nav--next"
+            :disabled="currentPage >= totalPages"
+            @click="goToNextPage"
+          >
+            <span>Next</span>
+            <span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -651,8 +723,9 @@ onBeforeUnmount(() => {
 }
 
 .events-filter-row {
+  --events-toolbar-control-height: 2.35rem;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0.55rem;
   flex-wrap: wrap;
 }
@@ -708,15 +781,18 @@ onBeforeUnmount(() => {
   flex: 1;
   display: inline-flex;
   align-items: center;
+  min-height: var(--events-toolbar-control-height);
   gap: 0.35rem;
   border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   background: var(--surface-card-bg);
-  padding: 0.28rem 0.55rem;
+  box-sizing: border-box;
+  padding: 0 0.55rem;
 }
 
 .events-search input {
   flex: 1;
+  height: 100%;
   border: 0;
   background: transparent;
   color: var(--ink-1);
@@ -732,20 +808,29 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.42rem;
   width: fit-content;
+  min-height: var(--events-toolbar-control-height);
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   border-radius: var(--radius-pill);
-  padding: 0.22rem;
+  box-sizing: border-box;
+  padding: 0.18rem;
   background: var(--surface-card-bg);
+  position: relative;
+  z-index: 1;
 }
 
 .events-subnav-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: calc(var(--events-toolbar-control-height) - 0.36rem);
   border: 0;
   background: transparent;
   color: var(--ink-2);
   font-weight: 620;
   padding: 0.34rem 0.72rem;
   border-radius: var(--radius-pill);
+  line-height: 1;
   cursor: pointer;
+  user-select: none;
   transition: background 0.16s ease, color 0.16s ease;
 }
 
@@ -763,24 +848,59 @@ onBeforeUnmount(() => {
 .events-sort {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.1rem 0.45rem;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-height: var(--events-toolbar-control-height);
+  padding: 0 0.38rem 0 0.72rem;
   border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
   border-radius: var(--radius-pill);
   background: var(--surface-card-bg);
+  box-sizing: border-box;
+}
+
+.events-sort-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
 }
 
 .events-sort-label {
-  font-size: 0.78rem;
-  color: var(--ink-2);
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
   font-weight: 700;
 }
 
+.events-sort-field {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
 .events-sort select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: calc(var(--events-toolbar-control-height) - 2px);
   border: 0;
   background: transparent;
   color: var(--ink-1);
+  font-family: inherit;
   font-weight: 700;
+  line-height: 1;
+  padding: 0 1.4rem 0 0;
+  margin: 0;
+  min-width: 1.25rem;
+  cursor: pointer;
+}
+
+.events-sort-caret {
+  position: absolute;
+  right: 0;
+  pointer-events: none;
+  font-size: 1rem;
+  color: var(--ink-muted);
 }
 
 .events-clear-link {
@@ -795,6 +915,99 @@ onBeforeUnmount(() => {
   padding: 0.2rem 0.1rem;
   cursor: pointer;
   transition: color 0.16s ease, transform 0.16s ease;
+}
+
+.events-ended-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-height: var(--events-toolbar-control-height);
+  padding: 0 0.38rem 0 0.72rem;
+  border: 1px solid color-mix(in srgb, var(--line) 86%, var(--brand-1) 14%);
+  border-radius: var(--radius-pill);
+  background: var(--surface-card-bg);
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+  user-select: none;
+}
+
+.events-ended-toggle-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.events-ended-toggle-label {
+  color: var(--ink-1);
+}
+
+.events-ended-toggle-state {
+  display: inline-block;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  min-width: 3ch;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.events-ended-toggle-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--line) 72%, var(--surface-card-bg) 28%);
+  transition: background 0.16s ease;
+}
+
+.events-ended-toggle-thumb {
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, white 88%, var(--card) 12%);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.24);
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+
+.events-ended-toggle:hover {
+  border-color: color-mix(in srgb, var(--brand-2) 48%, var(--line) 52%);
+  color: var(--ink-1);
+}
+
+.events-ended-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-2) 18%, transparent 82%);
+}
+
+.events-ended-toggle.active {
+  border-color: color-mix(in srgb, var(--brand-1) 52%, var(--line) 48%);
+  background: var(--surface-card-bg);
+  color: var(--ink-2);
+}
+
+.events-ended-toggle.active .events-ended-toggle-state {
+  color: color-mix(in srgb, var(--brand-1) 72%, white 28%);
+}
+
+.events-ended-toggle.active .events-ended-toggle-switch {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--brand-1) 88%, white 12%), var(--brand-1));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand-1) 82%, black 18%);
+}
+
+.events-ended-toggle.active .events-ended-toggle-thumb {
+  transform: translateX(0.9rem);
+  background: white;
 }
 
 .events-clear-link .material-symbols-rounded {
@@ -833,14 +1046,103 @@ onBeforeUnmount(() => {
   margin-top: 0.9rem;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.55rem;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
 }
 
 .events-pagination-meta {
   margin: 0;
   min-width: 7.2rem;
-  text-align: center;
+}
+
+.events-pagination-divider {
+  margin: 0 0.45rem;
+}
+
+.events-pagination-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.events-pagination-size-label {
+  font-size: 0.8rem;
+}
+
+.events-pagination-size-field {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.35rem;
+  padding: 0 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--line) 76%, var(--brand-1) 24%);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-card-bg) 82%, var(--brand-1) 18%);
+}
+
+.events-pagination-size select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-height: 2.1rem;
+  border: 0;
+  background: transparent;
+  color: var(--ink-1);
+  font-family: inherit;
+  font-weight: 700;
+  padding: 0 1.1rem 0 0;
+  cursor: pointer;
+}
+
+.events-pagination-size-caret {
+  position: absolute;
+  right: 0.75rem;
+  pointer-events: none;
+  font-size: 1rem;
+  color: var(--ink-muted);
+}
+
+.events-pagination-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.events-pagination-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  min-height: 2.35rem;
+  padding: 0 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--line) 76%, var(--brand-1) 24%);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-card-bg) 82%, var(--brand-1) 18%);
+  color: var(--ink-1);
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
+}
+
+.events-pagination-nav .material-symbols-rounded {
+  font-size: 1rem;
+}
+
+.events-pagination-nav:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--brand-2) 58%, var(--line) 42%);
+  background: color-mix(in srgb, var(--surface-card-bg) 58%, var(--brand-2) 42%);
+}
+
+.events-pagination-nav:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .home-events-list {

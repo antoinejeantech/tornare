@@ -16,6 +16,7 @@ import OverviewSection from '../components/event/OverviewSection.vue'
 import SignupRequestsSection from '../components/event/SignupRequestsSection.vue'
 import SettingsSection from '../components/event/SettingsSection.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
+import AppBadge from '../components/ui/AppBadge.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -51,6 +52,7 @@ const signupToken = ref('')
 const rotatingSignupLink = ref(false)
 const updatingSignupVisibility = ref(false)
 const updatingFeaturedEvent = ref(false)
+const endingEvent = ref(false)
 const lastBalanceSummary = ref('')
 const lastBalancedFingerprint = ref(null)
 
@@ -487,6 +489,40 @@ async function setFeaturedEvent(featured) {
     setError(err instanceof Error ? err.message : 'Failed to update featured event')
   } finally {
     updatingFeaturedEvent.value = false
+  }
+}
+
+async function setEventEnded(ended) {
+  if (!ensureOwnerAction()) {
+    return
+  }
+
+  if (!eventId.value || endingEvent.value) {
+    return
+  }
+
+  if (ended) {
+    const confirmed = await confirm.ask({
+      title: 'End this event?',
+      message: 'The event will be marked as ended and hidden from the public event listings. You can reopen it at any time from the settings.',
+      confirmText: 'End event',
+      tone: 'warning',
+    })
+    if (!confirmed) {
+      return
+    }
+  }
+
+  endingEvent.value = true
+  try {
+    const updatedEvent = await eventStore.setEventEnded(eventId.value, ended)
+    event.value = updatedEvent
+    hydrateSelections()
+    setNotice(ended ? 'Event ended. It is now hidden from public listings.' : 'Event reopened and visible in listings again.')
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to update event status')
+  } finally {
+    endingEvent.value = false
   }
 }
 
@@ -1501,6 +1537,7 @@ provide('eventCtx', proxyRefs({
   rotatingSignupLink,
   updatingSignupVisibility,
   updatingEvent,
+  endingEvent,
   signupShareUrl,
   signupToken,
   lastBalanceSummary,
@@ -1537,6 +1574,7 @@ provide('eventCtx', proxyRefs({
   setSignupVisibility,
   syncEventEditDraftFromEvent,
   saveEventEdit,
+  setEventEnded,
   acceptSignupRequest,
   declineSignupRequest,
   getRankIcon,
@@ -1602,7 +1640,10 @@ provide('eventCtx', proxyRefs({
                 <span class="material-symbols-rounded event-logo-icon" aria-hidden="true">trophy</span>
               </span>
               <div class="event-title-row">
-                <h2>{{ event.name }}</h2>
+                <div class="event-title-name-row">
+                  <h2>{{ event.name }}</h2>
+                  <AppBadge v-if="event.is_ended" variant="muted" label="Ended" />
+                </div>
                 <div v-if="eventStartsInLabel || eventStartDateTimeLabel" class="event-starts-in muted">
                   <span v-if="eventStartsInLabel" class="event-start-meta">
                     <span class="material-symbols-rounded" aria-hidden="true">timer</span>
@@ -1626,7 +1667,7 @@ provide('eventCtx', proxyRefs({
               >
                 {{ updatingFeaturedEvent ? 'Updating...' : (event.is_featured ? 'Remove spotlight' : 'Set as spotlight') }}
               </button>
-              <ActionCtaButton v-if="headerJoinRoute" :to="headerJoinRoute">Join event</ActionCtaButton>
+              <ActionCtaButton v-if="headerJoinRoute && !event.is_ended" :to="headerJoinRoute">Join event</ActionCtaButton>
             </div>
           </div>
 
@@ -1682,6 +1723,13 @@ provide('eventCtx', proxyRefs({
 .event-header-row h2 {
   margin: 0;
   text-transform: capitalize;
+}
+
+.event-title-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .event-title-stack {

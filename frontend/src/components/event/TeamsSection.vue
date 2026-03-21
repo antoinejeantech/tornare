@@ -689,8 +689,8 @@ function formatTeamModified(team) {
                       <span class="team-player-name">{{ player.name }}</span>
                       <span class="team-player-rank">
                         Rank:
-                        <span class="team-player-rank-value" :class="teamRankTierClass(player.rank)">
-                          {{ player.rank || 'Unranked' }}
+                        <span class="team-player-rank-value" :class="teamRankTierClass(player.assigned_rank || player.rank)">
+                          {{ player.assigned_rank || player.rank || 'Unranked' }}
                         </span>
                       </span>
                     </span>
