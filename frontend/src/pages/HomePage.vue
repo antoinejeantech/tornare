@@ -1085,4 +1085,32 @@ onMounted(async () => {
     gap: 0.4rem;
   }
 }
+
+@media (max-width: 640px) {
+  /* Hero: hide art on phones so the action buttons are fully visible */
+  .home-hero {
+    padding-bottom: var(--space-3);
+    padding-right: var(--space-2);
+  }
+
+  .home-hero-art {
+    display: none;
+  }
+
+  /* Activity table: drop Format column and hide the progress bar */
+  .home-activity-table-head,
+  .home-activity-row {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 2fr) minmax(0, 0.75fr) minmax(0, 0.8fr);
+    gap: 0.36rem;
+  }
+
+  .home-activity-table-head > span:nth-child(3),
+  .home-activity-format {
+    display: none;
+  }
+
+  .home-activity-players-bar {
+    display: none;
+  }
+}
 </style>
