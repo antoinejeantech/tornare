@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, inject } from 'vue'
+import { computed, inject, ref } from 'vue'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
+import ActionCtaButton from '../ui/ActionCtaButton.vue'
 import type { EventCtxType } from '../../lib/event-inject'
 import type { EventPlayer, OverwatchRole, RoleRank } from '../../types'
 
@@ -98,6 +99,49 @@ function removeEditRole(index: number) {
   }
 }
 
+// ── Add-player form multi-role helpers ──
+const usedNewRoles = computed(() => (ctx.newPlayerRoles || []).map(rp => rp.role))
+
+function isNewRoleTaken(role: string, currentIndex: number): boolean {
+  return usedNewRoles.value.some((r, i) => i !== currentIndex && r === role)
+}
+
+const availableNewRoles = computed(() => {
+  const all: OverwatchRole[] = ['Tank', 'DPS', 'Support']
+  return all.filter(r => !usedNewRoles.value.includes(r))
+})
+
+function addNewRole() {
+  if ((ctx.newPlayerRoles?.length || 0) < 3 && availableNewRoles.value.length > 0) {
+    ctx.newPlayerRoles.push({ role: availableNewRoles.value[0], rank: 'Unranked' } as RoleRank)
+  }
+}
+
+function removeNewRole(index: number) {
+  if (ctx.newPlayerRoles?.length > 1) {
+    ctx.newPlayerRoles.splice(index, 1)
+  }
+}
+
+const showAddPlayerForm = ref(false)
+
+function openAddPlayerModal() {
+  ctx.newPlayerName = ''
+  ctx.newPlayerRoles = [{ role: 'DPS', rank: 'Unranked' }]
+  showAddPlayerForm.value = true
+}
+
+function closeAddPlayerModal() {
+  showAddPlayerForm.value = false
+}
+
+async function submitAddPlayer() {
+  await ctx.addPlayer()
+  if (!ctx.newPlayerName) {
+    closeAddPlayerModal()
+  }
+}
+
 const canSavePlayerEdit = computed(() => {
   if (!ctx.editPlayerName?.trim()) return false
   const roles = ctx.editPlayerRoles || []
@@ -109,34 +153,116 @@ const canSavePlayerEdit = computed(() => {
 <template>
   <section>
     <EventSectionHeader icon="groups" title="Roster Management">
-      <p class="section-total muted">
-        <span class="section-total-value">{{ padRosterCount(ctx.event?.players?.length || 0) }}/{{ padRosterCount(ctx.event?.max_players || 0) }}</span>
-        <span>players</span>
-      </p>
+      <div class="header-right">
+        <p class="section-total muted">
+          <span class="section-total-value">{{ padRosterCount(ctx.event?.players?.length || 0) }}/{{ padRosterCount(ctx.event?.max_players || 0) }}</span>
+          <span>players</span>
+        </p>
+        <ActionCtaButton
+          v-if="ctx.canManageEvent"
+          class="cta-add-player"
+          type="button"
+          :disabled="ctx.eventIsFull"
+          :title="ctx.eventIsFull ? 'Roster is full — increase max players to add more' : ''"
+          @click="openAddPlayerModal"
+        >
+          <span class="material-symbols-rounded" aria-hidden="true">add</span>
+          Add player
+        </ActionCtaButton>
+      </div>
     </EventSectionHeader>
-    <form v-if="ctx.canManageEvent" class="player-form" @submit.prevent="ctx.addPlayer">
-      <label class="player-form-field">
-        Player name
-        <input v-model="ctx.newPlayerName" placeholder="Player123" />
-      </label>
-      <label class="player-form-field">
-        Role
-        <select v-model="ctx.newPlayerRole">
-          <option>Tank</option>
-          <option>DPS</option>
-          <option>Support</option>
-        </select>
-      </label>
-      <label class="player-form-field">
-        Rank
-        <select v-model="ctx.newPlayerRank">
-          <option v-for="rank in ctx.overwatchRanks" :key="rank" :value="rank">{{ rank }}</option>
-        </select>
-      </label>
-      <button type="submit" class="btn-primary player-form-submit" :disabled="!ctx.canAddPlayer || ctx.addingPlayer || ctx.eventIsFull">
-        {{ ctx.addingPlayer ? 'Adding...' : 'Add player' }}
-      </button>
-    </form>
+
+    <Teleport to="body">
+      <div
+        v-if="ctx.canManageEvent && showAddPlayerForm"
+        class="player-modal-backdrop"
+        @click.self="closeAddPlayerModal"
+      >
+        <section class="player-modal" role="dialog" aria-modal="true" aria-label="Add player">
+          <div class="player-modal-header">
+            <h4>Add player</h4>
+            <button class="btn-secondary icon-btn" title="Close" @click="closeAddPlayerModal">
+              <span class="material-symbols-rounded" aria-hidden="true">close</span>
+              <span class="sr-only">Close</span>
+            </button>
+          </div>
+
+          <form class="player-modal-form" @submit.prevent="submitAddPlayer">
+            <label>
+              Player name
+              <input v-model="ctx.newPlayerName" placeholder="Player123" autofocus />
+            </label>
+
+            <div class="modal-roles-section">
+              <span class="modal-roles-label">ROLE PREFERENCES</span>
+              <ul class="modal-roles-list">
+                <li
+                  v-for="(entry, index) in ctx.newPlayerRoles"
+                  :key="index"
+                  class="modal-role-row"
+                >
+                  <label class="modal-role-field">
+                    <span class="modal-role-field-lbl">
+                      Role
+                      <span v-if="index === 0" class="modal-role-pref-hint">preferred</span>
+                    </span>
+                    <select v-model="entry.role">
+                      <option value="" disabled hidden></option>
+                      <option value="Tank" :disabled="isNewRoleTaken('Tank', index)">Tank</option>
+                      <option value="DPS" :disabled="isNewRoleTaken('DPS', index)">DPS</option>
+                      <option value="Support" :disabled="isNewRoleTaken('Support', index)">Support</option>
+                    </select>
+                  </label>
+                  <label class="modal-role-field">
+                    Rank
+                    <select v-model="entry.rank">
+                      <option value="" disabled hidden></option>
+                      <option v-for="rank in ctx.overwatchRanks" :key="rank" :value="rank">{{ rank }}</option>
+                    </select>
+                  </label>
+                  <div class="modal-role-remove-col">
+                    <span class="modal-role-remove-spacer" aria-hidden="true">Role</span>
+                    <button
+                      v-if="ctx.newPlayerRoles.length > 1"
+                      type="button"
+                      class="modal-role-remove"
+                      :aria-label="`Remove role preference ${index + 1}`"
+                      @click="removeNewRole(index)"
+                    >
+                      <span class="material-symbols-rounded" aria-hidden="true">delete</span>
+                    </button>
+                  </div>
+                </li>
+              </ul>
+              <button
+                v-if="ctx.newPlayerRoles.length < 3 && availableNewRoles.length > 0"
+                type="button"
+                class="modal-add-role"
+                @click="addNewRole"
+              >
+                <span class="material-symbols-rounded" aria-hidden="true">add</span>
+                Add role
+              </button>
+            </div>
+
+            <div class="player-modal-actions">
+              <button class="btn-secondary" type="button" @click="closeAddPlayerModal">
+                <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                Cancel
+              </button>
+              <button
+                class="btn-primary"
+                type="submit"
+                :disabled="!ctx.canAddPlayer || ctx.addingPlayer || ctx.eventIsFull"
+              >
+                <span class="material-symbols-rounded" aria-hidden="true">{{ ctx.addingPlayer ? 'hourglass_empty' : 'person_add' }}</span>
+                {{ ctx.addingPlayer ? 'Adding...' : 'Add player' }}
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+    </Teleport>
 
     <p v-if="(ctx.event?.players.length ?? 0) === 0" class="muted">Add players before creating matchups.</p>
     <ul v-else class="roster-list">
@@ -259,32 +385,17 @@ const canSavePlayerEdit = computed(() => {
   color: color-mix(in srgb, white 92%, var(--ink-1) 8%);
 }
 
-.player-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 0.9fr) minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 0.62rem;
-  margin: 0 0 1.35rem;
-  padding: 1.02rem 1.08rem;
-  border: 1px solid var(--surface-card-border);
-  border-radius: var(--radius-md);
-  background: var(--surface-card-bg);
-  box-shadow: none;
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
-.player-form-field {
-  display: grid;
-  gap: 0.28rem;
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.player-form-submit {
-  white-space: nowrap;
-  min-height: 2.3rem;
+.cta-add-player {
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  padding: 0.38rem 0.8rem;
+  min-height: unset;
 }
 
 .roster-list {
@@ -305,15 +416,6 @@ const canSavePlayerEdit = computed(() => {
 }
 
 @media (max-width: 1200px) {
-  .player-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: stretch;
-  }
-
-  .player-form-submit {
-    width: 100%;
-  }
-
   .roster-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

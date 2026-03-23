@@ -12,13 +12,17 @@ export function useEventPlayers({
   const newPlayerName = ref('')
   const newPlayerRole = ref('DPS')
   const newPlayerRank = ref('Unranked')
+  const newPlayerRoles = ref<RoleRank[]>([{ role: 'DPS', rank: 'Unranked' }])
   const editingPlayerId = ref<string | number | null>(null)
   const editPlayerName = ref('')
   const editPlayerRole = ref('DPS')
   const editPlayerRank = ref('Unranked')
   const editPlayerRoles = ref<RoleRank[]>([{ role: 'DPS', rank: 'Unranked' }])
 
-  const canAddPlayer = computed(() => Boolean(event.value) && newPlayerName.value.trim().length > 0)
+  const canAddPlayer = computed(() => {
+    if (!event.value || !newPlayerName.value.trim()) return false
+    return newPlayerRoles.value.length > 0 && newPlayerRoles.value.every(rp => rp.role && rp.rank)
+  })
 
   async function addPlayer() {
     if (!ensureOwnerAction() || !eventId.value || !canAddPlayer.value || addingPlayer.value) return
@@ -28,16 +32,19 @@ export function useEventPlayers({
     }
     addingPlayer.value = true
     try {
+      const primaryRole = newPlayerRoles.value[0]
       const updatedEvent = await eventStore.addPlayer(eventId.value, {
         name: newPlayerName.value.trim(),
-        role: newPlayerRole.value,
-        rank: newPlayerRank.value,
+        role: primaryRole.role,
+        rank: primaryRole.rank,
+        roles: newPlayerRoles.value.filter(rp => rp.role && rp.rank),
       })
       event.value = updatedEvent
       hydrateSelections()
       newPlayerName.value = ''
       newPlayerRole.value = 'DPS'
       newPlayerRank.value = 'Unranked'
+      newPlayerRoles.value = [{ role: 'DPS', rank: 'Unranked' }]
       setNotice('Player added to event roster')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add player')
@@ -150,7 +157,7 @@ export function useEventPlayers({
 
   return {
     addingPlayer, deletingPlayers, savingPlayerEdits, savingPlayerTeams,
-    newPlayerName, newPlayerRole, newPlayerRank,
+    newPlayerName, newPlayerRole, newPlayerRank, newPlayerRoles,
     editingPlayerId, editPlayerName, editPlayerRole, editPlayerRank, editPlayerRoles,
     canAddPlayer,
     addPlayer, savePlayerEdit, setPlayerTeam, assignPlayerToTeam, assignPlayerToTeamWithRole,

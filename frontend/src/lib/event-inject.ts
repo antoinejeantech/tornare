@@ -57,6 +57,7 @@ export interface EventCtxType {
   newPlayerName: string
   newPlayerRole: string
   newPlayerRank: string
+  newPlayerRoles: RoleRank[]
 
   // ── Edit-team form fields ──
   editTeamName: string

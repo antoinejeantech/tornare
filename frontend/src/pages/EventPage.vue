@@ -143,7 +143,7 @@ const {
 
 const {
   addingPlayer, deletingPlayers, savingPlayerEdits, savingPlayerTeams,
-  newPlayerName, newPlayerRole, newPlayerRank,
+  newPlayerName, newPlayerRole, newPlayerRank, newPlayerRoles,
   editingPlayerId, editPlayerName, editPlayerRole, editPlayerRank, editPlayerRoles,
   canAddPlayer,
   addPlayer, savePlayerEdit, assignPlayerToTeam, assignPlayerToTeamWithRole,
@@ -309,6 +309,7 @@ provide('eventCtx', proxyRefs({
   newPlayerName,
   newPlayerRole,
   newPlayerRank,
+  newPlayerRoles,
   editTeamName,
   editingTeamId,
   editPlayerName,
