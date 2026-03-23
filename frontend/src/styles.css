@@ -353,6 +353,10 @@ button {
   -webkit-user-select: none;
   border: 1px solid transparent;
   font-weight: 400;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.36rem;
   transition: box-shadow 0.18s ease, filter 0.18s ease, background 0.18s ease, border-color 0.18s ease;
 }
 

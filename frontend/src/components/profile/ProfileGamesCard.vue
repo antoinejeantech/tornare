@@ -11,18 +11,12 @@ interface OverwatchSummaryRow {
 withDefaults(defineProps<{
   profile: AuthUser
   canEdit?: boolean
-  editingOverwatch?: boolean
   overwatchSummaryRows?: OverwatchSummaryRow[]
   overwatchLogo: string
 }>(), {
   canEdit: false,
-  editingOverwatch: false,
   overwatchSummaryRows: () => [],
 })
-
-defineEmits<{
-  (e: 'edit-overwatch'): void
-}>()
 </script>
 
 <template>
@@ -32,14 +26,6 @@ defineEmits<{
         <span class="material-symbols-rounded games-title-icon" aria-hidden="true">sports_esports</span>
         <span>Linked Games</span>
       </h3>
-      <button
-        v-if="canEdit && !editingOverwatch"
-        type="button"
-        class="action-btn games-manage-btn"
-        @click="$emit('edit-overwatch')"
-      >
-        Manage Library
-      </button>
     </header>
 
     <section class="game-panel">
@@ -56,40 +42,38 @@ defineEmits<{
         </a>
       </div>
 
-      <div v-if="editingOverwatch" class="game-edit-shell animated-panel">
-        <slot name="overwatch-edit" />
-      </div>
-
-      <div v-else class="game-summary-shell animated-panel">
+      <div class="game-summary-shell animated-panel">
         <div class="battletag-state" :class="{ missing: !profile.battletag }">
-          <span class="battletag-soon">Soon</span>
-          <p v-if="profile.battletag" class="battletag-copy">
+          <p v-if="profile.battletag && !profile.can_edit_battletag" class="battletag-copy">
             Connected as <strong>{{ profile.battletag }}</strong>
           </p>
-          <p v-else class="battletag-copy">
-            No battletag configured yet. Connect your account to synchronize official ranks.
+          <p v-else-if="profile.battletag" class="battletag-copy">
+            <strong>{{ profile.battletag }}</strong>
           </p>
-          <button
-            class="battletag-link battletag-link-disabled"
-            type="button"
-            disabled
-          >
-            Connect Battle.net Account
-          </button>
+          <p v-else class="battletag-copy">
+            No battletag linked yet.
+          </p>
+          <slot name="overwatch-bnet-action">
+            <button class="battletag-link battletag-link-disabled" type="button" disabled>
+              Connect Battle.net Account
+            </button>
+          </slot>
         </div>
 
-        <div class="rank-tile-grid">
-          <article v-for="entry in overwatchSummaryRows" :key="entry.role" class="rank-tile">
-            <p class="rank-role">
-              <span>{{ entry.role }}</span>
-              <span class="material-symbols-rounded rank-role-icon" aria-hidden="true">{{ getRoleIcon(entry.role) }}</span>
-            </p>
-            <p class="rank-value">
-              <img class="rank-icon" :src="entry.icon" :alt="`${entry.rank} rank`" />
-              <span>{{ entry.rank }}</span>
-            </p>
-          </article>
-        </div>
+        <slot name="overwatch-ranks">
+          <div class="rank-tile-grid">
+            <article v-for="entry in overwatchSummaryRows" :key="entry.role" class="rank-tile">
+              <p class="rank-role">
+                <span>{{ entry.role }}</span>
+                <span class="material-symbols-rounded rank-role-icon" aria-hidden="true">{{ getRoleIcon(entry.role) }}</span>
+              </p>
+              <p class="rank-value">
+                <img class="rank-icon" :src="entry.icon" :alt="`${entry.rank} rank`" />
+                <span>{{ entry.rank }}</span>
+              </p>
+            </article>
+          </div>
+        </slot>
       </div>
     </section>
 
@@ -248,20 +232,6 @@ defineEmits<{
   font-size: 0.9rem;
 }
 
-.battletag-soon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px dashed color-mix(in srgb, var(--line) 56%, transparent 44%);
-  border-radius: var(--radius-pill);
-  padding: 0.12rem 0.46rem;
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-}
-
 .battletag-link {
   justify-self: center;
   background: none;
@@ -282,6 +252,11 @@ defineEmits<{
   color: color-mix(in srgb, var(--ink-muted) 82%, transparent 18%);
   text-decoration: none;
   cursor: not-allowed;
+}
+
+.battletag-link-active {
+  color: color-mix(in srgb, var(--brand-1) 95%, #ffefbf 5%);
+  cursor: pointer;
 }
 
 .rank-tile-grid {
