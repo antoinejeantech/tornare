@@ -91,6 +91,16 @@ export interface SignupLink {
   signup_token: string
 }
 
+export interface PublicSignupInfo {
+  event_name: string
+  public_signup_enabled: boolean
+  current_players: number
+  max_players: number
+  current_signup_requests: number
+  start_date?: string | null
+  [key: string]: unknown
+}
+
 export interface SignupRequest {
   id: number | string
   status: string
@@ -116,12 +126,4 @@ export interface AuthSession {
   refresh_token: string
 }
 
-export interface PublicSignupInfo {
-  event_name: string
-  public_signup_enabled: boolean
-  current_players: number
-  max_players: number
-  current_signup_requests: number
-  start_date?: string | null
-  [key: string]: unknown
-}
+
