@@ -258,8 +258,7 @@ async function saveProfile() {
         new_password: hasPasswordUpdate ? nextPassword : null,
         new_password_confirm: hasPasswordUpdate ? nextPasswordConfirm : null,
       }),
-    }) 
-
+    })
     profile.value = updated
     hydrateFormFromProfile(updated)
     if (viewerId.value === profileId.value) {

@@ -9,6 +9,11 @@ import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
 import type { Event, EventFormat } from '../types'
 
+interface PaginatedEventsResponse {
+  items: Event[]
+  total: number
+}
+
 const authStore = useAuthStore()
 
 const events = ref<Event[]>([])
@@ -196,14 +201,14 @@ async function loadEvents() {
 
     const query = params.toString()
     const path = query ? `/api/events?${query}` : '/api/events'
-    const response = await apiCall(path, { signal: eventsRequestController.signal })
+    const response = await apiCall<PaginatedEventsResponse>(path, { signal: eventsRequestController.signal })
 
     if (requestId !== latestLoadRequestId) {
       return
     }
 
-    events.value = Array.isArray((response as Record<string, unknown>)?.items) ? (response as Record<string, unknown>).items as Event[] : []
-    totalEventsAvailable.value = Number((response as Record<string, unknown>)?.total) || 0
+    events.value = response?.items ?? []
+    totalEventsAvailable.value = response?.total ?? 0
 
     if (currentPage.value > totalPages.value) {
       currentPage.value = totalPages.value

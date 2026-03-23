@@ -12,6 +12,18 @@ import EventActionButton from '../components/ui/EventActionButton.vue'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
 import type { Event } from '../types'
 
+interface PaginatedEventsResponse {
+  items: Event[]
+  total: number
+}
+
+interface EventsKpiResponse {
+  total_events: number
+  total_signups: number
+  upcoming_events_this_week: number
+  upcoming_tourneys_this_week: number
+}
+
 const events = ref<Event[]>([])
 const loadingEvents = ref(false)
 const featuredEventFromApi = ref<Event | null>(null)
@@ -170,8 +182,8 @@ function activityPlayersFill(players: number, maxPlayers: number): { width: stri
 async function loadLatestEvents() {
   loadingEvents.value = true
   try {
-    const response = await apiCall('/api/events?sort=newest&limit=8') as Record<string, unknown> | null
-    const loadedEvents = Array.isArray(response?.items) ? (response!.items as Event[]) : []
+    const response = await apiCall<PaginatedEventsResponse>('/api/events?sort=newest&limit=8')
+    const loadedEvents = response?.items ?? []
     events.value = loadedEvents
   } catch {
     events.value = []
@@ -182,7 +194,7 @@ async function loadLatestEvents() {
 
 async function loadFeaturedEvent() {
   try {
-    const featured = await apiCall('/api/events/featured') as Event | null
+    const featured = await apiCall<Event>('/api/events/featured')
     featuredEventFromApi.value = featured || null
   } catch {
     featuredEventFromApi.value = null
@@ -191,12 +203,12 @@ async function loadFeaturedEvent() {
 
 async function loadEventsKpis() {
   try {
-    const response = await apiCall('/api/events/kpi') as Record<string, unknown> | null
+    const response = await apiCall<EventsKpiResponse>('/api/events/kpi')
     kpis.value = {
-      total_events: Number(response?.total_events) || 0,
-      total_signups: Number(response?.total_signups) || 0,
-      upcoming_events_this_week: Number(response?.upcoming_events_this_week) || 0,
-      upcoming_tourneys_this_week: Number(response?.upcoming_tourneys_this_week) || 0,
+      total_events: response?.total_events ?? 0,
+      total_signups: response?.total_signups ?? 0,
+      upcoming_events_this_week: response?.upcoming_events_this_week ?? 0,
+      upcoming_tourneys_this_week: response?.upcoming_tourneys_this_week ?? 0,
     }
   } catch {
     kpis.value = {

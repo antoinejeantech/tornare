@@ -1,9 +1,9 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { Router } from 'vue-router'
 import type { Event } from '../types'
-import { useEventStore } from '../stores/event'
-import { useMatchStore } from '../stores/match'
-import { useConfirm } from './confirm'
+import type { useEventStore } from '../stores/event'
+import type { useMatchStore } from '../stores/match'
+import type { useConfirm } from './confirm'
 
 export interface SharedEventCtx {
   event: Ref<Event | null>
