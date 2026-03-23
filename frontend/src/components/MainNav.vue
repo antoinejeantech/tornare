@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
@@ -49,7 +49,7 @@ function closeNotifications() {
   notificationsOpen.value = false
 }
 
-function handleDocumentClick(event) {
+function handleDocumentClick(event: MouseEvent) {
   const target = event?.target
   if (!(target instanceof Element)) {
     return
@@ -60,7 +60,7 @@ function handleDocumentClick(event) {
   }
 }
 
-function applyTheme(mode) {
+function applyTheme(mode: string) {
   if (typeof document === 'undefined') {
     return
   }

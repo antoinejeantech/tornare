@@ -1,11 +1,13 @@
-<script setup>
+<script setup lang="ts">
 import { computed, inject } from 'vue'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
+import type { EventCtxType } from '../../lib/event-inject'
+import type { EventPlayer, OverwatchRole, RoleRank } from '../../types'
 
-const ctx = inject('eventCtx')
+const ctx = inject<EventCtxType>('eventCtx')!
 
-function startEditPlayer(player) {
+function startEditPlayer(player: EventPlayer) {
   ctx.editingPlayerId = player.id
   ctx.editPlayerName = player.name
   ctx.editPlayerRole = player.role
@@ -34,7 +36,7 @@ const activeEditPlayer = computed(() => {
   return ctx.event.players.find((player) => player.id === ctx.editingPlayerId) || null
 })
 
-function openPlayerEditModal(player) {
+function openPlayerEditModal(player: EventPlayer) {
   if (!ctx.canManageEvent) {
     return
   }
@@ -59,7 +61,7 @@ async function removePlayerFromModal() {
   }
 }
 
-function padRosterCount(value) {
+function padRosterCount(value: unknown): string {
   const numeric = Number(value)
   if (!Number.isFinite(numeric) || numeric < 0) {
     return '00'
@@ -75,22 +77,22 @@ function padRosterCount(value) {
 
 const usedEditRoles = computed(() => (ctx.editPlayerRoles || []).map(rp => rp.role))
 
-function isEditRoleTaken(role, currentIndex) {
+function isEditRoleTaken(role: string, currentIndex: number): boolean {
   return usedEditRoles.value.some((r, i) => i !== currentIndex && r === role)
 }
 
 const availableEditRoles = computed(() => {
-  const all = ['Tank', 'DPS', 'Support']
+  const all: OverwatchRole[] = ['Tank', 'DPS', 'Support']
   return all.filter(r => !usedEditRoles.value.includes(r))
 })
 
 function addEditRole() {
   if ((ctx.editPlayerRoles?.length || 0) < 3 && availableEditRoles.value.length > 0) {
-    ctx.editPlayerRoles.push({ role: '', rank: '' })
+    ctx.editPlayerRoles.push({ role: availableEditRoles.value[0], rank: 'Unranked' } as RoleRank)
   }
 }
 
-function removeEditRole(index) {
+function removeEditRole(index: number) {
   if (ctx.editPlayerRoles?.length > 1) {
     ctx.editPlayerRoles.splice(index, 1)
   }
@@ -136,9 +138,9 @@ const canSavePlayerEdit = computed(() => {
       </button>
     </form>
 
-    <p v-if="ctx.event.players.length === 0" class="muted">Add players before creating matchups.</p>
+    <p v-if="(ctx.event?.players.length ?? 0) === 0" class="muted">Add players before creating matchups.</p>
     <ul v-else class="roster-list">
-      <li v-for="player in ctx.event.players" :key="player.id" class="roster-list-item">
+      <li v-for="player in ctx.event?.players" :key="player.id" class="roster-list-item">
         <PlayerCard :player="player" :clickable="ctx.canManageEvent" @select="openPlayerEditModal" />
       </li>
     </ul>

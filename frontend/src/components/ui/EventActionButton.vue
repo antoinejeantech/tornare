@@ -1,30 +1,19 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import type { RouteLocationRaw } from 'vue-router'
 
-const props = defineProps({
-  to: {
-    type: [String, Object],
-    required: true,
-  },
-  variant: {
-    type: String,
-    default: 'solid',
-    validator: (value) => ['solid', 'muted'].includes(value),
-  },
-  fullWidth: {
-    type: Boolean,
-    default: true,
-  },
-  withTopSpacing: {
-    type: Boolean,
-    default: true,
-  },
-  size: {
-    type: String,
-    default: 'compact',
-    validator: (value) => ['compact', 'cta'].includes(value),
-  },
+const props = withDefaults(defineProps<{
+  to: RouteLocationRaw
+  variant?: string
+  fullWidth?: boolean
+  withTopSpacing?: boolean
+  size?: string
+}>(), {
+  variant: 'solid',
+  fullWidth: true,
+  withTopSpacing: true,
+  size: 'compact',
 })
 
 const variantClass = computed(() => {

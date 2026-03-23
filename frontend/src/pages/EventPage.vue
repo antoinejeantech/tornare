@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, provide, proxyRefs, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getDateTimestamp, parseDateValue } from '../lib/dates'
@@ -22,6 +22,7 @@ import SignupRequestsSection from '../components/event/SignupRequestsSection.vue
 import SettingsSection from '../components/event/SettingsSection.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
+import type { Event } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,13 +33,13 @@ const eventStore = useEventStore()
 const matchStore = useMatchStore()
 
 // ── Core state ─────────────────────────────────────────────────────────
-const event = ref(null)
+const event = ref<Event | null>(null)
 const loadingEvent = ref(false)
-const matchupSelections = ref({})
+const matchupSelections = ref<Record<string, { teamAId: string; teamBId: string }>>({})
 const nowTick = ref(Date.now())
-let startsInTimer = null
+let startsInTimer: ReturnType<typeof setInterval> | null = null
 let latestEventLoadRequestId = 0
-let eventLoadController = null
+let eventLoadController: AbortController | null = null
 
 // ── Core computeds ─────────────────────────────────────────────────────
 const eventId = computed(() => String(route.params.id || ''))
@@ -91,8 +92,8 @@ const eventIsFull = computed(() => {
 })
 
 // ── Utilities ──────────────────────────────────────────────────────────
-function setError(message) { alert.error(message) }
-function setNotice(message) { alert.success(message) }
+function setError(message: string) { alert.error(message) }
+function setNotice(message: string) { alert.success(message) }
 function ensureOwnerAction() {
   if (canManageEvent.value) return true
   setError('You do not have permission for this action.')
@@ -100,7 +101,7 @@ function ensureOwnerAction() {
 }
 function hydrateSelections() {
   if (!event.value) { matchupSelections.value = {}; return }
-  const nextMatchups = {}
+  const nextMatchups: Record<string | number, { teamAId: string; teamBId: string }> = {}
   for (const match of event.value.matches) {
     nextMatchups[match.id] = {
       teamAId: match.team_a_id ? String(match.team_a_id) : '',
@@ -189,16 +190,16 @@ async function loadEvent() {
 const validSections = ['overview', 'roster', 'teams', 'matches', 'requests', 'settings']
 const activeSection = ref('overview')
 
-function normalizeSection(section) {
+function normalizeSection(section: string): string {
   const candidate = String(section || '').trim().toLowerCase()
   if (!validSections.includes(candidate)) return 'overview'
   if ((candidate === 'requests' || candidate === 'settings') && !canManageEvent.value) return 'overview'
   return candidate
 }
 
-function openSection(section) {
+function openSection(section: string) {
   const nextSection = normalizeSection(section)
-  const currentSection = normalizeSection(route.query.section)
+  const currentSection = normalizeSection(String(route.query.section || ''))
   if (nextSection === currentSection) { activeSection.value = nextSection; return }
   router.push({ name: 'event', params: { id: eventId.value }, query: { ...route.query, section: nextSection } })
 }
@@ -209,7 +210,7 @@ function navigateToHome() { router.push({ name: 'home' }) }
 watch(
   () => route.query.section,
   (section) => {
-    activeSection.value = normalizeSection(section)
+    activeSection.value = normalizeSection(String(section || ''))
   },
   { immediate: true }
 )
@@ -217,7 +218,7 @@ watch(
 watch(
   canManageEvent,
   () => {
-    const normalizedSection = normalizeSection(route.query.section)
+    const normalizedSection = normalizeSection(String(route.query.section || ''))
     activeSection.value = normalizedSection
 
     if (String(route.query.section || '') !== normalizedSection) {

@@ -1,12 +1,13 @@
-<script setup>
+<script setup lang="ts">
 import { computed, inject, ref } from 'vue'
 import PugEventMatchesSection from './PugEventMatchesSection.vue'
 import TourneyEventMatchesSection from './TourneyEventMatchesSection.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
+import type { EventCtxType } from '../../lib/event-inject'
 
-const ctx = inject('eventCtx')
+const ctx = inject<EventCtxType>('eventCtx')!
 const isTourney = computed(() => Boolean(ctx.isTourneyEvent))
-const pugRef = ref(null)
+const pugRef = ref<InstanceType<typeof PugEventMatchesSection> | null>(null)
 </script>
 
 <template>

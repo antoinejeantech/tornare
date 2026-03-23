@@ -1,44 +1,30 @@
-<script>
+<script lang="ts">
 export const VARIANTS = ['ok', 'warning', 'danger', 'info', 'neutral', 'accent', 'muted']
 </script>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps({
+const props = withDefaults(defineProps<{
   /** Visual variant: ok | warning | danger | info | neutral | accent | muted */
-  variant: {
-    type: String,
-    default: 'neutral',
-    validator: (v) => VARIANTS.includes(v),
-  },
-  label: {
-    type: String,
-    default: '',
-  },
-  /**
-   * Border radius override. Token shorthand or raw CSS value:
-   * 'sm' | 'item' | 'md' | 'lg' | 'pill' | any CSS value (e.g. '4px')
-   */
-  radius: {
-    type: String,
-    default: null,
-  },
+  variant?: string
+  label?: string
+  /** Border radius override. Token shorthand or raw CSS value:
+   * 'sm' | 'item' | 'md' | 'lg' | 'pill' | any CSS value (e.g. '4px') */
+  radius?: string | null
   /** Custom background (overrides variant). Any CSS value or token reference. */
-  bg: {
-    type: String,
-    default: null,
-  },
+  bg?: string | null
   /** Custom text color (overrides variant). */
-  color: {
-    type: String,
-    default: null,
-  },
+  color?: string | null
   /** Custom border color (overrides variant). */
-  border: {
-    type: String,
-    default: null,
-  },
+  border?: string | null
+}>(), {
+  variant: 'neutral',
+  label: '',
+  radius: null,
+  bg: null,
+  color: null,
+  border: null,
 })
 
 const RADIUS_TOKENS = {
@@ -53,7 +39,7 @@ const safeVariant = computed(() =>
 )
 
 const styleObject = computed(() => ({
-  ...(props.radius ? { borderRadius: RADIUS_TOKENS[props.radius] ?? props.radius } : {}),
+  ...(props.radius ? { borderRadius: RADIUS_TOKENS[props.radius as keyof typeof RADIUS_TOKENS] ?? props.radius } : {}),
   ...(props.bg     ? { background: props.bg }         : {}),
   ...(props.color  ? { color: props.color }            : {}),
   ...(props.border ? { borderColor: props.border }     : {}),

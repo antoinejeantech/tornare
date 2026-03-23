@@ -1,24 +1,20 @@
-<script setup>
-defineProps({
-  profile: {
-    type: Object,
-    required: true,
-  },
-  canEdit: {
-    type: Boolean,
-    default: false,
-  },
-  editingAccount: {
-    type: Boolean,
-    default: false,
-  },
-  profileInitial: {
-    type: String,
-    default: 'A',
-  },
+<script setup lang="ts">
+import type { AuthUser } from '../../types'
+
+withDefaults(defineProps<{
+  profile: AuthUser
+  canEdit?: boolean
+  editingAccount?: boolean
+  profileInitial?: string
+}>(), {
+  canEdit: false,
+  editingAccount: false,
+  profileInitial: 'A',
 })
 
-defineEmits(['edit-account'])
+defineEmits<{
+  (e: 'edit-account'): void
+}>()
 </script>
 
 <template>

@@ -1,13 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import { computed, inject } from 'vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
 import { getRoleIcon } from '../../lib/roles'
+import type { EventCtxType } from '../../lib/event-inject'
+import type { SignupRequest } from '../../types'
 
-const ctx = inject('eventCtx')
+const ctx = inject<EventCtxType>('eventCtx')!
 const isPublicRegistration = computed(() => Boolean(ctx.event?.public_signup_enabled))
 
-function toTimestamp(value) {
+function toTimestamp(value: unknown): number | null {
   if (!value) {
     return null
   }
@@ -16,7 +18,7 @@ function toTimestamp(value) {
   return Number.isNaN(parsed) ? null : parsed
 }
 
-function oldestFirst(requests) {
+function oldestFirst(requests: SignupRequest[]): SignupRequest[] {
   const copy = [...requests]
   const hasDateField = copy.some((request) => {
     return toTimestamp(request?.created_at) !== null || toTimestamp(request?.updated_at) !== null
@@ -43,6 +45,10 @@ const reviewedRequests = computed(() => {
   const requests = Array.isArray(ctx.signupRequests) ? ctx.signupRequests : []
   return oldestFirst(requests.filter((request) => request.status !== 'pending'))
 })
+
+function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: string }> {
+  return (request.roles as Array<{ role: string; rank: string }> | undefined) || []
+}
 </script>
 
 <template>
@@ -90,7 +96,7 @@ const reviewedRequests = computed(() => {
               <strong class="signup-request-name">{{ request.name }}</strong>
               <div class="signup-request-roles">
                 <span
-                  v-for="(rp, i) in (request.roles || [])"
+                  v-for="(rp, i) in getRequestRoles(request)"
                   :key="i"
                   class="req-role-badge"
                   :class="{ 'is-preferred': i === 0 }"
@@ -135,7 +141,7 @@ const reviewedRequests = computed(() => {
               <strong class="signup-request-name">{{ request.name }}</strong>
               <div class="signup-request-roles">
                 <span
-                  v-for="(rp, i) in (request.roles || [])"
+                  v-for="(rp, i) in getRequestRoles(request)"
                   :key="i"
                   class="req-role-badge"
                   :class="{ 'is-preferred': i === 0 }"

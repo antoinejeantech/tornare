@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { overwatchRanks } from '../lib/ranks'
@@ -6,6 +6,7 @@ import { formatEventStartDate } from '../lib/dates'
 import { useEventStore } from '../stores/event'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
+import type { PublicSignupInfo } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,10 +16,10 @@ const loading = ref(false)
 const submitting = ref(false)
 const error = ref('')
 const notice = ref('')
-const signupInfo = ref(null)
+const signupInfo = ref<PublicSignupInfo | null>(null)
 
 const playerName = ref('')
-const playerRoles = ref([{ role: '', rank: '' }])
+const playerRoles = ref<Array<{ role: string; rank: string }>>([{ role: '', rank: '' }])
 
 function addRole() {
   if (playerRoles.value.length < 3) {
@@ -26,7 +27,7 @@ function addRole() {
   }
 }
 
-function removeRole(index) {
+function removeRole(index: number) {
   if (playerRoles.value.length > 1) {
     playerRoles.value.splice(index, 1)
   }
@@ -34,7 +35,7 @@ function removeRole(index) {
 
 const usedRoles = computed(() => playerRoles.value.map(rp => rp.role))
 
-function isRoleTaken(role, currentIndex) {
+function isRoleTaken(role: string, currentIndex: number): boolean {
   if (!role) return false
   return usedRoles.value.some((r, i) => i !== currentIndex && r === role)
 }
@@ -79,12 +80,12 @@ const canSubmit = computed(() => {
   )
 })
 
-function setError(message) {
+function setError(message: string) {
   error.value = message
   notice.value = ''
 }
 
-function setNotice(message) {
+function setNotice(message: string) {
   notice.value = message
   error.value = ''
 }

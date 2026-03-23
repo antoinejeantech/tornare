@@ -1,13 +1,21 @@
-<script setup>
+<script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { EventCtxType } from '../../lib/event-inject'
+import type { EventMatch } from '../../types'
 
-const ctx = inject('eventCtx')
-const editingMatchups = ref({})
-const bracketWrapEl = ref(null)
+interface BracketRound {
+  id: string
+  label: string
+  cards: EventMatch[]
+}
+
+const ctx = inject<EventCtxType>('eventCtx')!
+const editingMatchups = ref<Record<string | number, boolean>>({})
+const bracketWrapEl = ref<HTMLElement | null>(null)
 const measuredCardHeight = ref(104)
-let resizeObserver = null
+let resizeObserver: ResizeObserver | null = null
 
-function nextPowerOfTwo(value) {
+function nextPowerOfTwo(value: number): number {
   let size = 1
   while (size < value) {
     size *= 2
@@ -15,7 +23,7 @@ function nextPowerOfTwo(value) {
   return size
 }
 
-function bracketRoundsCount(size) {
+function bracketRoundsCount(size: number): number {
   let rounds = 0
   let current = size
   while (current > 1) {
@@ -25,7 +33,7 @@ function bracketRoundsCount(size) {
   return Math.max(1, rounds)
 }
 
-function mainBracketSize(teamCount) {
+function mainBracketSize(teamCount: number): number {
   const nextPow2 = nextPowerOfTwo(teamCount)
   if (teamCount === nextPow2) {
     return nextPow2
@@ -33,7 +41,7 @@ function mainBracketSize(teamCount) {
   return nextPow2 / 2
 }
 
-function knockoutLabel(matchesInRound) {
+function knockoutLabel(matchesInRound: number): string {
   if (matchesInRound <= 1) {
     return 'Final'
   }
@@ -46,7 +54,7 @@ function knockoutLabel(matchesInRound) {
   return `Round of ${matchesInRound * 2}`
 }
 
-function buildPreviewRounds(teamCount) {
+function buildPreviewRounds(teamCount: number) {
   const safeCount = Math.max(2, teamCount)
   const mainSize = mainBracketSize(safeCount)
   const playInCount = safeCount - mainSize
@@ -75,7 +83,7 @@ function buildPreviewRounds(teamCount) {
   return rounds
 }
 
-function roundLabelFromMatches(round, cards) {
+function roundLabelFromMatches(round: number, cards: EventMatch[]): string {
   const hasPlayInTitles = cards.some((card) => String(card.title || '').toLowerCase().startsWith('play-in'))
   if (hasPlayInTitles || round === 1 && cards.length > 0 && cards.every((card) => String(card.title || '').toLowerCase().startsWith('play-in'))) {
     return 'Play-In'
@@ -84,14 +92,14 @@ function roundLabelFromMatches(round, cards) {
   return knockoutLabel(cards.length)
 }
 
-function displayTeamName(match, slot) {
+function displayTeamName(match: EventMatch, slot: 'A' | 'B'): string {
   if (slot === 'A') {
     return match.team_a_name || 'TBD'
   }
   return match.team_b_name || 'TBD'
 }
 
-function canReportWinner(match, teamId) {
+function canReportWinner(match: EventMatch, teamId: string | number | null | undefined): boolean {
   if (!ctx.canManageEvent || !teamId) {
     return false
   }
@@ -101,25 +109,25 @@ function canReportWinner(match, teamId) {
   return Boolean(match.team_a_id && match.team_b_id)
 }
 
-function canCancelWinner(match) {
+function canCancelWinner(match: EventMatch): boolean {
   if (!ctx.canManageEvent) {
     return false
   }
   return Boolean(match.winner_team_id)
 }
 
-function isEditingMatchup(matchId) {
+function isEditingMatchup(matchId: string | number): boolean {
   return Boolean(editingMatchups.value[matchId])
 }
 
-function toggleMatchupEditor(matchId) {
+function toggleMatchupEditor(matchId: string | number) {
   editingMatchups.value = {
     ...editingMatchups.value,
     [matchId]: !editingMatchups.value[matchId],
   }
 }
 
-async function saveMatchupAndClose(matchId) {
+async function saveMatchupAndClose(matchId: string | number) {
   const saved = await ctx.saveMatchup(matchId)
   if (saved) {
     editingMatchups.value = {
@@ -129,7 +137,7 @@ async function saveMatchupAndClose(matchId) {
   }
 }
 
-function roundListStyle(roundIndex) {
+function roundListStyle(roundIndex: number) {
   const cardHeight = measuredCardHeight.value
   const baseGap = 16
   const rounds = bracketRounds.value
@@ -177,6 +185,9 @@ const bracketRounds = computed(() => {
             title: `Round ${round} Match ${position}`,
             round,
             position,
+            map: '',
+            start_date: null,
+            players: [],
             team_a_id: null,
             team_b_id: null,
             team_a_name: null,
@@ -208,6 +219,9 @@ const bracketRounds = computed(() => {
           : `Round ${entry.round} Match ${position}`,
         round: entry.round,
         position,
+        map: '',
+        start_date: null,
+        players: [],
         team_a_id: null,
         team_b_id: null,
         team_a_name: null,
@@ -276,7 +290,7 @@ const previewLinkageInfo = computed(() => {
   const mainRoundStart = playInCount > 0 ? 2 : 1
   const mainRounds = bracketRoundsCount(mainSize)
 
-  const placeholderId = (round, position) => `placeholder-${round}-${position}`
+  const placeholderId = (round: number, position: number) => `placeholder-${round}-${position}`
 
   // Main bracket internal links (quarterfinals -> semifinals -> final, etc.)
   for (let idx = 0; idx < mainRounds - 1; idx += 1) {
@@ -313,12 +327,12 @@ const previewLinkageInfo = computed(() => {
       const parentId = placeholderId(mainRoundStart, position)
 
       if (slotA?.type === 'playin') {
-        const playInId = placeholderId(1, slotA.playInIdx + 1)
+        const playInId = placeholderId(1, (slotA.playInIdx ?? 0) + 1)
         hasNext.add(playInId)
         hasParent.add(parentId)
       }
       if (slotB?.type === 'playin') {
-        const playInId = placeholderId(1, slotB.playInIdx + 1)
+        const playInId = placeholderId(1, (slotB.playInIdx ?? 0) + 1)
         hasNext.add(playInId)
         hasParent.add(parentId)
       }
@@ -328,7 +342,7 @@ const previewLinkageInfo = computed(() => {
   return { hasParent, hasNext }
 })
 
-function hasParentLink(match) {
+function hasParentLink(match: EventMatch): boolean {
   const id = String(match.id)
   if (hasGeneratedMatches.value) {
     return linkageInfo.value.hasParent.has(id)
@@ -336,7 +350,7 @@ function hasParentLink(match) {
   return previewLinkageInfo.value.hasParent.has(id)
 }
 
-function hasNextLink(match) {
+function hasNextLink(match: EventMatch): boolean {
   const id = String(match.id)
   if (hasGeneratedMatches.value) {
     return linkageInfo.value.hasNext.has(id)
@@ -344,7 +358,7 @@ function hasNextLink(match) {
   return previewLinkageInfo.value.hasNext.has(id)
 }
 
-function showOutgoingLink(match, round, roundIndex) {
+function showOutgoingLink(match: EventMatch, round: BracketRound, roundIndex: number): boolean {
   if (!hasNextLink(match)) {
     return false
   }
@@ -357,7 +371,7 @@ function showOutgoingLink(match, round, roundIndex) {
   return hasRegularTransition(nextRound.cards.length, round.cards.length)
 }
 
-function showParentFork(match, round, roundIndex) {
+function showParentFork(match: EventMatch, round: BracketRound, roundIndex: number): boolean {
   if (!hasParentLink(match) || roundIndex <= 0) {
     return false
   }
@@ -370,11 +384,11 @@ function showParentFork(match, round, roundIndex) {
   return hasRegularTransition(round.cards.length, previousRound.cards.length)
 }
 
-function hasRegularTransition(parentCount, childCount) {
+function hasRegularTransition(parentCount: number, childCount: number): boolean {
   return childCount === parentCount * 2
 }
 
-function roundCenterStep(cardsCount, cardHeight = 212, baseGap = 16) {
+function roundCenterStep(cardsCount: number, cardHeight = 212, baseGap = 16): number {
   const effectiveCardHeight = measuredCardHeight.value || cardHeight
   const maxCards = maxRoundCards.value
   const columnHeight = (maxCards * effectiveCardHeight) + ((maxCards - 1) * baseGap)
@@ -404,7 +418,7 @@ async function refreshMeasuredCardHeight() {
 
   let maxHeight = 0
   cards.forEach((card) => {
-    maxHeight = Math.max(maxHeight, card.offsetHeight)
+    maxHeight = Math.max(maxHeight, (card as HTMLElement).offsetHeight)
   })
 
   if (maxHeight > 0) {
@@ -476,7 +490,7 @@ watch(editingMatchups, () => {
           ? 'At least one match result is set, so bracket regeneration and deletion are disabled.'
           : (!hasEnoughTeamsForBracket
             ? 'Create at least 2 teams to generate a tournament bracket.'
-            : (ctx.event.matches.length > 0
+            : ((ctx.event?.matches?.length ?? 0) > 0
               ? 'No match has been played yet. You can regenerate in random/empty mode or delete the generated bracket.'
               : 'Choose random generation for auto-seeded matchups, or empty generation to assign matchups manually. All changes are saved automatically.')) }}
       </p>
@@ -589,7 +603,7 @@ watch(editingMatchups, () => {
                     @click.stop
                   >
                     <option value="">Choose team</option>
-                    <option v-for="team in ctx.event.teams" :key="`t-a-${match.id}-${team.id}`" :value="String(team.id)">
+                    <option v-for="team in ctx.event?.teams" :key="`t-a-${match.id}-${team.id}`" :value="String(team.id)">
                       {{ team.name }}
                     </option>
                   </select>
@@ -599,7 +613,7 @@ watch(editingMatchups, () => {
                     class="btn-secondary win-btn"
                     type="button"
                     :disabled="Boolean(ctx.reportingWinners[match.id])"
-                    @click="ctx.reportMatchWinner(match.id, match.team_a_id)"
+                    @click="ctx.reportMatchWinner(match.id, match.team_a_id || '')"
                   >Win</button>
                 </div>
 
@@ -621,7 +635,7 @@ watch(editingMatchups, () => {
                     @click.stop
                   >
                     <option value="">Choose team</option>
-                    <option v-for="team in ctx.event.teams" :key="`t-b-${match.id}-${team.id}`" :value="String(team.id)">
+                    <option v-for="team in ctx.event?.teams" :key="`t-b-${match.id}-${team.id}`" :value="String(team.id)">
                       {{ team.name }}
                     </option>
                   </select>
@@ -631,7 +645,7 @@ watch(editingMatchups, () => {
                     class="btn-secondary win-btn"
                     type="button"
                     :disabled="Boolean(ctx.reportingWinners[match.id])"
-                    @click="ctx.reportMatchWinner(match.id, match.team_b_id)"
+                    @click="ctx.reportMatchWinner(match.id, match.team_b_id || '')"
                   >Win</button>
                 </div>
               </div>

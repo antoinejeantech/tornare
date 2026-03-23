@@ -1,19 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { formatDayMonthYear, formatTime24, getDateTimestamp } from '../../lib/dates'
 import AppBadge from '../ui/AppBadge.vue'
+import type { Event } from '../../types'
+import type { RouteLocationRaw } from 'vue-router'
 
-const props = defineProps({
-  event: {
-    type: Object,
-    required: true,
-  },
-  to: {
-    type: [String, Object],
-    required: true,
-  },
-})
+const props = defineProps<{
+  event: Event
+  to: RouteLocationRaw
+}>()
 
 const startDateDisplay = computed(() => {
   return formatDayMonthYear(props.event?.start_date, '--/--/----')

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
 import MainNav from './components/MainNav.vue'
 import AlertHost from './components/AlertHost.vue'

@@ -1,18 +1,20 @@
-<script setup>
+<script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { averagePlayersElo } from '../../lib/elo'
 import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
+import type { EventCtxType } from '../../lib/event-inject'
+import type { EventPlayer, EventTeam, RoleRank } from '../../types'
 
-const ctx = inject('eventCtx')
-const assignmentSearchByTeam = reactive({})
-const teamPickerTeamId = ref('')
-const teamPickerBusyPlayerId = ref('')
-const teamPickerDialogRef = ref(null)
-const teamPickerCloseButtonRef = ref(null)
-let previouslyFocusedElement = null
+const ctx = inject<EventCtxType>('eventCtx')!
+const assignmentSearchByTeam = reactive<Record<string, string>>({})
+const teamPickerTeamId = ref<string>('')
+const teamPickerBusyPlayerId = ref<string>('')
+const teamPickerDialogRef = ref<HTMLElement | null>(null)
+const teamPickerCloseButtonRef = ref<HTMLElement | null>(null)
+let previouslyFocusedElement: Element | null = null
 
 const isTeamPickerOpen = computed(() => Boolean(teamPickerTeamId.value))
 
@@ -88,7 +90,7 @@ const autoBalanceDisabled = computed(() => {
   )
 })
 
-function teamCreatedTimestamp(team) {
+function teamCreatedTimestamp(team: EventTeam): number {
   const raw = team?.created_at || team?.updated_at || ''
   const parsed = new Date(raw).getTime()
   return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed
@@ -138,39 +140,39 @@ const teamMatchCountById = computed(() => {
   return counts
 })
 
-function normalizeSearch(value) {
+function normalizeSearch(value: unknown): string {
   return String(value || '')
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim()
 }
 
-function searchTokens(value) {
+function searchTokens(value: unknown): string[] {
   const normalized = normalizeSearch(value)
   return normalized ? normalized.split(' ') : []
 }
 
-function playerSearchBlob(player) {
+function playerSearchBlob(player: EventPlayer): string {
   const roleBlob = Array.isArray(player?.roles) && player.roles.length > 0
-    ? player.roles.map(rp => `${rp.role || ''} ${rp.rank || ''}`).join(' ')
+    ? player.roles.map((rp: RoleRank) => `${rp.role || ''} ${rp.rank || ''}`).join(' ')
     : `${player?.role || ''} ${player?.rank || ''}`
   return normalizeSearch(`${player?.name || ''} ${roleBlob} ${player?.team || ''}`)
 }
 
-function playerRolesDisplay(player) {
+function playerRolesDisplay(player: EventPlayer): string {
   if (Array.isArray(player?.roles) && player.roles.length > 0) {
-    return player.roles.map(rp => `${rp.role} · ${rp.rank}`).join(' / ')
+    return player.roles.map((rp: RoleRank) => `${rp.role} · ${rp.rank}`).join(' / ')
   }
   return `${player?.role || ''} · ${player?.rank || ''}`
 }
 
-function playerMatchesTokens(player, tokens) {
+function playerMatchesTokens(player: EventPlayer, tokens: string[]): boolean {
   if (tokens.length === 0) {
     return true
   }
 
   const blob = playerSearchBlob(player)
-  return tokens.every((token) => blob.includes(token))
+  return tokens.every((token: string) => blob.includes(token))
 }
 
 const unassignedPlayers = computed(() => {
@@ -187,7 +189,7 @@ const unassignedPlayersCount = computed(() => {
   return unassignedPlayers.value.length
 })
 
-function playersForTeam(teamId) {
+function playersForTeam(teamId: string | number): EventPlayer[] {
   if (!ctx.event) {
     return []
   }
@@ -197,7 +199,7 @@ function playersForTeam(teamId) {
   )
 }
 
-function teamRoleCounts(teamId) {
+function teamRoleCounts(teamId: string | number): { Tank: number; DPS: number; Support: number } {
   const counts = { Tank: 0, DPS: 0, Support: 0 }
   for (const player of playersForTeam(teamId)) {
     const displayRole = player.assigned_role || player.role
@@ -209,7 +211,7 @@ function teamRoleCounts(teamId) {
   return counts
 }
 
-function roleStatusClass(teamId, role) {
+function roleStatusClass(teamId: string | number, role: 'Tank' | 'DPS' | 'Support'): string {
   const count = teamRoleCounts(teamId)[role]
   const target = pugRoleTargets.value[role]
   if (count < target) {
@@ -222,7 +224,7 @@ function roleStatusClass(teamId, role) {
   return 'ok'
 }
 
-function playersAssignableToTeam(teamId) {
+function playersAssignableToTeam(teamId: string | number): EventPlayer[] {
   if (!ctx.event) {
     return []
   }
@@ -240,11 +242,11 @@ function playersAssignableToTeam(teamId) {
     })
 }
 
-function assignmentSearchValue(teamId) {
+function assignmentSearchValue(teamId: string | number): string {
   return String(assignmentSearchByTeam[teamId] || '')
 }
 
-function setAssignmentSearch(teamId, value) {
+function setAssignmentSearch(teamId: string | number, value: string) {
   assignmentSearchByTeam[teamId] = String(value || '')
 }
 
@@ -254,12 +256,12 @@ function clearAllAssignmentSearches() {
   }
 }
 
-async function selectAssignResult(teamId, playerId) {
+async function selectAssignResult(teamId: string | number, playerId: string | number) {
   await ctx.assignPlayerToTeam(playerId, teamId)
   setAssignmentSearch(teamId, '')
 }
 
-function handleDocumentPointerDown(event) {
+function handleDocumentPointerDown(event: PointerEvent) {
   const target = event.target
   if (!(target instanceof Element)) {
     return
@@ -290,7 +292,7 @@ onBeforeUnmount(() => {
   restoreTeamPickerFocus()
 })
 
-function openTeamPicker(teamId) {
+function openTeamPicker(teamId: string | number) {
   teamPickerTeamId.value = String(teamId || '')
 }
 
@@ -299,7 +301,7 @@ function closeTeamPicker() {
   teamPickerBusyPlayerId.value = ''
 }
 
-async function assignUnassignedPlayerToPickedTeam(playerId) {
+async function assignUnassignedPlayerToPickedTeam(playerId: string | number) {
   const teamId = String(teamPickerTeamId.value || '')
   if (!teamId) {
     return
@@ -314,7 +316,7 @@ async function assignUnassignedPlayerToPickedTeam(playerId) {
   }
 }
 
-async function assignUnassignedPlayerToPickedTeamWithRole(playerId, role, rank) {
+async function assignUnassignedPlayerToPickedTeamWithRole(playerId: string | number, role: string, rank: string) {
   const teamId = String(teamPickerTeamId.value || '')
   if (!teamId) {
     return
@@ -329,7 +331,7 @@ async function assignUnassignedPlayerToPickedTeamWithRole(playerId, role, rank) 
   }
 }
 
-function teamPickerFocusableElements() {
+function teamPickerFocusableElements(): HTMLElement[] {
   if (!teamPickerDialogRef.value) {
     return []
   }
@@ -343,7 +345,7 @@ function teamPickerFocusableElements() {
     '[tabindex]:not([tabindex="-1"])',
   ]
 
-  return Array.from(teamPickerDialogRef.value.querySelectorAll(selectors.join(', '))).filter((el) => {
+  return Array.from(teamPickerDialogRef.value.querySelectorAll<HTMLElement>(selectors.join(', '))).filter((el) => {
     return el.getAttribute('aria-hidden') !== 'true'
   })
 }
@@ -362,14 +364,14 @@ function focusInitialTeamPickerElement() {
 }
 
 function restoreTeamPickerFocus() {
-  if (previouslyFocusedElement && typeof previouslyFocusedElement.focus === 'function') {
-    previouslyFocusedElement.focus()
+  if (previouslyFocusedElement) {
+    (previouslyFocusedElement as HTMLElement).focus()
   }
 
   previouslyFocusedElement = null
 }
 
-function onTeamPickerKeydown(event) {
+function onTeamPickerKeydown(event: KeyboardEvent) {
   if (!isTeamPickerOpen.value) {
     return
   }
@@ -440,7 +442,7 @@ watch(isTeamPickerOpen, (open) => {
   }
 })
 
-function filteredPlayersAssignableToTeam(teamId) {
+function filteredPlayersAssignableToTeam(teamId: string | number): EventPlayer[] {
   const players = playersAssignableToTeam(teamId)
   const tokens = searchTokens(assignmentSearchByTeam[teamId])
   if (tokens.length === 0) {
@@ -452,15 +454,15 @@ function filteredPlayersAssignableToTeam(teamId) {
   })
 }
 
-function visibleTeamAssignResults(teamId) {
+function visibleTeamAssignResults(teamId: string | number): EventPlayer[] {
   return filteredPlayersAssignableToTeam(teamId).slice(0, 10)
 }
 
-function hasTeamAssignmentSearch(teamId) {
+function hasTeamAssignmentSearch(teamId: string | number): boolean {
   return searchTokens(assignmentSearchByTeam[teamId]).length > 0
 }
 
-function startEditTeam(team) {
+function startEditTeam(team: EventTeam) {
   ctx.editingTeamId = team.id
   ctx.editTeamName = team.name
 }
@@ -470,7 +472,7 @@ function cancelEditTeam() {
   ctx.editTeamName = ''
 }
 
-function formatTeamAverageElo(teamId) {
+function formatTeamAverageElo(teamId: string | number): string {
   const rawAverage = averagePlayersElo(playersForTeam(teamId))
   if (rawAverage === null || rawAverage === undefined) {
     return 'N/A'
@@ -484,7 +486,7 @@ function formatTeamAverageElo(teamId) {
   return Math.round(average).toLocaleString('en-US')
 }
 
-function assignmentNotice(player) {
+function assignmentNotice(player: EventPlayer): string {
   if (!player?.team_id || !player?.team) {
     return ''
   }
@@ -492,7 +494,7 @@ function assignmentNotice(player) {
   return `Currently in ${player.team}`
 }
 
-function playerInitials(name) {
+function playerInitials(name: string): string {
   const value = String(name || '').trim()
   if (!value) {
     return '?'
@@ -506,7 +508,7 @@ function playerInitials(name) {
   return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase()
 }
 
-function teamRankTierClass(rank) {
+function teamRankTierClass(rank: string): string {
   const normalized = String(rank || '').trim().toLowerCase()
   if (normalized.startsWith('bronze')) return 'rank-tier-bronze'
   if (normalized.startsWith('silver')) return 'rank-tier-silver'
@@ -520,11 +522,11 @@ function teamRankTierClass(rank) {
   return 'rank-tier-unranked'
 }
 
-function teamMatchesCount(teamId) {
+function teamMatchesCount(teamId: string | number): number {
   return Number(teamMatchCountById.value[String(teamId)] || 0)
 }
 
-function formatTeamModified(team) {
+function formatTeamModified(team: EventTeam): string {
   const raw = team?.updated_at || team?.created_at
   if (!raw) {
     return 'Just now'
@@ -609,7 +611,7 @@ function formatTeamModified(team) {
           <p class="balance-report-text">{{ ctx.lastBalanceSummary }}</p>
         </div>
 
-        <div v-if="!ctx.isTourneyEvent && ctx.event.teams.length > 0" class="balance-helper-panel card">
+        <div v-if="!ctx.isTourneyEvent && (ctx.event?.teams.length ?? 0) > 0" class="balance-helper-panel card">
           <div class="balance-helper-head">
             <span class="balance-helper-head-main">
               <span class="material-symbols-rounded balance-helper-info-icon" aria-hidden="true">info</span>
@@ -647,7 +649,7 @@ function formatTeamModified(team) {
       </aside>
 
       <div class="teams-board">
-        <p v-if="ctx.event.teams.length === 0" class="muted">No teams yet. Create teams first.</p>
+        <p v-if="(ctx.event?.teams.length ?? 0) === 0" class="muted">No teams yet. Create teams first.</p>
         <ul v-else class="entry-list" :class="{ 'is-single': orderedTeams.length === 1 }">
           <li v-for="team in orderedTeams" :key="team.id" class="team-row">
             <div class="list-main">
@@ -673,7 +675,7 @@ function formatTeamModified(team) {
                 <span class="entry-title">{{ team.name }}</span>
               </span>
               <div class="team-meta-row muted">
-                <span class="team-meta-count">{{ team.player_ids.length }} players</span>
+                <span class="team-meta-count">{{ team.player_ids?.length ?? 0 }} players</span>
                 <span class="team-meta-elo">AVG ELO: {{ formatTeamAverageElo(team.id) }}</span>
               </div>
               <div v-if="ctx.canManageEvent && !ctx.isTourneyEvent" class="team-balance-row">
@@ -723,7 +725,7 @@ function formatTeamModified(team) {
                     :value="assignmentSearchValue(team.id)"
                     type="search"
                     placeholder="Search player, role, rank..."
-                    @input="setAssignmentSearch(team.id, $event.target.value)"
+                    @input="setAssignmentSearch(team.id, ($event.target as HTMLInputElement).value)"
                   />
                   <p v-if="hasTeamAssignmentSearch(team.id)" class="muted team-assign-match-count">{{ filteredPlayersAssignableToTeam(team.id).length }} matches</p>
 

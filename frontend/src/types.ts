@@ -24,6 +24,9 @@ export interface RoleRank {
 export interface EventTeam {
   id: number | string
   name: string
+  player_ids?: (number | string)[]
+  created_at?: string
+  updated_at?: string
 }
 
 export interface EventPlayer {
@@ -49,6 +52,12 @@ export interface EventMatch {
   team_b_name: string | null
   winner_team_id: number | string | null
   winner_team_name: string | null
+  max_players?: number | null
+  round?: number | null
+  position?: number | null
+  status?: string
+  isPlaceholder?: boolean
+  next_match_id?: string | number | null
   players: EventPlayer[]
 }
 
@@ -65,6 +74,8 @@ export interface Event {
   public_signup_token: string | null
   is_featured: boolean
   is_ended: boolean
+  creator_id?: number | string
+  creator_name?: string
   players: EventPlayer[]
   teams: EventTeam[]
   matches: EventMatch[]
@@ -84,6 +95,9 @@ export interface SignupRequest {
   id: number | string
   status: string
   name: string
+  created_at?: string
+  updated_at?: string
+  roles?: Array<{ role: string; rank: string }>
   [key: string]: unknown
 }
 
@@ -105,5 +119,9 @@ export interface AuthSession {
 export interface PublicSignupInfo {
   event_name: string
   public_signup_enabled: boolean
+  current_players: number
+  max_players: number
+  current_signup_requests: number
+  start_date?: string | null
   [key: string]: unknown
 }

@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { apiCall } from '../lib/api'
@@ -10,10 +10,11 @@ import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import EventActionButton from '../components/ui/EventActionButton.vue'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
+import type { Event } from '../types'
 
-const events = ref([])
+const events = ref<Event[]>([])
 const loadingEvents = ref(false)
-const featuredEventFromApi = ref(null)
+const featuredEventFromApi = ref<Event | null>(null)
 const kpis = ref({
   total_events: 0,
   total_signups: 0,
@@ -119,11 +120,11 @@ const activityDisplayRows = computed(() => {
   return [...filledRows, ...placeholders]
 })
 
-function normalizeDate(value) {
+function normalizeDate(value: unknown): number | null {
   return getDateTimestamp(value)
 }
 
-function countdownLabel(startDate) {
+function countdownLabel(startDate: unknown): string {
   const start = normalizeDate(startDate)
   if (start === null) {
     return 'TBA'
@@ -141,11 +142,11 @@ function countdownLabel(startDate) {
   return `${hours}h`
 }
 
-function formatShortDate(value) {
+function formatShortDate(value: unknown): string {
   return formatShortMonthDay(value, '--')
 }
 
-function eventStatusForDashboard(event, players, maxPlayers) {
+function eventStatusForDashboard(event: Event, players: number, maxPlayers: number): string {
   if (maxPlayers > 0 && players >= maxPlayers) {
     return 'Full'
   }
@@ -158,7 +159,7 @@ function eventStatusForDashboard(event, players, maxPlayers) {
   return 'Open'
 }
 
-function activityPlayersFill(players, maxPlayers) {
+function activityPlayersFill(players: number, maxPlayers: number): { width: string } {
   const max = Math.max(1, Number(maxPlayers) || 1)
   const ratio = Math.max(0, Math.min(1, players / max))
   return {
@@ -169,8 +170,8 @@ function activityPlayersFill(players, maxPlayers) {
 async function loadLatestEvents() {
   loadingEvents.value = true
   try {
-    const response = await apiCall('/api/events?sort=newest&limit=8')
-    const loadedEvents = Array.isArray(response?.items) ? response.items : []
+    const response = await apiCall('/api/events?sort=newest&limit=8') as Record<string, unknown> | null
+    const loadedEvents = Array.isArray(response?.items) ? (response!.items as Event[]) : []
     events.value = loadedEvents
   } catch {
     events.value = []
@@ -181,7 +182,7 @@ async function loadLatestEvents() {
 
 async function loadFeaturedEvent() {
   try {
-    const featured = await apiCall('/api/events/featured')
+    const featured = await apiCall('/api/events/featured') as Event | null
     featuredEventFromApi.value = featured || null
   } catch {
     featuredEventFromApi.value = null
@@ -190,7 +191,7 @@ async function loadFeaturedEvent() {
 
 async function loadEventsKpis() {
   try {
-    const response = await apiCall('/api/events/kpi')
+    const response = await apiCall('/api/events/kpi') as Record<string, unknown> | null
     kpis.value = {
       total_events: Number(response?.total_events) || 0,
       total_signups: Number(response?.total_signups) || 0,

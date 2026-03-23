@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import winstonImage from '../assets/branding/winston.png'
 </script>
