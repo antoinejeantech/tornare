@@ -10,7 +10,7 @@ import { onBeforeUnmount, onMounted } from 'vue'
  *   import { usePageRevalidation } from '../lib/usePageRevalidation'
  *   usePageRevalidation(() => loadMyData())
  */
-export function usePageRevalidation(callback, thresholdMs = 30_000) {
+export function usePageRevalidation(callback: () => void, thresholdMs = 30_000): void {
   let hiddenAt = 0
 
   function onVisibilityChange() {

@@ -1,3 +1,5 @@
+import type { OverwatchRank } from '../types'
+
 import unrankedIcon from '../assets/ranks/unranked.webp'
 import bronzeIcon from '../assets/ranks/bronze.webp'
 import silverIcon from '../assets/ranks/silver.webp'
@@ -8,7 +10,7 @@ import masterIcon from '../assets/ranks/master.webp'
 import grandmasterIcon from '../assets/ranks/grandmaster.webp'
 import championIcon from '../assets/ranks/champion.webp'
 
-export const overwatchRanks = [
+export const overwatchRanks: OverwatchRank[] = [
   'Unranked',
   'Bronze',
   'Silver',
@@ -20,7 +22,7 @@ export const overwatchRanks = [
   'Champion'
 ]
 
-const rankIcons = {
+const rankIcons: Record<OverwatchRank, string> = {
   Unranked: unrankedIcon,
   Bronze: bronzeIcon,
   Silver: silverIcon,
@@ -32,7 +34,7 @@ const rankIcons = {
   Champion: championIcon
 }
 
-const rankElo = {
+const rankElo: Record<OverwatchRank, number | null> = {
   Unranked: null,
   Bronze: 1000,
   Silver: 1500,
@@ -44,10 +46,10 @@ const rankElo = {
   Champion: 4500,
 }
 
-export function getRankIcon(rank) {
-  return rankIcons[rank] || unrankedIcon
+export function getRankIcon(rank: string): string {
+  return rankIcons[rank as OverwatchRank] || unrankedIcon
 }
 
-export function getRankElo(rank) {
-  return rankElo[rank] ?? null
+export function getRankElo(rank: string | null | undefined): number | null {
+  return rankElo[rank as OverwatchRank] ?? null
 }

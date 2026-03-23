@@ -7,7 +7,7 @@ if (typeof window !== 'undefined') {
   accessToken = window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || ''
 }
 
-export function setAccessToken(token) {
+export function setAccessToken(token: string | null | undefined): void {
   accessToken = token || ''
   if (typeof window !== 'undefined') {
     if (accessToken) {
@@ -18,15 +18,15 @@ export function setAccessToken(token) {
   }
 }
 
-export function clearAccessToken() {
+export function clearAccessToken(): void {
   setAccessToken('')
 }
 
-export function getAccessToken() {
+export function getAccessToken(): string {
   return accessToken
 }
 
-export function getStoredAccessToken() {
+export function getStoredAccessToken(): string {
   if (typeof window === 'undefined') {
     return ''
   }
@@ -34,19 +34,19 @@ export function getStoredAccessToken() {
   return window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || ''
 }
 
-export function syncAccessTokenFromStorage() {
+export function syncAccessTokenFromStorage(): string {
   accessToken = getStoredAccessToken()
   return accessToken
 }
 
-function getRefreshToken() {
+function getRefreshToken(): string {
   if (typeof window === 'undefined') {
     return ''
   }
   return window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) || ''
 }
 
-function setRefreshToken(token) {
+function setRefreshToken(token: string | null | undefined): void {
   if (typeof window === 'undefined') {
     return
   }
@@ -58,13 +58,13 @@ function setRefreshToken(token) {
   }
 }
 
-async function tryRefreshSession() {
+async function tryRefreshSession(): Promise<boolean> {
   const refreshToken = getRefreshToken()
   if (!refreshToken) {
     return false
   }
 
-  let response
+  let response: Response
   try {
     response = await fetch(`${apiBase}/api/auth/refresh`, {
       method: 'POST',
@@ -90,7 +90,7 @@ async function tryRefreshSession() {
     return false
   }
 
-  let body
+  let body: { access_token?: string; refresh_token?: string }
   try {
     body = await response.json()
   } catch {
@@ -102,19 +102,23 @@ async function tryRefreshSession() {
   return Boolean(body.access_token)
 }
 
-export async function apiCall(path, options = {}) {
-  const headers = {
+export interface ApiCallOptions extends Omit<RequestInit, 'headers'> {
+  headers?: Record<string, string>
+}
+
+export async function apiCall<T = unknown>(path: string, options: ApiCallOptions = {}): Promise<T> {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers || {})
   }
 
-  if (accessToken && !headers.Authorization) {
-    headers.Authorization = `Bearer ${accessToken}`
+  if (accessToken && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${accessToken}`
   }
 
   let response = await fetch(`${apiBase}${path}`, {
+    ...options,
     headers,
-    ...options
   })
 
   // If access token expired, refresh once and retry the original request.
@@ -122,14 +126,14 @@ export async function apiCall(path, options = {}) {
   if (response.status === 401 && path !== '/api/auth/refresh') {
     const refreshed = await tryRefreshSession()
     if (refreshed) {
-      const retryHeaders = {
+      const retryHeaders: Record<string, string> = {
         ...headers,
         Authorization: `Bearer ${accessToken}`,
       }
 
       response = await fetch(`${apiBase}${path}`, {
-        headers: retryHeaders,
         ...options,
+        headers: retryHeaders,
       })
     }
   }
@@ -147,5 +151,5 @@ export async function apiCall(path, options = {}) {
     throw new Error(message)
   }
 
-  return response.json()
+  return response.json() as Promise<T>
 }

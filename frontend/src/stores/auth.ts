@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
+import type { AuthSession, AuthUser } from '../types'
 import { apiCall, clearAccessToken, getAccessToken, setAccessToken, syncAccessTokenFromStorage } from '../lib/api'
 
 const REFRESH_TOKEN_STORAGE_KEY = 'tornare_refresh_token'
-let initializePromise = null
+let initializePromise: Promise<void> | null = null
 
-function getStoredRefreshToken() {
+function getStoredRefreshToken(): string {
   if (typeof window === 'undefined') {
     return ''
   }
@@ -12,7 +13,7 @@ function getStoredRefreshToken() {
   return window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) || ''
 }
 
-function setStoredRefreshToken(token) {
+function setStoredRefreshToken(token: string): void {
   if (typeof window === 'undefined') {
     return
   }
@@ -26,7 +27,7 @@ function setStoredRefreshToken(token) {
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    user: null,
+    user: null as AuthUser | null,
     accessToken: getAccessToken(),
     refreshToken: getStoredRefreshToken(),
     initialized: false,
@@ -35,47 +36,47 @@ export const useAuthStore = defineStore('auth', {
     isAuthenticated: (state) => Boolean(state.accessToken),
   },
   actions: {
-    syncTokensFromStorage() {
+    syncTokensFromStorage(): void {
       this.accessToken = syncAccessTokenFromStorage()
       this.refreshToken = getStoredRefreshToken()
     },
-    setSession(payload) {
+    setSession(payload: AuthSession): void {
       this.user = payload.user
       this.accessToken = payload.access_token
       this.refreshToken = payload.refresh_token
       setAccessToken(payload.access_token)
       setStoredRefreshToken(payload.refresh_token)
     },
-    clearSession() {
+    clearSession(): void {
       this.user = null
       this.accessToken = ''
       this.refreshToken = ''
       clearAccessToken()
       setStoredRefreshToken('')
     },
-    async register(payload) {
-      const response = await apiCall('/api/auth/register', {
+    async register(payload: Record<string, unknown>): Promise<AuthSession> {
+      const response = await apiCall<AuthSession>('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
       this.setSession(response)
       return response
     },
-    async login(payload) {
-      const response = await apiCall('/api/auth/login', {
+    async login(payload: Record<string, unknown>): Promise<AuthSession> {
+      const response = await apiCall<AuthSession>('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
       this.setSession(response)
       return response
     },
-    async fetchMe() {
-      const me = await apiCall('/api/auth/me')
+    async fetchMe(): Promise<AuthUser> {
+      const me = await apiCall<AuthUser>('/api/auth/me')
       this.user = me
       this.syncTokensFromStorage()
       return me
     },
-    async refreshAccessToken() {
+    async refreshAccessToken(): Promise<AuthSession> {
       this.syncTokensFromStorage()
 
       const refreshToken = this.refreshToken
@@ -83,14 +84,14 @@ export const useAuthStore = defineStore('auth', {
         throw new Error('No refresh token')
       }
 
-      const response = await apiCall('/api/auth/refresh', {
+      const response = await apiCall<AuthSession>('/api/auth/refresh', {
         method: 'POST',
         body: JSON.stringify({ refresh_token: refreshToken }),
       })
       this.setSession(response)
       return response
     },
-    async logout() {
+    async logout(): Promise<void> {
       try {
         this.syncTokensFromStorage()
 
@@ -105,7 +106,7 @@ export const useAuthStore = defineStore('auth', {
         this.clearSession()
       }
     },
-    async initialize() {
+    async initialize(): Promise<void> {
       if (this.initialized) {
         return
       }

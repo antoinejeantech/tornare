@@ -1,8 +1,11 @@
 import { computed, ref } from 'vue'
+import type { EventSettingsCtx } from './event-ctx'
 import { formatOptionsForType } from './event-format'
 import { isoToDatetimeLocalValue, normalizeDatetimeLocalInput } from './dates'
 
-export function useEventSettings({ event, eventId, ensureOwnerAction, setError, setNotice, hydrateSelections, eventStore, confirm, router }) {
+export function useEventSettings({
+  event, eventId, ensureOwnerAction, setError, setNotice, hydrateSelections, eventStore, confirm, router,
+}: EventSettingsCtx) {
   const editEventName = ref('')
   const editEventDescription = ref('')
   const editEventStartDate = ref('')
@@ -15,7 +18,7 @@ export function useEventSettings({ event, eventId, ensureOwnerAction, setError, 
     const nameOk = editEventName.value.trim().length > 0
     const maxOk = Number.isInteger(editEventMaxPlayers.value) && editEventMaxPlayers.value >= 2 && editEventMaxPlayers.value <= 99
     const allowedFormats = formatOptionsForType(event.value?.event_type)
-    const formatOk = allowedFormats.includes(editEventFormat.value)
+    const formatOk = allowedFormats.includes(editEventFormat.value as never)
     return nameOk && maxOk && formatOk
   })
 

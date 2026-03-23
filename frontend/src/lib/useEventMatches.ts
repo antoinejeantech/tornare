@@ -1,13 +1,16 @@
 import { computed, nextTick, ref } from 'vue'
+import type { EventMatchesCtx } from './event-ctx'
 import { normalizeDatetimeLocalInput } from './dates'
 
-export function useEventMatches({ event, eventId, isTourneyEvent, ensureOwnerAction, setError, setNotice, hydrateSelections, matchupSelections, eventStore, matchStore, confirm }) {
+export function useEventMatches({
+  event, eventId, isTourneyEvent, ensureOwnerAction, setError, setNotice, hydrateSelections, matchupSelections, eventStore, matchStore, confirm,
+}: EventMatchesCtx) {
   const creatingMatch = ref(false)
   const clearingBracket = ref(false)
-  const deletingMatchId = ref(null)
-  const savingMatchups = ref({})
-  const reportingWinners = ref({})
-  const cancellingWinners = ref({})
+  const deletingMatchId = ref<string | number | null>(null)
+  const savingMatchups = ref<Record<string | number, boolean>>({})
+  const reportingWinners = ref<Record<string | number, boolean>>({})
+  const cancellingWinners = ref<Record<string | number, boolean>>({})
   const newMatchTitle = ref('')
   const newMatchMap = ref('')
   const newMatchTeamAId = ref('')
@@ -18,7 +21,7 @@ export function useEventMatches({ event, eventId, isTourneyEvent, ensureOwnerAct
     () => Boolean(event.value) && newMatchTitle.value.trim().length > 0 && newMatchMap.value.trim().length > 0
   )
 
-  async function saveMatchup(matchId) {
+  async function saveMatchup(matchId: string | number) {
     if (!ensureOwnerAction() || !eventId.value || savingMatchups.value[matchId]) return false
     const selection = matchupSelections.value[matchId] || { teamAId: '', teamBId: '' }
     const teamAId = selection.teamAId || null
@@ -89,7 +92,7 @@ export function useEventMatches({ event, eventId, isTourneyEvent, ensureOwnerAct
     }
   }
 
-  async function updateMatchStartDate(matchId, startDate) {
+  async function updateMatchStartDate(matchId: string | number, startDate: string) {
     if (!ensureOwnerAction() || !eventId.value) return
 
     let normalizedStartDate = null
@@ -162,7 +165,7 @@ export function useEventMatches({ event, eventId, isTourneyEvent, ensureOwnerAct
     }
   }
 
-  async function reportMatchWinner(matchId, winnerTeamId) {
+  async function reportMatchWinner(matchId: string | number, winnerTeamId: string | number) {
     if (!ensureOwnerAction() || !eventId.value || !winnerTeamId || reportingWinners.value[matchId]) return
     reportingWinners.value = { ...reportingWinners.value, [matchId]: true }
     const savedWindowY = window.scrollY
@@ -185,7 +188,7 @@ export function useEventMatches({ event, eventId, isTourneyEvent, ensureOwnerAct
     }
   }
 
-  async function cancelMatchWinner(matchId) {
+  async function cancelMatchWinner(matchId: string | number) {
     if (!ensureOwnerAction() || !eventId.value || cancellingWinners.value[matchId]) return
     const confirmed = await confirm.ask({
       title: 'Cancel match result?',
@@ -217,7 +220,7 @@ export function useEventMatches({ event, eventId, isTourneyEvent, ensureOwnerAct
     }
   }
 
-  async function deleteMatch(matchId) {
+  async function deleteMatch(matchId: string | number) {
     if (!ensureOwnerAction() || deletingMatchId.value) return
     const target = event.value?.matches.find((match) => match.id === matchId)
     const confirmed = await confirm.ask({

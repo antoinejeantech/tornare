@@ -1,17 +1,36 @@
 import { defineStore } from 'pinia'
 
+export type AlertType = 'success' | 'error' | 'info' | 'warning'
+
+export interface AlertItem {
+  id: number
+  type: AlertType
+  title: string
+  message: string
+}
+
+export interface AlertPushOptions {
+  type?: AlertType
+  title?: string
+  duration?: number
+}
+
+interface AlertPushPayload extends AlertPushOptions {
+  message: string
+}
+
 let nextId = 1
 
 export const useAlertsStore = defineStore('alerts', {
   state: () => ({
-    items: [],
+    items: [] as AlertItem[],
   }),
   actions: {
-    push(payload) {
+    push(payload: AlertPushPayload): number {
       const id = nextId
       nextId += 1
 
-      const item = {
+      const item: AlertItem = {
         id,
         type: payload.type || 'info',
         title: payload.title || '',
@@ -30,10 +49,10 @@ export const useAlertsStore = defineStore('alerts', {
 
       return id
     },
-    remove(id) {
+    remove(id: number): void {
       this.items = this.items.filter((item) => item.id !== id)
     },
-    clear() {
+    clear(): void {
       this.items = []
     },
   },

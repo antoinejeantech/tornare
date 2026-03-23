@@ -1,10 +1,11 @@
+import type { ConfirmOptions } from '../stores/confirms'
 import { useConfirmsStore } from '../stores/confirms'
 
 export function useConfirm() {
   const store = useConfirmsStore()
 
   return {
-    ask(options = {}) {
+    ask(options: ConfirmOptions = {}): Promise<boolean> {
       return store.ask(options)
     },
     cancel() {

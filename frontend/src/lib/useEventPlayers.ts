@@ -1,18 +1,22 @@
 import { computed, ref } from 'vue'
+import type { EventPlayersCtx } from './event-ctx'
+import type { EventPlayer, RoleRank } from '../types'
 
-export function useEventPlayers({ event, eventId, eventIsFull, ensureOwnerAction, setError, setNotice, hydrateSelections, clearLastBalancedFingerprint, eventStore, confirm }) {
+export function useEventPlayers({
+  event, eventId, eventIsFull, ensureOwnerAction, setError, setNotice, hydrateSelections, clearLastBalancedFingerprint, eventStore, confirm,
+}: EventPlayersCtx) {
   const addingPlayer = ref(false)
-  const deletingPlayers = ref({})
-  const savingPlayerEdits = ref({})
-  const savingPlayerTeams = ref({})
+  const deletingPlayers = ref<Record<string | number, boolean>>({})
+  const savingPlayerEdits = ref<Record<string | number, boolean>>({})
+  const savingPlayerTeams = ref<Record<string | number, boolean>>({})
   const newPlayerName = ref('')
   const newPlayerRole = ref('DPS')
   const newPlayerRank = ref('Unranked')
-  const editingPlayerId = ref(null)
+  const editingPlayerId = ref<string | number | null>(null)
   const editPlayerName = ref('')
   const editPlayerRole = ref('DPS')
   const editPlayerRank = ref('Unranked')
-  const editPlayerRoles = ref([{ role: 'DPS', rank: 'Unranked' }])
+  const editPlayerRoles = ref<RoleRank[]>([{ role: 'DPS', rank: 'Unranked' }])
 
   const canAddPlayer = computed(() => Boolean(event.value) && newPlayerName.value.trim().length > 0)
 
@@ -42,7 +46,7 @@ export function useEventPlayers({ event, eventId, eventIsFull, ensureOwnerAction
     }
   }
 
-  async function savePlayerEdit(playerId) {
+  async function savePlayerEdit(playerId: string | number) {
     if (!ensureOwnerAction()) return
     const validRoles = editPlayerRoles.value.filter((rp) => rp.role && rp.rank)
     if (!eventId.value || !editPlayerName.value.trim() || validRoles.length === 0 || savingPlayerEdits.value[playerId]) return
@@ -70,7 +74,7 @@ export function useEventPlayers({ event, eventId, eventIsFull, ensureOwnerAction
     }
   }
 
-  async function setPlayerTeam(playerId, teamId) {
+  async function setPlayerTeam(playerId: string | number, teamId: string | number | null) {
     if (!ensureOwnerAction() || !eventId.value || savingPlayerTeams.value[playerId]) return
     savingPlayerTeams.value = { ...savingPlayerTeams.value, [playerId]: true }
     try {
@@ -86,11 +90,11 @@ export function useEventPlayers({ event, eventId, eventIsFull, ensureOwnerAction
     }
   }
 
-  async function assignPlayerToTeam(playerId, teamId) {
+  async function assignPlayerToTeam(playerId: string | number, teamId: string | number | null) {
     await setPlayerTeam(playerId, teamId)
   }
 
-  async function assignPlayerToTeamWithRole(playerId, teamId, role, rank) {
+  async function assignPlayerToTeamWithRole(playerId: string | number, teamId: string | number | null, role: string, rank: string) {
     if (!ensureOwnerAction() || !eventId.value || savingPlayerTeams.value[playerId]) return
     savingPlayerTeams.value = { ...savingPlayerTeams.value, [playerId]: true }
     try {
@@ -106,11 +110,11 @@ export function useEventPlayers({ event, eventId, eventIsFull, ensureOwnerAction
     }
   }
 
-  async function removePlayerFromTeam(playerId) {
+  async function removePlayerFromTeam(playerId: string | number) {
     await setPlayerTeam(playerId, null)
   }
 
-  async function removePlayer(player) {
+  async function removePlayer(player: EventPlayer) {
     if (!ensureOwnerAction() || !eventId.value || deletingPlayers.value[player.id]) return
 
     const confirmed = await confirm.ask({

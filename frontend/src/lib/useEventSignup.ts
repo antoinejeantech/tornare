@@ -1,10 +1,14 @@
 import { computed, ref } from 'vue'
+import type { EventSignupCtx } from './event-ctx'
+import type { SignupRequest } from '../types'
 
-export function useEventSignup({ event, eventId, canManageEvent, hasEventAdminAccess, ensureOwnerAction, setError, setNotice, hydrateSelections, eventStore, confirm }) {
+export function useEventSignup({
+  event, eventId, canManageEvent, hasEventAdminAccess, ensureOwnerAction, setError, setNotice, hydrateSelections, eventStore, confirm,
+}: EventSignupCtx) {
   const signupToken = ref('')
-  const signupRequests = ref([])
+  const signupRequests = ref<SignupRequest[]>([])
   const loadingSignupRequests = ref(false)
-  const reviewingSignupRequests = ref({})
+  const reviewingSignupRequests = ref<Record<string, boolean>>({})
   const rotatingSignupLink = ref(false)
   const updatingSignupVisibility = ref(false)
   const updatingFeaturedEvent = ref(false)
@@ -95,7 +99,7 @@ export function useEventSignup({ event, eventId, canManageEvent, hasEventAdminAc
     }
   }
 
-  async function setSignupVisibility(enabled) {
+  async function setSignupVisibility(enabled: boolean) {
     if (!ensureOwnerAction() || !eventId.value || updatingSignupVisibility.value) return
 
     if (!enabled && Boolean(event.value?.public_signup_enabled)) {
@@ -124,7 +128,7 @@ export function useEventSignup({ event, eventId, canManageEvent, hasEventAdminAc
     }
   }
 
-  async function setFeaturedEvent(featured) {
+  async function setFeaturedEvent(featured: boolean) {
     if (!hasEventAdminAccess.value) {
       setError('Only app admins and moderators can change the featured event.')
       return
@@ -144,7 +148,7 @@ export function useEventSignup({ event, eventId, canManageEvent, hasEventAdminAc
     }
   }
 
-  async function setEventEnded(ended) {
+  async function setEventEnded(ended: boolean) {
     if (!ensureOwnerAction() || !eventId.value || endingEvent.value) return
 
     if (ended) {
@@ -170,7 +174,7 @@ export function useEventSignup({ event, eventId, canManageEvent, hasEventAdminAc
     }
   }
 
-  async function acceptSignupRequest(requestId) {
+  async function acceptSignupRequest(requestId: string | number) {
     if (!ensureOwnerAction() || !eventId.value || reviewingSignupRequests.value[requestId]) return
     reviewingSignupRequests.value = { ...reviewingSignupRequests.value, [requestId]: true }
     try {
@@ -186,7 +190,7 @@ export function useEventSignup({ event, eventId, canManageEvent, hasEventAdminAc
     }
   }
 
-  async function declineSignupRequest(requestId) {
+  async function declineSignupRequest(requestId: string | number) {
     if (!ensureOwnerAction() || !eventId.value || reviewingSignupRequests.value[requestId]) return
     reviewingSignupRequests.value = { ...reviewingSignupRequests.value, [requestId]: true }
     try {

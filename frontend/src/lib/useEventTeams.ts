@@ -1,20 +1,24 @@
 import { computed, ref } from 'vue'
+import type { SharedEventCtx } from './event-ctx'
+import type { Event, EventTeam } from '../types'
 
-export function useEventTeams({ event, eventId, ensureOwnerAction, setError, setNotice, hydrateSelections, eventStore, confirm }) {
+export function useEventTeams({
+  event, eventId, ensureOwnerAction, setError, setNotice, hydrateSelections, eventStore, confirm,
+}: SharedEventCtx) {
   const creatingTeam = ref(false)
   const creatingSoloTeams = ref(false)
   const balancingTeams = ref(false)
-  const deletingTeams = ref({})
-  const savingTeamEdits = ref({})
+  const deletingTeams = ref<Record<string | number, boolean>>({})
+  const savingTeamEdits = ref<Record<string | number, boolean>>({})
   const newTeamName = ref('')
-  const editingTeamId = ref(null)
+  const editingTeamId = ref<string | number | null>(null)
   const editTeamName = ref('')
   const lastBalanceSummary = ref('')
-  const lastBalancedFingerprint = ref(null)
+  const lastBalancedFingerprint = ref<string | null>(null)
 
   const canCreateTeam = computed(() => Boolean(event.value) && newTeamName.value.trim().length > 0)
 
-  function teamsFingerprint(ev) {
+  function teamsFingerprint(ev: Event | null | undefined): string | null {
     if (!Array.isArray(ev?.players)) return null
     return JSON.stringify({
       format: String(ev?.format || ''),
@@ -80,11 +84,10 @@ export function useEventTeams({ event, eventId, ensureOwnerAction, setError, set
     balancingTeams.value = true
     try {
       const response = await eventStore.autoBalanceTeams(eventId.value)
-      const updatedEvent = response?.event || response
-      event.value = updatedEvent
+      event.value = response.event
       hydrateSelections()
-      lastBalanceSummary.value = response?.summary || 'Teams auto-balanced by rank ELO'
-      lastBalancedFingerprint.value = teamsFingerprint(updatedEvent)
+      lastBalanceSummary.value = response.summary || 'Teams auto-balanced by rank ELO'
+      lastBalancedFingerprint.value = teamsFingerprint(response.event)
       setNotice(lastBalanceSummary.value)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to auto-balance teams')
@@ -93,7 +96,7 @@ export function useEventTeams({ event, eventId, ensureOwnerAction, setError, set
     }
   }
 
-  async function saveTeamEdit(teamId) {
+  async function saveTeamEdit(teamId: string | number) {
     if (!ensureOwnerAction() || !eventId.value || !editTeamName.value.trim() || savingTeamEdits.value[teamId]) return
     savingTeamEdits.value = { ...savingTeamEdits.value, [teamId]: true }
     try {
@@ -110,7 +113,7 @@ export function useEventTeams({ event, eventId, ensureOwnerAction, setError, set
     }
   }
 
-  async function deleteTeam(team) {
+  async function deleteTeam(team: EventTeam) {
     if (!ensureOwnerAction() || !eventId.value || deletingTeams.value[team.id]) return
 
     const confirmed = await confirm.ask({
