@@ -1,26 +1,18 @@
-<script setup>
+<script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import { computed } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 
-const props = defineProps({
-  to: {
-    type: [String, Object],
-    default: null,
-  },
-  label: {
-    type: String,
-    default: 'View all events',
-  },
-  as: {
-    type: String,
-    default: 'auto',
-    validator: (value) => ['auto', 'link', 'text'].includes(value),
-  },
-  arrowSide: {
-    type: String,
-    default: 'right',
-    validator: (value) => ['left', 'right'].includes(value),
-  },
+const props = withDefaults(defineProps<{
+  to?: RouteLocationRaw | null
+  label?: string
+  as?: string
+  arrowSide?: string
+}>(), {
+  to: null,
+  label: 'View all events',
+  as: 'auto',
+  arrowSide: 'right',
 })
 
 const renderAsLink = computed(() => {

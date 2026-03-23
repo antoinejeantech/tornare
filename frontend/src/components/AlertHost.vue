@@ -1,11 +1,12 @@
-<script setup>
+<script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { useAlertsStore } from '../stores/alerts'
+import type { AlertType } from '../stores/alerts'
 
 const alertsStore = useAlertsStore()
 const { items } = storeToRefs(alertsStore)
 
-function iconFor(type) {
+function iconFor(type: AlertType): string {
   if (type === 'success') return 'check_circle'
   if (type === 'error') return 'error'
   if (type === 'warning') return 'warning'

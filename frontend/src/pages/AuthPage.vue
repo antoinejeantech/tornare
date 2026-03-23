@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -95,7 +95,7 @@ async function submit() {
   }
 }
 
-function switchMode(nextMode) {
+function switchMode(nextMode: string) {
   if (nextMode === 'register' && !publicSignupEnabled) {
     error.value = 'Public signup will be available soon.'
     return

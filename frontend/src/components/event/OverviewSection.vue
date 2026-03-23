@@ -1,11 +1,12 @@
-<script setup>
+<script setup lang="ts">
 import { computed, inject } from 'vue'
 import { RouterLink } from 'vue-router'
 import { formatEventStartDate, getDateTimestamp } from '../../lib/dates'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
+import type { EventCtxType } from '../../lib/event-inject'
 
-const ctx = inject('eventCtx')
+const ctx = inject<EventCtxType>('eventCtx')!
 
 const rosterCount = computed(() => ctx.event?.players.length || 0)
 const teamCount = computed(() => ctx.event?.teams.length || 0)
@@ -56,7 +57,7 @@ const nextMatches = computed(() => {
   const withDate = ctx.event.matches
     .filter((m) => m.start_date)
     .map((m) => ({ match: m, ts: getDateTimestamp(m.start_date) }))
-    .filter((entry) => entry.ts !== null)
+    .filter((entry): entry is { match: typeof entry.match; ts: number } => entry.ts !== null)
     .sort((a, b) => {
       const aFuture = a.ts >= now
       const bFuture = b.ts >= now
@@ -68,7 +69,7 @@ const nextMatches = computed(() => {
   return [...withDate, ...withoutDate].slice(0, 3)
 })
 
-function formatMatchDate(isoStr) {
+function formatMatchDate(isoStr: string): string {
   if (!isoStr) return ''
   const d = new Date(isoStr)
   if (isNaN(d.getTime())) return ''
@@ -84,7 +85,7 @@ const largestTeams = computed(() => {
   }
 
   return [...ctx.event.teams]
-    .sort((a, b) => b.player_ids.length - a.player_ids.length)
+    .sort((a, b) => (b.player_ids?.length ?? 0) - (a.player_ids?.length ?? 0))
     .slice(0, 3)
 })
 
@@ -96,7 +97,7 @@ const featuredPlayers = computed(() => {
   return [...ctx.event.players].slice(0, 3)
 })
 
-function matchupLabel(match) {
+function matchupLabel(match: { team_a_name?: string | null; team_b_name?: string | null }): string {
   if (!match.team_a_name || !match.team_b_name) {
     return 'Matchup not set'
   }
@@ -118,7 +119,7 @@ function readinessLabel() {
   return 'Operations Ready'
 }
 
-function sectionRoute(section) {
+function sectionRoute(section: string) {
   return {
     name: 'event',
     params: { id: String(ctx.event?.id || '') },
@@ -133,13 +134,13 @@ function sectionRoute(section) {
 
     <header class="overview-hero">
       <div class="overview-meta-row">
-        <span class="overview-chip">{{ ctx.event.event_type }}</span>
-        <span class="overview-chip">{{ ctx.event.format }}</span>
+        <span class="overview-chip">{{ ctx.event?.event_type }}</span>
+        <span class="overview-chip">{{ ctx.event?.format }}</span>
         <span v-if="formattedStartDate" class="overview-chip">{{ formattedStartDate }}</span>
         <RouterLink v-if="creatorProfileRoute" class="overview-chip overview-chip-link" :to="creatorProfileRoute">
-          by {{ ctx.event.creator_name || 'Unknown' }}
+          by {{ ctx.event?.creator_name || 'Unknown' }}
         </RouterLink>
-        <span v-else class="overview-chip">by {{ ctx.event.creator_name || 'Unknown' }}</span>
+        <span v-else class="overview-chip">by {{ ctx.event?.creator_name || 'Unknown' }}</span>
         <span class="overview-readiness" :aria-label="`Status ${readinessLabel()}`">
           <span class="overview-readiness-copy">
             <span class="overview-readiness-kicker">STATUS</span>
@@ -149,13 +150,13 @@ function sectionRoute(section) {
         </span>
       </div>
 
-      <p v-if="ctx.event.description" class="overview-description muted">{{ ctx.event.description }}</p>
+      <p v-if="ctx.event?.description" class="overview-description muted">{{ ctx.event?.description }}</p>
     </header>
 
     <div class="overview-kpis">
       <article class="overview-kpi">
         <p class="overview-kpi-label">Roster</p>
-        <p class="overview-kpi-value">{{ rosterCount }}/{{ ctx.event.max_players }}</p>
+        <p class="overview-kpi-value">{{ rosterCount }}/{{ ctx.event?.max_players }}</p>
         <p class="muted overview-kpi-meta">{{ rosterFillPercent }}% full</p>
         <span class="overview-kpi-track" aria-hidden="true"><span class="overview-kpi-fill" :style="{ width: `${rosterFillPercent}%` }"></span></span>
       </article>
@@ -207,7 +208,7 @@ function sectionRoute(section) {
           <li v-for="(team, index) in largestTeams" :key="team.id" class="overview-team-row">
             <span class="overview-team-tag">T{{ index + 1 }}</span>
             <span class="overview-team-name">{{ team.name }}</span>
-            <span class="overview-team-size">{{ team.player_ids.length }} players</span>
+            <span class="overview-team-size">{{ team.player_ids?.length ?? 0 }} players</span>
           </li>
         </ul>
         <RouterLink class="overview-open-btn" :to="sectionRoute('teams')">

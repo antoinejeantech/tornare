@@ -1,26 +1,26 @@
-<script setup>
+<script setup lang="ts">
 import { getRoleIcon } from '../../lib/roles'
+import type { EventPlayer, RoleRank } from '../../types'
 
-const props = defineProps({
-  player: {
-    type: Object,
-    required: true,
-  },
-  clickable: {
-    type: Boolean,
-    default: false,
-  },
+const props = withDefaults(defineProps<{
+  player: EventPlayer
+  clickable?: boolean
+}>(), {
+  clickable: false,
 })
 
-const emit = defineEmits(['select', 'selectRole'])
+const emit = defineEmits<{
+  (e: 'select', player: EventPlayer): void
+  (e: 'selectRole', player: EventPlayer, rp: RoleRank): void
+}>()
 
-function emitSelectRole(rp, event) {
+function emitSelectRole(rp: RoleRank, event: Event) {
   if (!props.clickable) return
   event.stopPropagation()
   emit('selectRole', props.player, rp)
 }
 
-function playerInitials(name) {
+function playerInitials(name: string) {
   const tokens = String(name || '').trim().split(/\s+/).filter(Boolean)
   if (tokens.length === 0) {
     return '??'
@@ -33,7 +33,7 @@ function playerInitials(name) {
   return `${tokens[0][0] || ''}${tokens[1][0] || ''}`.toUpperCase()
 }
 
-function rankTierClass(rank) {
+function rankTierClass(rank: string) {
   const normalized = String(rank || '').trim().toLowerCase()
   if (normalized.startsWith('bronze')) return 'rank-tier-bronze'
   if (normalized.startsWith('silver')) return 'rank-tier-silver'

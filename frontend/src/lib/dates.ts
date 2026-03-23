@@ -24,11 +24,11 @@ const time24Formatter = new Intl.DateTimeFormat(undefined, {
   hour12: false,
 })
 
-function padDatePart(value) {
+function padDatePart(value: number): string {
   return String(value).padStart(2, '0')
 }
 
-export function parseDateValue(value) {
+export function parseDateValue(value: unknown): Date | null {
   const raw = String(value || '').trim()
   if (!raw) {
     return null
@@ -42,12 +42,12 @@ export function parseDateValue(value) {
   return parsed
 }
 
-export function getDateTimestamp(value) {
+export function getDateTimestamp(value: unknown): number | null {
   const parsed = parseDateValue(value)
   return parsed ? parsed.getTime() : null
 }
 
-export function datetimeLocalToIsoString(value) {
+export function datetimeLocalToIsoString(value: unknown): string | null {
   const raw = String(value || '').trim()
   if (!raw) {
     return null
@@ -61,7 +61,7 @@ export function datetimeLocalToIsoString(value) {
   return parsed.toISOString()
 }
 
-export function normalizeDatetimeLocalInput(value, errorLabel = 'date') {
+export function normalizeDatetimeLocalInput(value: unknown, errorLabel = 'date'): string | null {
   const raw = String(value || '').trim()
   if (!raw) {
     return null
@@ -75,7 +75,7 @@ export function normalizeDatetimeLocalInput(value, errorLabel = 'date') {
   return normalized
 }
 
-export function isoToDatetimeLocalValue(value) {
+export function isoToDatetimeLocalValue(value: unknown): string {
   const raw = String(value || '').trim()
   if (!raw) {
     return ''
@@ -89,7 +89,7 @@ export function isoToDatetimeLocalValue(value) {
   return `${parsed.getFullYear()}-${padDatePart(parsed.getMonth() + 1)}-${padDatePart(parsed.getDate())}T${padDatePart(parsed.getHours())}:${padDatePart(parsed.getMinutes())}`
 }
 
-export function formatEventStartDate(value) {
+export function formatEventStartDate(value: unknown): string {
   const parsed = parseDateValue(value)
   if (!parsed) {
     return String(value || '').trim()
@@ -98,22 +98,22 @@ export function formatEventStartDate(value) {
   return eventStartDateFormatter.format(parsed)
 }
 
-export function formatShortMonthDay(value, fallback = '') {
+export function formatShortMonthDay(value: unknown, fallback = ''): string {
   const parsed = parseDateValue(value)
   return parsed ? shortMonthDayFormatter.format(parsed) : fallback
 }
 
-export function formatMediumDate(value, fallback = '') {
+export function formatMediumDate(value: unknown, fallback = ''): string {
   const parsed = parseDateValue(value)
   return parsed ? mediumDateFormatter.format(parsed) : fallback
 }
 
-export function formatTime24(value, fallback = '') {
+export function formatTime24(value: unknown, fallback = ''): string {
   const parsed = parseDateValue(value)
   return parsed ? time24Formatter.format(parsed) : fallback
 }
 
-export function formatDayMonthYear(value, fallback = '') {
+export function formatDayMonthYear(value: unknown, fallback = ''): string {
   const parsed = parseDateValue(value)
   if (!parsed) {
     return fallback

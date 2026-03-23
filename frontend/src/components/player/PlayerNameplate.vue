@@ -1,25 +1,17 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { getRankIcon } from '../../lib/ranks'
 import { getRoleIcon } from '../../lib/roles'
 
-const props = defineProps({
-  name: {
-    type: String,
-    required: true,
-  },
-  role: {
-    type: String,
-    default: '',
-  },
-  rank: {
-    type: String,
-    default: '',
-  },
-  compact: {
-    type: Boolean,
-    default: false,
-  },
+const props = withDefaults(defineProps<{
+  name: string
+  role?: string
+  rank?: string
+  compact?: boolean
+}>(), {
+  role: '',
+  rank: '',
+  compact: false,
 })
 
 const rankAlt = computed(() => `${props.rank} rank`)

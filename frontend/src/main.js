@@ -42,6 +42,10 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   const authStore = useAuthStore(pinia)
   await authStore.initialize()
+  // Re-sync store state with localStorage on every navigation. This catches cases where
+  // tryRefreshSession() updated the tokens in storage without going through the auth store
+  // actions, keeping authStore.isAuthenticated and the module-level access token consistent.
+  authStore.syncTokensFromStorage()
 
   if (to.name === 'auth' && authStore.isAuthenticated) {
     return { name: 'events' }

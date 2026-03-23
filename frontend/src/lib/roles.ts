@@ -1,10 +1,12 @@
-export const rolePriority = {
+import type { EventPlayer } from '../types'
+
+export const rolePriority: Record<string, number> = {
   Tank: 0,
   DPS: 1,
   Support: 2,
 }
 
-export function getRoleIcon(role) {
+export function getRoleIcon(role: string): string {
   const normalizedRole = String(role || '').trim().toLowerCase()
 
   if (normalizedRole === 'tank') {
@@ -22,7 +24,7 @@ export function getRoleIcon(role) {
   return 'swords'
 }
 
-export function sortPlayersByRoleThenName(players) {
+export function sortPlayersByRoleThenName(players: EventPlayer[]): EventPlayer[] {
   return [...players].sort((a, b) => {
     const aPriority = rolePriority[a?.role] ?? 99
     const bPriority = rolePriority[b?.role] ?? 99

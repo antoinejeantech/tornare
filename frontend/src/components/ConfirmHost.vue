@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useConfirmsStore } from '../stores/confirms'
@@ -7,9 +7,9 @@ const confirmsStore = useConfirmsStore()
 const { current } = storeToRefs(confirmsStore)
 
 const isOpen = computed(() => Boolean(current.value))
-const dialogRef = ref(null)
-const cancelButtonRef = ref(null)
-let previouslyFocusedElement = null
+const dialogRef = ref<HTMLElement | null>(null)
+const cancelButtonRef = ref<HTMLElement | null>(null)
+let previouslyFocusedElement: HTMLElement | null = null
 
 function confirmButtonClass() {
   if (!current.value) {
@@ -27,7 +27,7 @@ function confirmButtonClass() {
   return 'btn-primary'
 }
 
-function getFocusableElements() {
+function getFocusableElements(): HTMLElement[] {
   if (!dialogRef.value) {
     return []
   }
@@ -41,7 +41,7 @@ function getFocusableElements() {
     '[tabindex]:not([tabindex="-1"])',
   ]
 
-  return Array.from(dialogRef.value.querySelectorAll(selectors.join(', '))).filter((el) => {
+  return Array.from(dialogRef.value.querySelectorAll<HTMLElement>(selectors.join(', '))).filter((el) => {
     return el.getAttribute('aria-hidden') !== 'true'
   })
 }
@@ -67,11 +67,11 @@ function restorePreviousFocus() {
   previouslyFocusedElement = null
 }
 
-function closeWith(value) {
+function closeWith(value: boolean) {
   confirmsStore.respond(value)
 }
 
-function onBackdropClick(event) {
+function onBackdropClick(event: MouseEvent) {
   if (event.target !== event.currentTarget) {
     return
   }
@@ -79,7 +79,7 @@ function onBackdropClick(event) {
   closeWith(false)
 }
 
-function onKeydown(event) {
+function onKeydown(event: KeyboardEvent) {
   if (!isOpen.value) {
     return
   }

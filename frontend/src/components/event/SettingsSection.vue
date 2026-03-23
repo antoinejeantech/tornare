@@ -1,10 +1,11 @@
-<script setup>
+<script setup lang="ts">
 import { inject } from 'vue'
 import { formatOptionsForType } from '../../lib/event-format'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
+import type { EventCtxType } from '../../lib/event-inject'
 
-const ctx = inject('eventCtx')
+const ctx = inject<EventCtxType>('eventCtx')!
 </script>
 
 <template>
@@ -13,17 +14,17 @@ const ctx = inject('eventCtx')
       <EventSectionHeader icon="settings" title="Settings" />
     </div>
 
-    <div class="event-registration-toggle-box" :class="ctx.event.public_signup_enabled ? 'is-public' : 'is-private'">
+    <div class="event-registration-toggle-box" :class="ctx.event?.public_signup_enabled ? 'is-public' : 'is-private'">
       <div class="event-registration-header">
         <p class="event-registration-kicker">Event registration</p>
         <AppBadge
-          :variant="ctx.event.public_signup_enabled ? 'ok' : 'danger'"
-          :label="ctx.event.public_signup_enabled ? 'Public' : 'Private'"
+          :variant="ctx.event?.public_signup_enabled ? 'ok' : 'danger'"
+          :label="ctx.event?.public_signup_enabled ? 'Public' : 'Private'"
         />
       </div>
 
       <p class="event-registration-copy">
-        {{ ctx.event.public_signup_enabled
+        {{ ctx.event?.public_signup_enabled
           ? 'Anyone can discover this event and use the Join button from event surfaces.'
           : 'Only people with a direct invite link can submit a signup request.' }}
       </p>
@@ -32,47 +33,47 @@ const ctx = inject('eventCtx')
         <button
           class="btn-secondary"
           :disabled="ctx.updatingSignupVisibility"
-          @click="ctx.setSignupVisibility(!ctx.event.public_signup_enabled)"
+          @click="ctx.setSignupVisibility(!ctx.event?.public_signup_enabled)"
         >
-          {{ ctx.updatingSignupVisibility ? 'Updating...' : (ctx.event.public_signup_enabled ? 'Make private' : 'Make public') }}
+          {{ ctx.updatingSignupVisibility ? 'Updating...' : (ctx.event?.public_signup_enabled ? 'Make private' : 'Make public') }}
         </button>
       </div>
 
       <p class="muted event-registration-note">
-        {{ ctx.event.public_signup_enabled
+        {{ ctx.event?.public_signup_enabled
           ? 'Switching to private hides the public Join button and rotates the signup token. Existing shared links stop working.'
           : 'Switch to public to show the Join button to everyone.' }}
       </p>
     </div>
 
-    <div class="event-ended-box" :class="ctx.event.is_ended ? 'is-ended' : 'is-active'">
+    <div class="event-ended-box" :class="ctx.event?.is_ended ? 'is-ended' : 'is-active'">
       <div class="event-ended-header">
         <p class="event-ended-kicker">Event status</p>
         <AppBadge
-          :variant="ctx.event.is_ended ? 'muted' : 'ok'"
-          :label="ctx.event.is_ended ? 'Ended' : 'Active'"
+          :variant="ctx.event?.is_ended ? 'muted' : 'ok'"
+          :label="ctx.event?.is_ended ? 'Ended' : 'Active'"
         />
       </div>
 
       <p class="event-ended-copy">
-        {{ ctx.event.is_ended
+        {{ ctx.event?.is_ended
           ? 'This event is ended and no longer visible in the public event listings.'
           : 'This event is active and visible in the public event listings.' }}
       </p>
 
       <div class="event-ended-actions">
         <button
-          :class="ctx.event.is_ended ? 'btn-primary' : 'btn-warning'"
+          :class="ctx.event?.is_ended ? 'btn-primary' : 'btn-warning'"
           :disabled="ctx.endingEvent"
           type="button"
-          @click="ctx.setEventEnded(!ctx.event.is_ended)"
+          @click="ctx.setEventEnded(!ctx.event?.is_ended)"
         >
-          {{ ctx.endingEvent ? 'Updating...' : (ctx.event.is_ended ? 'Reopen event' : 'End event') }}
+          {{ ctx.endingEvent ? 'Updating...' : (ctx.event?.is_ended ? 'Reopen event' : 'End event') }}
         </button>
       </div>
 
       <p class="muted event-ended-note">
-        {{ ctx.event.is_ended
+        {{ ctx.event?.is_ended
           ? 'Reopening will make this event visible again in public listings. You can end it again at any time.'
           : 'Ending the event hides it from public listings. The event page remains accessible by direct link. You can reopen it at any time.' }}
       </p>
@@ -95,7 +96,7 @@ const ctx = inject('eventCtx')
         Format
         <select v-model="ctx.editEventFormat">
           <option
-            v-for="format in formatOptionsForType(ctx.event.event_type)"
+            v-for="format in formatOptionsForType(ctx.event?.event_type || 'PUG')"
             :key="`edit-event-format-${format}`"
             :value="format"
           >

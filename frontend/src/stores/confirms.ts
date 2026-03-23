@@ -1,8 +1,28 @@
 import { defineStore } from 'pinia'
 
+export type ConfirmTone = 'default' | 'danger' | 'warning'
+
+export interface ConfirmOptions {
+  title?: string
+  message?: string
+  confirmText?: string
+  cancelText?: string
+  tone?: string
+}
+
+interface ConfirmRequest {
+  id: number
+  title: string
+  message: string
+  confirmText: string
+  cancelText: string
+  tone: ConfirmTone
+  resolve: (value: boolean) => void
+}
+
 let nextId = 1
 
-function normalizeTone(value) {
+function normalizeTone(value: string | undefined | null): ConfirmTone {
   const tone = String(value || '').toLowerCase()
   if (tone === 'danger' || tone === 'warning') {
     return tone
@@ -12,13 +32,13 @@ function normalizeTone(value) {
 
 export const useConfirmsStore = defineStore('confirms', {
   state: () => ({
-    current: null,
-    queue: [],
+    current: null as ConfirmRequest | null,
+    queue: [] as ConfirmRequest[],
   }),
   actions: {
-    ask(payload = {}) {
+    ask(payload: ConfirmOptions = {}): Promise<boolean> {
       return new Promise((resolve) => {
-        const request = {
+        const request: ConfirmRequest = {
           id: nextId,
           title: payload.title || 'Please confirm',
           message: payload.message || '',
@@ -38,7 +58,7 @@ export const useConfirmsStore = defineStore('confirms', {
         this.queue.push(request)
       })
     },
-    respond(confirmed) {
+    respond(confirmed: boolean): void {
       if (!this.current) {
         return
       }
@@ -53,13 +73,13 @@ export const useConfirmsStore = defineStore('confirms', {
         this.queue = rest
       }
     },
-    cancel() {
+    cancel(): void {
       this.respond(false)
     },
-    confirm() {
+    confirm(): void {
       this.respond(true)
     },
-    clear() {
+    clear(): void {
       if (this.current) {
         this.current.resolve(false)
       }

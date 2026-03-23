@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
@@ -7,12 +7,13 @@ import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { useAuthStore } from '../stores/auth'
 import ProfileHeroCard from '../components/profile/ProfileHeroCard.vue'
 import ProfileGamesCard from '../components/profile/ProfileGamesCard.vue'
+import type { AuthUser } from '../types'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const profile = ref(null)
+const profile = ref<AuthUser | null>(null)
 const loadingProfile = ref(false)
 const savingProfile = ref(false)
 const error = ref('')
@@ -107,9 +108,9 @@ const overwatchSummaryRows = computed(() => {
   }
 
   return [
-    { role: 'Tank', rank: profile.value.rank_tank || 'Unranked', icon: getRankIcon(profile.value.rank_tank || 'Unranked') },
-    { role: 'DPS', rank: profile.value.rank_dps || 'Unranked', icon: getRankIcon(profile.value.rank_dps || 'Unranked') },
-    { role: 'Support', rank: profile.value.rank_support || 'Unranked', icon: getRankIcon(profile.value.rank_support || 'Unranked') },
+    { role: 'Tank', rank: String(profile.value.rank_tank || 'Unranked'), icon: getRankIcon(String(profile.value.rank_tank || 'Unranked')) },
+    { role: 'DPS', rank: String(profile.value.rank_dps || 'Unranked'), icon: getRankIcon(String(profile.value.rank_dps || 'Unranked')) },
+    { role: 'Support', rank: String(profile.value.rank_support || 'Unranked'), icon: getRankIcon(String(profile.value.rank_support || 'Unranked')) },
   ]
 })
 
@@ -117,24 +118,24 @@ function markProfileFormTouched() {
   profileFormTouched.value = true
 }
 
-function hydrateFormFromProfile(value) {
+function hydrateFormFromProfile(value: AuthUser | null | undefined) {
   if (!value) {
     return
   }
 
-  editDisplayName.value = value.display_name || ''
-  editUsername.value = value.username || ''
-  editEmail.value = value.email || ''
-  editBattletag.value = value.battletag || ''
-  editRankTank.value = value.rank_tank || 'Unranked'
-  editRankDps.value = value.rank_dps || 'Unranked'
-  editRankSupport.value = value.rank_support || 'Unranked'
+  editDisplayName.value = String(value.display_name || '')
+  editUsername.value = String(value.username || '')
+  editEmail.value = String(value.email || '')
+  editBattletag.value = String(value.battletag || '')
+  editRankTank.value = String(value.rank_tank || 'Unranked')
+  editRankDps.value = String(value.rank_dps || 'Unranked')
+  editRankSupport.value = String(value.rank_support || 'Unranked')
   editPassword.value = ''
   editPasswordConfirm.value = ''
   profileFormTouched.value = false
 }
 
-function startEdit(section) {
+function startEdit(section: string) {
   if (section === 'account') {
     editingAccount.value = true
     editingOverwatch.value = false
@@ -147,7 +148,7 @@ function startEdit(section) {
   }
 }
 
-function cancelEditSection(section) {
+function cancelEditSection(section: string) {
   hydrateFormFromProfile(profile.value)
   if (section === 'account') {
     editingAccount.value = false
@@ -157,12 +158,12 @@ function cancelEditSection(section) {
   }
 }
 
-function setError(message) {
+function setError(message: string) {
   error.value = message
   notice.value = ''
 }
 
-function setNotice(message) {
+function setNotice(message: string) {
   notice.value = message
   error.value = ''
 }
@@ -178,7 +179,7 @@ async function loadProfile() {
   try {
     error.value = ''
     notice.value = ''
-    const response = await apiCall(`/api/users/${profileId.value}`)
+    const response = await apiCall<AuthUser>(`/api/users/${profileId.value}`)
     profile.value = response
     hydrateFormFromProfile(response)
     editingAccount.value = false
@@ -244,7 +245,7 @@ async function saveProfile() {
 
   savingProfile.value = true
   try {
-    const updated = await apiCall(`/api/users/${profileId.value}`, {
+    const updated = await apiCall<AuthUser>(`/api/users/${profileId.value}`, {
       method: 'PUT',
       body: JSON.stringify({
         username: nextUsername,
@@ -258,14 +259,10 @@ async function saveProfile() {
         new_password_confirm: hasPasswordUpdate ? nextPasswordConfirm : null,
       }),
     })
-
     profile.value = updated
     hydrateFormFromProfile(updated)
     if (viewerId.value === profileId.value) {
-      authStore.user = {
-        ...(authStore.user || {}),
-        ...updated,
-      }
+      authStore.user = updated
     }
     editingAccount.value = false
     editingOverwatch.value = false

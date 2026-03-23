@@ -1,9 +1,10 @@
+import type { EventPlayer } from '../types'
 import { getRankElo } from './ranks'
 
-export function averagePlayersElo(players) {
+export function averagePlayersElo(players: EventPlayer[]): number | null {
   const eloValues = players
     .map((player) => getRankElo(player?.rank))
-    .filter((value) => typeof value === 'number')
+    .filter((value): value is number => typeof value === 'number')
 
   if (eloValues.length === 0) {
     return null
@@ -13,7 +14,7 @@ export function averagePlayersElo(players) {
   return Math.round(total / eloValues.length)
 }
 
-export function formatAverageElo(value) {
+export function formatAverageElo(value: number | null): string {
   if (value === null) {
     return 'Avg ELO: N/A'
   }

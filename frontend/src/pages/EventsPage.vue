@@ -1,17 +1,23 @@
-<script setup>
+<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
-import { getDateTimestamp, normalizeDatetimeLocalInput } from '../lib/dates'
+import { normalizeDatetimeLocalInput } from '../lib/dates'
 import { formatOptionsForType } from '../lib/event-format'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
+import type { Event, EventFormat } from '../types'
+
+interface PaginatedEventsResponse {
+  items: Event[]
+  total: number
+}
 
 const authStore = useAuthStore()
 
-const events = ref([])
-const featuredEvent = ref(null)
+const events = ref<Event[]>([])
+const featuredEvent = ref<Event | null>(null)
 const kpis = ref({
   total_events: 0,
   total_signups: 0,
@@ -29,9 +35,9 @@ const showEventsKpis = false
 const eventSearchQuery = ref('')
 const activeSort = ref('soonest')
 const showCreateModal = ref(false)
-const searchDebounceTimer = ref(null)
+const searchDebounceTimer = ref<number | null>(null)
 let latestLoadRequestId = 0
-let eventsRequestController = null
+let eventsRequestController: AbortController | null = null
 const SEARCH_DEBOUNCE_MS = 350
 const pageSize = ref(12)
 const pageSizeOptions = [12, 24, 48]
@@ -42,7 +48,7 @@ const newEventName = ref('')
 const newEventDescription = ref('')
 const newEventStartDate = ref('')
 const newEventType = ref('PUG')
-const newEventFormat = ref('5v5')
+const newEventFormat = ref<EventFormat>('5v5')
 const newEventSignupVisibility = ref('private')
 const newEventMaxPlayers = ref(10)
 
@@ -101,7 +107,7 @@ const hasActiveFilters = computed(() => {
   )
 })
 
-function setError(message) {
+function setError(message: string) {
   error.value = message
   notice.value = ''
 }
@@ -110,7 +116,7 @@ function clearError() {
   error.value = ''
 }
 
-function setNotice(message) {
+function setNotice(message: string) {
   notice.value = message
 }
 
@@ -118,11 +124,11 @@ function clearNotice() {
   notice.value = ''
 }
 
-function setTypeFilter(filter) {
+function setTypeFilter(filter: string) {
   activeTypeFilter.value = filter
 }
 
-function setOwnerFilter(filter) {
+function setOwnerFilter(filter: string) {
   activeOwnerFilter.value = filter
 }
 
@@ -195,14 +201,14 @@ async function loadEvents() {
 
     const query = params.toString()
     const path = query ? `/api/events?${query}` : '/api/events'
-    const response = await apiCall(path, { signal: eventsRequestController.signal })
+    const response = await apiCall<PaginatedEventsResponse>(path, { signal: eventsRequestController.signal })
 
     if (requestId !== latestLoadRequestId) {
       return
     }
 
-    events.value = Array.isArray(response?.items) ? response.items : []
-    totalEventsAvailable.value = Number(response?.total) || 0
+    events.value = response?.items ?? []
+    totalEventsAvailable.value = response?.total ?? 0
 
     if (currentPage.value > totalPages.value) {
       currentPage.value = totalPages.value
@@ -226,40 +232,13 @@ async function loadEvents() {
 async function loadFeaturedEvent() {
   try {
     const featured = await apiCall('/api/events/featured')
-    featuredEvent.value = featured || null
+    featuredEvent.value = (featured as Event) || null
   } catch {
     featuredEvent.value = null
   }
 }
 
-async function loadEventsKpis() {
-  try {
-    const response = await apiCall('/api/events/kpi')
-    kpis.value = {
-      total_events: Number(response?.total_events) || 0,
-      total_signups: Number(response?.total_signups) || 0,
-      upcoming_events_this_week: Number(response?.upcoming_events_this_week) || 0,
-      upcoming_tourneys_this_week: Number(response?.upcoming_tourneys_this_week) || 0,
-    }
-  } catch {
-    kpis.value = {
-      total_events: 0,
-      total_signups: 0,
-      upcoming_events_this_week: 0,
-      upcoming_tourneys_this_week: 0,
-    }
-  }
-}
-
-function normalizeDateValue(value) {
-  return getDateTimestamp(value)
-}
-
-function getPlayerCount(event) {
-  return Array.isArray(event?.players) ? event.players.length : 0
-}
-
-function formatKpiValue(value) {
+function formatKpiValue(value: number): string {
   const numericValue = Number(value)
   if (!Number.isFinite(numericValue)) {
     return '00'
@@ -284,7 +263,7 @@ function goToNextPage() {
   }
 }
 
-function handleGlobalKeyDown(event) {
+function handleGlobalKeyDown(event: KeyboardEvent) {
   if (event.key === 'Escape' && showCreateModal.value) {
     closeCreateModal()
   }

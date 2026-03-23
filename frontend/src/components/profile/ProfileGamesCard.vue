@@ -1,30 +1,28 @@
-<script setup>
+<script setup lang="ts">
 import { getRoleIcon } from '../../lib/roles'
+import type { AuthUser } from '../../types'
 
-defineProps({
-  profile: {
-    type: Object,
-    required: true,
-  },
-  canEdit: {
-    type: Boolean,
-    default: false,
-  },
-  editingOverwatch: {
-    type: Boolean,
-    default: false,
-  },
-  overwatchSummaryRows: {
-    type: Array,
-    default: () => [],
-  },
-  overwatchLogo: {
-    type: String,
-    required: true,
-  },
+interface OverwatchSummaryRow {
+  role: string
+  rank: string
+  icon: string
+}
+
+withDefaults(defineProps<{
+  profile: AuthUser
+  canEdit?: boolean
+  editingOverwatch?: boolean
+  overwatchSummaryRows?: OverwatchSummaryRow[]
+  overwatchLogo: string
+}>(), {
+  canEdit: false,
+  editingOverwatch: false,
+  overwatchSummaryRows: () => [],
 })
 
-defineEmits(['edit-overwatch'])
+defineEmits<{
+  (e: 'edit-overwatch'): void
+}>()
 </script>
 
 <template>

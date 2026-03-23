@@ -1,19 +1,16 @@
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import spotlightEventBackground from '../../assets/branding/spotlight-event-bg.jpg'
 import { formatMediumDate } from '../../lib/dates'
 import ActionCtaButton from '../ui/ActionCtaButton.vue'
+import type { Event } from '../../types'
 
-const props = defineProps({
-  event: {
-    type: Object,
-    required: true,
-  },
-  badgeLabel: {
-    type: String,
-    default: 'Spotlight Event',
-  },
+const props = withDefaults(defineProps<{
+  event: Event
+  badgeLabel?: string
+}>(), {
+  badgeLabel: 'Spotlight Event',
 })
 
 const eventLink = computed(() => {
@@ -54,7 +51,7 @@ const eventPlayersText = computed(() => {
   return `${getPlayerCount(props.event)}/${Number(props.event?.max_players) || 0} players`
 })
 
-function getPlayerCount(event) {
+function getPlayerCount(event: typeof props.event): number {
   return Array.isArray(event?.players) ? event.players.length : 0
 }
 </script>

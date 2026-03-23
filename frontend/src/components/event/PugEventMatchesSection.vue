@@ -1,13 +1,15 @@
-<script setup>
+<script setup lang="ts">
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getDateTimestamp, isoToDatetimeLocalValue } from '../../lib/dates'
 import { sortPlayersByRoleThenName } from '../../lib/roles'
 import PlayerNameplate from '../player/PlayerNameplate.vue'
+import type { EventCtxType } from '../../lib/event-inject'
+import type { EventMatch } from '../../types'
 
-const ctx = inject('eventCtx')
+const ctx = inject<EventCtxType>('eventCtx')!
 
 // ── Modal state ───────────────────────────────────────────────────────────────
-const activeMatchId = ref(null)
+const activeMatchId = ref<string | number | null>(null)
 const showCreateForm = ref(false)
 
 const activeMatch = computed(() =>
@@ -31,16 +33,16 @@ const playersB = computed(() => {
 const playersUnassigned = computed(() => {
   const m = activeMatch.value
   if (!m) return []
-  const assigned = new Set([
-    ...(m.team_a_id ? [m.team_a_id] : []),
-    ...(m.team_b_id ? [m.team_b_id] : []),
+  const assigned = new Set<string | number>([
+    ...(m.team_a_id != null ? [m.team_a_id] : []),
+    ...(m.team_b_id != null ? [m.team_b_id] : []),
   ])
-  return sortPlayersByRoleThenName(m.players.filter((p) => !assigned.has(p.team_id)))
+  return sortPlayersByRoleThenName(m.players.filter((p) => p.team_id == null || !assigned.has(p.team_id)))
 })
 
 const hasTeamRosters = computed(() => Boolean(activeMatch.value?.team_a_id && activeMatch.value?.team_b_id))
 
-function openModal(matchId) {
+function openModal(matchId: string | number) {
   activeMatchId.value = matchId
 }
 
@@ -48,7 +50,7 @@ function closeModal() {
   activeMatchId.value = null
 }
 
-function onOverlayClick(e) {
+function onOverlayClick(e: MouseEvent) {
   if (e.target === e.currentTarget) closeModal()
 }
 
@@ -56,11 +58,11 @@ function closeCreateForm() {
   showCreateForm.value = false
 }
 
-function onCreateOverlayClick(e) {
+function onCreateOverlayClick(e: MouseEvent) {
   if (e.target === e.currentTarget) closeCreateForm()
 }
 
-function onEscapeKey(e) {
+function onEscapeKey(e: KeyboardEvent) {
   if (e.key !== 'Escape') return
   if (activeMatchId.value !== null) closeModal()
   else if (showCreateForm.value) closeCreateForm()
@@ -72,7 +74,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onEscapeKey))
 // ── Team color stripe ─────────────────────────────────────────────────────────
 const teamPalette = ['#f04f23', '#0f2f8c', '#00a3a3', '#7828c8', '#f7b801', '#2e7d4f']
 
-function colorForTeamId(teamId) {
+function colorForTeamId(teamId: string | number | null | undefined): string {
   if (!teamId) return '#c8ccda'
   const id = String(teamId)
   let hash = 0
@@ -80,7 +82,7 @@ function colorForTeamId(teamId) {
   return teamPalette[hash % teamPalette.length]
 }
 
-function matchStripeStyle(match) {
+function matchStripeStyle(match: EventMatch) {
   return {
     '--stripe-a': colorForTeamId(match.team_a_id),
     '--stripe-b': colorForTeamId(match.team_b_id),
@@ -88,45 +90,45 @@ function matchStripeStyle(match) {
 }
 
 // ── Matchup helpers ───────────────────────────────────────────────────────────
-function selectionFor(matchId) {
+function selectionFor(matchId: string | number) {
   const s = ctx.matchupSelections?.[matchId]
   return { teamAId: String(s?.teamAId || ''), teamBId: String(s?.teamBId || '') }
 }
 
-function isDuplicateSelection(matchId) {
+function isDuplicateSelection(matchId: string | number): boolean {
   const { teamAId, teamBId } = selectionFor(matchId)
   return Boolean(teamAId && teamAId === teamBId)
 }
 
-function isCompleteSelection(matchId) {
+function isCompleteSelection(matchId: string | number): boolean {
   const { teamAId, teamBId } = selectionFor(matchId)
   return Boolean(teamAId && teamBId)
 }
 
-function isSelectionChanged(match) {
+function isSelectionChanged(match: EventMatch): boolean {
   const { teamAId, teamBId } = selectionFor(match.id)
   return teamAId !== String(match.team_a_id || '') || teamBId !== String(match.team_b_id || '')
 }
 
-function canSaveMatchup(match) {
+function canSaveMatchup(match: EventMatch): boolean {
   if (!ctx.canManageEvent || ctx.savingMatchups[match.id]) return false
   if (isDuplicateSelection(match.id) || !isCompleteSelection(match.id)) return false
   return isSelectionChanged(match)
 }
 
-function matchupHint(matchId) {
+function matchupHint(matchId: string | number): string {
   if (isDuplicateSelection(matchId)) return 'Choose two different teams'
   return ''
 }
 
 // ── Match status ──────────────────────────────────────────────────────────────
-function matchStatus(match) {
+function matchStatus(match: EventMatch): string {
   if (match.winner_team_id) return 'done'
   if (match.team_a_id && match.team_b_id) return 'ready'
   return 'open'
 }
 
-const STATUS_LABELS = { done: 'Done', ready: 'Ready', open: 'Open' }
+const STATUS_LABELS: Record<string, string> = { done: 'Done', ready: 'Ready', open: 'Open' }
 
 // ── Create match ──────────────────────────────────────────────────────────────
 function toggleCreateForm() {
@@ -149,7 +151,7 @@ async function deleteActiveMatch() {
 }
 
 // ── Winner reporting ──────────────────────────────────────────────────────────
-async function reportWinner(matchId, teamId) {
+async function reportWinner(matchId: string | number, teamId: string | number) {
   await ctx.reportMatchWinner(matchId, teamId)
 }
 
@@ -175,7 +177,7 @@ const sortedMatches = computed(() => {
   const withDate = matches
     .filter((m) => m.start_date)
     .map((m) => ({ m, ts: getDateTimestamp(m.start_date) }))
-    .filter((entry) => entry.ts !== null)
+    .filter((entry): entry is { m: typeof entry.m; ts: number } => entry.ts !== null)
     .sort((a, b) => {
       const aFuture = a.ts >= now
       const bFuture = b.ts >= now
@@ -200,7 +202,7 @@ watch(() => activeMatchId.value, (newId) => {
   }
 })
 
-function formatMatchStartDate(isoStr) {
+function formatMatchStartDate(isoStr: string): string {
   const d = new Date(isoStr)
   if (isNaN(d.getTime())) return isoStr
   return d.toLocaleString(undefined, {
@@ -213,7 +215,7 @@ async function saveStartDate() {
   if (!activeMatch.value || savingStartDate.value) return
   savingStartDate.value = true
   try {
-    await ctx.updateMatchStartDate(activeMatch.value.id, editStartDate.value || null)
+    await ctx.updateMatchStartDate(activeMatch.value.id, editStartDate.value || '')
   } finally {
     savingStartDate.value = false
   }
@@ -250,14 +252,14 @@ async function saveStartDate() {
                 Map
                 <input v-model="ctx.newMatchMap" placeholder="King's Row" />
               </label>
-              <template v-if="ctx.event?.teams?.length > 0">
+              <template v-if="(ctx.event?.teams?.length ?? 0) > 0">
                 <div class="pug-create-teams-row">
                   <label>
                     Team A
                     <select v-model="ctx.newMatchTeamAId">
                       <option value="">None</option>
                       <option
-                        v-for="team in ctx.event.teams"
+                        v-for="team in ctx.event?.teams"
                         :key="`ca-${team.id}`"
                         :value="String(team.id)"
                         :disabled="String(team.id) === String(ctx.newMatchTeamBId)"
@@ -270,7 +272,7 @@ async function saveStartDate() {
                     <select v-model="ctx.newMatchTeamBId">
                       <option value="">None</option>
                       <option
-                        v-for="team in ctx.event.teams"
+                        v-for="team in ctx.event?.teams"
                         :key="`cb-${team.id}`"
                         :value="String(team.id)"
                         :disabled="String(team.id) === String(ctx.newMatchTeamAId)"
@@ -483,7 +485,7 @@ async function saveStartDate() {
                   >
                     <option value="">Choose team A</option>
                     <option
-                      v-for="team in ctx.event.teams"
+                      v-for="team in ctx.event?.teams"
                       :key="`a-${team.id}`"
                       :value="String(team.id)"
                       :disabled="String(team.id) === selectionFor(activeMatch.id).teamBId"
@@ -497,7 +499,7 @@ async function saveStartDate() {
                   >
                     <option value="">Choose team B</option>
                     <option
-                      v-for="team in ctx.event.teams"
+                      v-for="team in ctx.event?.teams"
                       :key="`b-${team.id}`"
                       :value="String(team.id)"
                       :disabled="String(team.id) === selectionFor(activeMatch.id).teamAId"

@@ -1,40 +1,36 @@
-<script setup>
+<script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import { computed } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 
-const props = defineProps({
-  to: {
-    type: [String, Object],
-    default: null,
-  },
-  type: {
-    type: String,
-    default: 'button',
-  },
-  disabled: {
-    type: Boolean,
-    default: false,
-  },
-  title: {
-    type: String,
-    default: '',
-  },
+const props = withDefaults(defineProps<{
+  to?: RouteLocationRaw | null
+  type?: string
+  disabled?: boolean
+  title?: string
+}>(), {
+  to: null,
+  type: 'button',
+  disabled: false,
+  title: '',
 })
 
-const emit = defineEmits(['click'])
+const emit = defineEmits<{
+  (e: 'click', event: MouseEvent): void
+}>()
 
 const isLink = computed(() => props.to !== null && props.to !== undefined)
 
-function handleClick(event) {
+function handleClick(event: MouseEvent) {
   emit('click', event)
 }
 </script>
 
 <template>
-  <RouterLink v-if="isLink" :to="props.to" class="action-cta-button">
+  <RouterLink v-if="isLink" :to="props.to!" class="action-cta-button">
     <slot />
   </RouterLink>
-  <button v-else :type="type" class="action-cta-button" :disabled="disabled" :title="title" @click="handleClick">
+  <button v-else :type="(type as 'button' | 'reset' | 'submit')" class="action-cta-button" :disabled="disabled" :title="title" @click="handleClick">
     <slot />
   </button>
 </template>
