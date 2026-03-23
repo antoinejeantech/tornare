@@ -28,14 +28,19 @@ defineEmits<{
         </div>
       </div>
 
-      <button
-        v-if="canEdit && !editingAccount"
-        type="button"
-        class="btn-primary hero-edit-btn"
-        @click="$emit('edit-account')"
-      >
-        Edit Profile
-      </button>
+      <div class="hero-actions">
+        <button
+          v-if="canEdit && !editingAccount"
+          type="button"
+          class="hero-icon-btn"
+          title="Edit profile"
+          @click="$emit('edit-account')"
+        >
+          <span class="material-symbols-rounded" aria-hidden="true">edit</span>
+          <span class="sr-only">Edit profile</span>
+        </button>
+        <slot name="hero-actions" />
+      </div>
     </div>
 
     <div v-if="editingAccount" class="hero-edit-shell">
@@ -125,10 +130,37 @@ defineEmits<{
   font-weight: 650;
 }
 
-.hero-edit-btn {
-  white-space: nowrap;
+.hero-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.hero-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
   border-radius: var(--radius-sm);
-  padding: 0.42rem 1rem;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+.hero-icon-btn:hover {
+  background: color-mix(in srgb, var(--brand-1) 12%, transparent);
+  border-color: var(--brand-1);
+  color: var(--brand-1);
+}
+
+.hero-icon-btn .material-symbols-rounded {
+  font-size: 1.1rem;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
 }
 
 .hero-details-grid {

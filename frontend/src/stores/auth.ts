@@ -84,6 +84,17 @@ export const useAuthStore = defineStore('auth', {
       await this.fetchMe()
       this.initialized = true
     },
+    async completeBnetSignup(pendingToken: string, email: string): Promise<void> {
+      const response = await apiCall<AuthSession>('/api/auth/battlenet/complete', {
+        method: 'POST',
+        body: JSON.stringify({
+          pending_token: pendingToken,
+          email,
+        }),
+      })
+      this.setSession(response)
+      this.initialized = true
+    },
     async connectBnetInit(): Promise<void> {
       const response = await apiCall<{ url: string }>('/api/auth/battlenet/connect-init', {
         method: 'POST',

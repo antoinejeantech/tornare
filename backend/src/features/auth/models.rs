@@ -13,6 +13,7 @@ pub struct AuthUser {
     pub rank_dps: String,
     pub rank_support: String,
     pub can_edit_battletag: bool,
+    pub has_password: bool,
 }
 
 #[derive(Serialize)]
@@ -50,4 +51,10 @@ pub struct LogoutInput {
 #[derive(Serialize)]
 pub struct BnetConnectInitResponse {
     pub url: String,
+}
+
+#[derive(Deserialize)]
+pub struct BnetCompleteInput {
+    pub pending_token: String,
+    pub email: String,
 }

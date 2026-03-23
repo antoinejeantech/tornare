@@ -51,11 +51,14 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/auth/logout", post(auth::logout))
         .route("/api/auth/battlenet/authorize", get(auth::battlenet_authorize))
         .route("/api/auth/battlenet/callback", get(auth::battlenet_callback))
+        .route("/api/auth/battlenet/complete", post(auth::battlenet_complete_signup))
         .route("/api/auth/battlenet/connect-init", post(auth::battlenet_connect_init))
         .route("/api/auth/battlenet/disconnect", delete(auth::battlenet_disconnect))
         .route(
             "/api/users/{user_id}",
-            get(users::get_user_profile).put(users::update_user_profile),
+            get(users::get_user_profile)
+                .put(users::update_user_profile)
+                .delete(users::delete_user_account),
         )
         .route(
             "/api/events",

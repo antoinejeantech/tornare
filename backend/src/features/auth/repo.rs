@@ -178,6 +178,20 @@ pub async fn find_user_profile_by_id(
     }))
 }
 
+pub async fn user_has_password(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT id FROM users WHERE id = $1 AND password_hash IS NOT NULL",
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(row.is_some())
+}
+
 pub async fn has_provider_identity(
     pool: &PgPool,
     user_id: Uuid,
@@ -274,7 +288,31 @@ pub async fn find_user_id_by_bnet_sub(
     sub: &str,
 ) -> Result<Option<Uuid>, crate::shared::errors::ApiError> {
     let row = sqlx::query(
-        "SELECT user_id FROM auth_identities WHERE provider = 'battlenet' AND provider_user_id = $1",
+        "SELECT user_id
+         FROM auth_identities
+         WHERE provider IN ('battlenet', 'battlenet_disconnected')
+           AND provider_user_id = $1
+         ORDER BY CASE provider WHEN 'battlenet' THEN 0 ELSE 1 END
+         LIMIT 1",
+    )
+    .bind(sub)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.map(|r| r.get("user_id")))
+}
+
+pub async fn find_active_user_id_by_bnet_sub(
+    pool: &PgPool,
+    sub: &str,
+) -> Result<Option<Uuid>, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT user_id
+         FROM auth_identities
+         WHERE provider = 'battlenet'
+           AND provider_user_id = $1
+         LIMIT 1",
     )
     .bind(sub)
     .fetch_optional(pool)
@@ -304,21 +342,36 @@ pub async fn insert_bnet_user(
     Ok(())
 }
 
-pub async fn insert_bnet_identity(
+pub async fn ensure_bnet_identity(
     pool: &PgPool,
     user_id: Uuid,
     sub: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query(
-        "INSERT INTO auth_identities (id, user_id, provider, provider_user_id)
-         VALUES ($1, $2, 'battlenet', $3)",
+    let upgraded = sqlx::query(
+        "UPDATE auth_identities
+         SET user_id = $1, provider = 'battlenet'
+         WHERE provider = 'battlenet_disconnected' AND provider_user_id = $2",
     )
-    .bind(Uuid::new_v4())
     .bind(user_id)
     .bind(sub)
     .execute(pool)
     .await
     .map_err(internal_error)?;
+
+    if upgraded.rows_affected() == 0 {
+        sqlx::query(
+            "INSERT INTO auth_identities (id, user_id, provider, provider_user_id)
+             VALUES ($1, $2, 'battlenet', $3)
+             ON CONFLICT (provider, provider_user_id) DO NOTHING",
+        )
+        .bind(Uuid::new_v4())
+        .bind(user_id)
+        .bind(sub)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+    }
+
     Ok(())
 }
 
@@ -355,7 +408,22 @@ pub async fn remove_bnet_identity(
     user_id: Uuid,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "DELETE FROM auth_identities WHERE user_id = $1 AND provider = 'battlenet'",
+        "DELETE FROM auth_identities d
+         USING auth_identities a
+         WHERE a.user_id = $1
+           AND a.provider = 'battlenet'
+           AND d.provider = 'battlenet_disconnected'
+           AND d.provider_user_id = a.provider_user_id",
+    )
+    .bind(user_id)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+
+    sqlx::query(
+        "UPDATE auth_identities
+         SET provider = 'battlenet_disconnected'
+         WHERE user_id = $1 AND provider = 'battlenet'",
     )
     .bind(user_id)
     .execute(pool)

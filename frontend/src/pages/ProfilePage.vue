@@ -6,6 +6,8 @@ import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { getRoleIcon } from '../lib/roles'
 import { useAuthStore } from '../stores/auth'
+import { useAlertsStore } from '../stores/alerts'
+import { useConfirm } from '../lib/confirm'
 import ProfileHeroCard from '../components/profile/ProfileHeroCard.vue'
 import ProfileGamesCard from '../components/profile/ProfileGamesCard.vue'
 import type { AuthUser } from '../types'
@@ -19,6 +21,7 @@ const loadingProfile = ref(false)
 const savingProfile = ref(false)
 const connectingBnet = ref(false)
 const disconnectingBnet = ref(false)
+const deletingAccount = ref(false)
 const error = ref('')
 const notice = ref('')
 const profileFormTouched = ref(false)
@@ -33,6 +36,9 @@ const editRankDps = ref('Unranked')
 const editRankSupport = ref('Unranked')
 const editPassword = ref('')
 const editPasswordConfirm = ref('')
+
+const alertsStore = useAlertsStore()
+const confirm = useConfirm()
 
 const profileId = computed(() => String(route.params.id || ''))
 const viewerId = computed(() => String(authStore.user?.id || ''))
@@ -294,11 +300,40 @@ async function disconnectBnetAccount() {
   try {
     await authStore.disconnectBnet()
     await loadProfile()
-    setNotice('Battle.net account disconnected')
+    alertsStore.push({ type: 'success', message: 'Battle.net account disconnected' })
   } catch (err) {
-    setError(err instanceof Error ? err.message : 'Failed to disconnect Battle.net')
+    alertsStore.push({
+      type: 'error',
+      message: err instanceof Error ? err.message : 'Failed to disconnect Battle.net',
+      duration: 6000,
+    })
   } finally {
     disconnectingBnet.value = false
+  }
+}
+
+async function deleteUserAccount() {
+  if (deletingAccount.value || !profile.value) return
+  const confirmed = await confirm.ask({
+    title: 'Delete account',
+    message: `Permanently delete ${profile.value.display_name}'s account? This cannot be undone.`,
+    confirmText: 'Delete account',
+    tone: 'danger',
+  })
+  if (!confirmed) return
+  deletingAccount.value = true
+  try {
+    await apiCall(`/api/users/${profile.value.id}`, { method: 'DELETE' })
+    alertsStore.push({ type: 'success', message: 'Account deleted' })
+    router.push('/events')
+  } catch (err) {
+    alertsStore.push({
+      type: 'error',
+      message: err instanceof Error ? err.message : 'Failed to delete account',
+      duration: 6000,
+    })
+  } finally {
+    deletingAccount.value = false
   }
 }
 
@@ -352,6 +387,18 @@ onMounted(async () => {
           :profile-initial="profileInitial"
           @edit-account="startEdit('account')"
         >
+          <template v-if="isAdminViewer && profileId !== viewerId" #hero-actions>
+            <button
+              type="button"
+              class="hero-icon-btn hero-icon-btn-danger"
+              title="Delete account"
+              :disabled="deletingAccount"
+              @click="deleteUserAccount"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">delete</span>
+              <span class="sr-only">Delete account</span>
+            </button>
+          </template>
           <template #account-edit>
             <form class="profile-form" @submit.prevent="saveProfile">
               <label>
@@ -398,11 +445,14 @@ onMounted(async () => {
         >
           <template #overwatch-bnet-action>
             <template v-if="canEdit">
+              <p v-if="!profile.can_edit_battletag && !profile.has_password" class="bnet-no-password-warning">
+                Set a password before disconnecting Battle.net, otherwise you will lose access to your account.
+              </p>
               <button
                 v-if="!profile.can_edit_battletag"
                 type="button"
                 class="battletag-link battletag-link-active"
-                :disabled="disconnectingBnet"
+                :disabled="disconnectingBnet || !profile.has_password"
                 @click="disconnectBnetAccount"
               >
                 {{ disconnectingBnet ? 'Disconnecting...' : 'Disconnect Battle.net' }}
@@ -573,6 +623,47 @@ onMounted(async () => {
 :deep(.battletag-link-active) {
   color: color-mix(in srgb, var(--brand-1) 95%, #ffefbf 5%);
   cursor: pointer;
+}
+
+:deep(.battletag-link-active:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.bnet-no-password-warning {
+  margin: 0 0 0.45rem;
+  font-size: 0.82rem;
+  color: var(--status-warning, #c97c00);
+}
+
+:deep(.hero-icon-btn-danger) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--status-error, #c0392b) 40%, var(--line) 60%);
+  background: transparent;
+  color: var(--status-error, #c0392b);
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+:deep(.hero-icon-btn-danger .material-symbols-rounded) {
+  font-size: 1.1rem;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+}
+
+:deep(.hero-icon-btn-danger:hover:not(:disabled)) {
+  background: color-mix(in srgb, var(--status-error, #c0392b) 12%, transparent);
+  border-color: var(--status-error, #c0392b);
+}
+
+:deep(.hero-icon-btn-danger:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 :deep(.battletag-link-active:hover) {

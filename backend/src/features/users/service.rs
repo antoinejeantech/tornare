@@ -28,6 +28,7 @@ pub async fn get_user_profile_public(
     }
 
     let has_battlenet_identity = repo::has_provider_identity(&state.pool, user_id, "battlenet").await?;
+    let has_password = crate::features::auth::repo::user_has_password(&state.pool, user_id).await?;
 
     Ok(AuthUser {
         id: row.id,
@@ -40,6 +41,7 @@ pub async fn get_user_profile_public(
         rank_dps: row.rank_dps,
         rank_support: row.rank_support,
         can_edit_battletag: !has_battlenet_identity,
+        has_password,
     })
 }
 
@@ -142,6 +144,23 @@ pub async fn update_user_profile_for_user(
     }
 
     get_user_profile_public(state, target_user_id).await
+}
+
+pub async fn delete_user_account(
+    state: &AppState,
+    authenticated_user_id: Uuid,
+    target_user_id: Uuid,
+) -> Result<(), ApiError> {
+    let Some(actor) = repo::find_user_profile_by_id(&state.pool, authenticated_user_id).await? else {
+        return Err(forbidden("You do not have permission to delete this account"));
+    };
+
+    if !actor.is_active || !actor.role.eq_ignore_ascii_case("admin") {
+        return Err(forbidden("Only admins can delete accounts"));
+    }
+
+    repo::delete_user_by_id(&state.pool, target_user_id).await?;
+    Ok(())
 }
 
 fn validate_rank(role: &str, rank: &str) -> Result<(), ApiError> {

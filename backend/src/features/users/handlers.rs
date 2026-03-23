@@ -13,6 +13,7 @@ use crate::{
     },
     shared::{
         errors::ApiResult,
+        models::MessageResponse,
     },
 };
 
@@ -35,4 +36,14 @@ pub async fn update_user_profile(
     service::update_user_profile_for_user(&state, authenticated_user_id, user_id, payload)
         .await
         .map(Json)
+}
+
+pub async fn delete_user_account(
+    Path(user_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<MessageResponse> {
+    let authenticated_user_id = require_authenticated_user_id(&state, &headers)?;
+    service::delete_user_account(&state, authenticated_user_id, user_id).await?;
+    Ok(Json(MessageResponse { message: "Account deleted".to_string() }))
 }
