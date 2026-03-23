@@ -64,19 +64,39 @@ async function tryRefreshSession() {
     return false
   }
 
-  const response = await fetch(`${apiBase}/api/auth/refresh`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  })
-
-  if (!response.ok) {
+  let response
+  try {
+    response = await fetch(`${apiBase}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+  } catch {
+    // Network error — leave tokens intact so retries are possible later.
     return false
   }
 
-  const body = await response.json()
+  if (response.status === 401 || response.status === 403) {
+    // Refresh token definitively rejected by the server — clear the session.
+    clearAccessToken()
+    setRefreshToken('')
+    return false
+  }
+
+  if (!response.ok) {
+    // Server error (5xx, etc.) — leave tokens intact.
+    return false
+  }
+
+  let body
+  try {
+    body = await response.json()
+  } catch {
+    return false
+  }
+
   setAccessToken(body.access_token || '')
   setRefreshToken(body.refresh_token || '')
   return Boolean(body.access_token)
@@ -98,6 +118,7 @@ export async function apiCall(path, options = {}) {
   })
 
   // If access token expired, refresh once and retry the original request.
+  // Token clearing is handled inside tryRefreshSession on definitive rejection.
   if (response.status === 401 && path !== '/api/auth/refresh') {
     const refreshed = await tryRefreshSession()
     if (refreshed) {
@@ -110,9 +131,6 @@ export async function apiCall(path, options = {}) {
         headers: retryHeaders,
         ...options,
       })
-    } else {
-      clearAccessToken()
-      setRefreshToken('')
     }
   }
 

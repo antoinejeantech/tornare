@@ -1474,10 +1474,25 @@ watch(
   { immediate: true }
 )
 
+let eventPageHiddenAt = 0
+
+function handlePageVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    eventPageHiddenAt = Date.now()
+  } else if (document.visibilityState === 'visible' && eventPageHiddenAt > 0) {
+    const hiddenMs = Date.now() - eventPageHiddenAt
+    eventPageHiddenAt = 0
+    if (hiddenMs >= 30_000) {
+      loadEvent()
+    }
+  }
+}
+
 onMounted(() => {
   startsInTimer = window.setInterval(() => {
     nowTick.value = Date.now()
   }, 30 * 1000)
+  document.addEventListener('visibilitychange', handlePageVisibilityChange)
 })
 
 onBeforeUnmount(() => {
@@ -1487,6 +1502,7 @@ onBeforeUnmount(() => {
   if (startsInTimer) {
     window.clearInterval(startsInTimer)
   }
+  document.removeEventListener('visibilitychange', handlePageVisibilityChange)
 })
 
 provide('eventCtx', proxyRefs({
