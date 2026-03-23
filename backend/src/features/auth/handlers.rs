@@ -63,7 +63,20 @@ pub async fn logout(
     }))
 }
 
-pub async fn battlenet_authorize(State(state): State<AppState>) -> Redirect {
+pub async fn battlenet_authorize(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Redirect {
+    if enforce_rate_limit(&state.rate_limiter, &headers, "bnet_authorize", 20, 60)
+        .await
+        .is_err()
+    {
+        return Redirect::to(&format!(
+            "{}/auth/callback?error=rate_limited",
+            state.config.frontend_url,
+        ));
+    }
+
     if state.config.battlenet_client_id.is_empty() {
         return Redirect::to(&format!(
             "{}/auth/callback?error=oauth_not_configured",
@@ -90,9 +103,17 @@ pub struct BnetCallbackParams {
 
 pub async fn battlenet_callback(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Query(params): Query<BnetCallbackParams>,
 ) -> Redirect {
     let frontend_url = &state.config.frontend_url;
+
+    if enforce_rate_limit(&state.rate_limiter, &headers, "bnet_callback", 20, 60)
+        .await
+        .is_err()
+    {
+        return Redirect::to(&format!("{}/auth/callback?error=rate_limited", frontend_url));
+    }
 
     if let Some(error) = &params.error {
         return Redirect::to(&format!(
@@ -113,7 +134,7 @@ pub async fn battlenet_callback(
 
     match service::handle_battlenet_redirect(&state, code, csrf_state).await {
         Ok(BnetCallbackResult::LoggedIn(auth)) => Redirect::to(&format!(
-            "{}/auth/callback?access_token={}&refresh_token={}",
+            "{}/auth/callback#access_token={}&refresh_token={}",
             frontend_url,
             urlencoding::encode(&auth.access_token),
             urlencoding::encode(&auth.refresh_token),

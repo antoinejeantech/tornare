@@ -448,10 +448,11 @@ async fn handle_bnet_login(
             id
         }
         None => {
-            let email = bnet_email
-                .filter(|e| !e.is_empty())
-                .ok_or_else(|| bad_request("Battle.net did not provide an email address"))?
-                .to_string();
+            let email = normalize_email(
+                bnet_email
+                    .filter(|e| !e.is_empty())
+                    .ok_or_else(|| bad_request("Battle.net did not provide an email address"))?,
+            );
 
             // If that email is already registered (e.g. a previously-disconnected BNet
             // account), re-link rather than trying to create a duplicate.
