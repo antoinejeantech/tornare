@@ -22,19 +22,19 @@ export interface RoleRank {
 }
 
 export interface EventTeam {
-  id: number | string
+  id: string
   name: string
-  player_ids?: (number | string)[]
+  player_ids?: string[]
   created_at?: string
   updated_at?: string
 }
 
 export interface EventPlayer {
-  id: number | string
+  id: string
   name: string
   role: OverwatchRole
   rank: OverwatchRank
-  team_id: number | string | null
+  team_id: string | null
   team?: EventTeam | null
   assigned_role: OverwatchRole | null
   assigned_rank: OverwatchRank | null
@@ -42,27 +42,27 @@ export interface EventPlayer {
 }
 
 export interface EventMatch {
-  id: number | string
+  id: string
   title: string
   map: string
   start_date: string | null
-  team_a_id: number | string | null
-  team_b_id: number | string | null
+  team_a_id: string | null
+  team_b_id: string | null
   team_a_name: string | null
   team_b_name: string | null
-  winner_team_id: number | string | null
+  winner_team_id: string | null
   winner_team_name: string | null
   max_players?: number | null
   round?: number | null
   position?: number | null
   status?: string
   isPlaceholder?: boolean
-  next_match_id?: string | number | null
+  next_match_id?: string | null
   players: EventPlayer[]
 }
 
 export interface Event {
-  id: number | string
+  id: string
   name: string
   description: string
   start_date: string | null
@@ -102,7 +102,7 @@ export interface PublicSignupInfo {
 }
 
 export interface SignupRequest {
-  id: number | string
+  id: string
   status: string
   name: string
   created_at?: string
@@ -113,11 +113,16 @@ export interface SignupRequest {
 
 // ── Auth domain ────────────────────────────────────────────────────────
 export interface AuthUser {
-  id: number | string
+  id: string
   username: string
   email: string
   role: string
-  [key: string]: unknown
+  display_name: string
+  battletag: string | null
+  rank_tank: OverwatchRank
+  rank_dps: OverwatchRank
+  rank_support: OverwatchRank
+  can_edit_battletag: boolean
 }
 
 export interface AuthSession {

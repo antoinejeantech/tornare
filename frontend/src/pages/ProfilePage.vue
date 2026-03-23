@@ -179,7 +179,7 @@ async function loadProfile() {
   try {
     error.value = ''
     notice.value = ''
-    const response = await apiCall(`/api/users/${profileId.value}`) as AuthUser | null
+    const response = await apiCall<AuthUser>(`/api/users/${profileId.value}`)
     profile.value = response
     hydrateFormFromProfile(response)
     editingAccount.value = false
@@ -245,7 +245,7 @@ async function saveProfile() {
 
   savingProfile.value = true
   try {
-    const updated = await apiCall(`/api/users/${profileId.value}`, {
+    const updated = await apiCall<AuthUser>(`/api/users/${profileId.value}`, {
       method: 'PUT',
       body: JSON.stringify({
         username: nextUsername,
@@ -258,15 +258,12 @@ async function saveProfile() {
         new_password: hasPasswordUpdate ? nextPassword : null,
         new_password_confirm: hasPasswordUpdate ? nextPasswordConfirm : null,
       }),
-    }) as AuthUser | null
+    }) 
 
     profile.value = updated
     hydrateFormFromProfile(updated)
     if (viewerId.value === profileId.value) {
-      authStore.user = {
-        ...(authStore.user || {}),
-        ...(updated as object),
-      } as AuthUser
+      authStore.user = updated
     }
     editingAccount.value = false
     editingOverwatch.value = false
