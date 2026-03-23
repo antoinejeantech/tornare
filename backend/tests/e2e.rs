@@ -40,8 +40,10 @@ async fn spawn_test_server(pool: PgPool) -> String {
             // verifying the JWT that the same server issued.
             jwt_secret: "e2e-test-secret-dev-only-do-not-use-in-prod".to_string(),
             cors_allowed_origins: vec!["*".to_string()],
-            // Needed so /api/auth/register is open.
-            public_signup_enabled: true,
+            battlenet_client_id: String::new(),
+            battlenet_client_secret: String::new(),
+            battlenet_redirect_uri: String::new(),
+            frontend_url: "http://localhost:5173".to_string(),
         },
     };
 

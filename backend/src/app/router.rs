@@ -3,7 +3,7 @@ use axum::{
         header::{AUTHORIZATION, CONTENT_TYPE},
         HeaderName, HeaderValue, Method, Request,
     },
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use tower_http::cors::{Any, CorsLayer};
@@ -49,6 +49,10 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/auth/me", get(auth::me))
         .route("/api/auth/refresh", post(auth::refresh))
         .route("/api/auth/logout", post(auth::logout))
+        .route("/api/auth/battlenet/authorize", get(auth::battlenet_authorize))
+        .route("/api/auth/battlenet/callback", get(auth::battlenet_callback))
+        .route("/api/auth/battlenet/connect-init", post(auth::battlenet_connect_init))
+        .route("/api/auth/battlenet/disconnect", delete(auth::battlenet_disconnect))
         .route(
             "/api/users/{user_id}",
             get(users::get_user_profile).put(users::update_user_profile),

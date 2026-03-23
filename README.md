@@ -34,12 +34,10 @@ Backend variables (`backend/.env`):
 - `DATABASE_URL`: Postgres connection string
 - `JWT_SECRET`: signing secret for auth tokens
 - `CORS_ALLOWED_ORIGINS`: comma-separated allowed frontend origins (e.g. `https://app.example.com,http://localhost:5173`)
-- `PUBLIC_SIGNUP_ENABLED`: enable or disable public account registration (`false` recommended in production until launch)
 
 Frontend variables (`frontend/.env`):
 
 - `VITE_API_URL`: backend base URL used by the frontend
-- `VITE_PUBLIC_SIGNUP_ENABLED`: enables Register UI in production (`false` keeps Register visible but disabled with a "coming soon" message)
 
 ## Make commands
 

@@ -76,6 +76,24 @@ export const useAuthStore = defineStore('auth', {
       this.syncTokensFromStorage()
       return me
     },
+    async initFromOAuth(accessToken: string, refreshToken: string): Promise<void> {
+      setAccessToken(accessToken)
+      setStoredRefreshToken(refreshToken)
+      this.accessToken = accessToken
+      this.refreshToken = refreshToken
+      await this.fetchMe()
+      this.initialized = true
+    },
+    async connectBnetInit(): Promise<void> {
+      const response = await apiCall<{ url: string }>('/api/auth/battlenet/connect-init', {
+        method: 'POST',
+      })
+      window.location.href = response.url
+    },
+    async disconnectBnet(): Promise<void> {
+      await apiCall('/api/auth/battlenet/disconnect', { method: 'DELETE' })
+      await this.fetchMe()
+    },
     async refreshAccessToken(): Promise<AuthSession> {
       this.syncTokensFromStorage()
 

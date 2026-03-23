@@ -7,7 +7,10 @@ use crate::app::security::RateLimiter;
 pub struct AppConfig {
     pub jwt_secret: String,
     pub cors_allowed_origins: Vec<String>,
-    pub public_signup_enabled: bool,
+    pub battlenet_client_id: String,
+    pub battlenet_client_secret: String,
+    pub battlenet_redirect_uri: String,
+    pub frontend_url: String,
 }
 
 #[derive(Clone)]

@@ -46,3 +46,8 @@ pub struct RefreshInput {
 pub struct LogoutInput {
     pub refresh_token: String,
 }
+
+#[derive(Serialize)]
+pub struct BnetConnectInitResponse {
+    pub url: String,
+}

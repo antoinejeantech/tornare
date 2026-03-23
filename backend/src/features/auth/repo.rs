@@ -264,3 +264,119 @@ pub async fn revoke_session_by_hash(
         .map_err(internal_error)?;
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Battle.net OAuth helpers
+// ---------------------------------------------------------------------------
+
+pub async fn find_user_id_by_bnet_sub(
+    pool: &PgPool,
+    sub: &str,
+) -> Result<Option<Uuid>, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT user_id FROM auth_identities WHERE provider = 'battlenet' AND provider_user_id = $1",
+    )
+    .bind(sub)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.map(|r| r.get("user_id")))
+}
+
+pub async fn insert_bnet_user(
+    pool: &PgPool,
+    user_id: Uuid,
+    email: &str,
+    username: &str,
+    display_name: &str,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO users (id, email, username, display_name) VALUES ($1, $2, $3, $4)",
+    )
+    .bind(user_id)
+    .bind(email)
+    .bind(username)
+    .bind(display_name)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(())
+}
+
+pub async fn insert_bnet_identity(
+    pool: &PgPool,
+    user_id: Uuid,
+    sub: &str,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO auth_identities (id, user_id, provider, provider_user_id)
+         VALUES ($1, $2, 'battlenet', $3)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(user_id)
+    .bind(sub)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(())
+}
+
+pub async fn upsert_bnet_game_profile(
+    pool: &PgPool,
+    user_id: Uuid,
+    sub: &str,
+    battletag: &str,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO user_game_profiles
+             (id, user_id, game_code, handle, provider, provider_user_id, is_handle_locked)
+         VALUES ($1, $2, 'overwatch', $3, 'battlenet', $4, true)
+         ON CONFLICT (user_id, game_code)
+         DO UPDATE SET
+             handle           = EXCLUDED.handle,
+             provider         = 'battlenet',
+             provider_user_id = EXCLUDED.provider_user_id,
+             is_handle_locked = true,
+             updated_at       = NOW()",
+    )
+    .bind(Uuid::new_v4())
+    .bind(user_id)
+    .bind(battletag)
+    .bind(sub)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(())
+}
+
+pub async fn remove_bnet_identity(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "DELETE FROM auth_identities WHERE user_id = $1 AND provider = 'battlenet'",
+    )
+    .bind(user_id)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(())
+}
+
+pub async fn unlock_bnet_game_profile(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "UPDATE user_game_profiles
+         SET handle = NULL, provider = 'manual', provider_user_id = NULL, is_handle_locked = false,
+             updated_at = NOW()
+         WHERE user_id = $1 AND game_code = 'overwatch'",
+    )
+    .bind(user_id)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(())
+}

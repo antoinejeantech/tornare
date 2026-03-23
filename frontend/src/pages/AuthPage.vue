@@ -3,7 +3,6 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import battlenetLogo from '../assets/branding/bnet-logo.png'
-import AppBadge from '../components/ui/AppBadge.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -17,20 +16,12 @@ const username = ref('')
 const displayName = ref('')
 const error = ref('')
 const submitting = ref(false)
-const publicSignupFlag = String(import.meta.env.VITE_PUBLIC_SIGNUP_ENABLED || '').trim().toLowerCase()
-const publicSignupEnabled = publicSignupFlag
-  ? publicSignupFlag === 'true'
-  : Boolean(import.meta.env.DEV)
 
 const canSubmit = computed(() => {
   const emailOk = email.value.trim().length > 0
   const passwordOk = password.value.length >= 8
 
   if (mode.value === 'register') {
-    if (!publicSignupEnabled) {
-      return false
-    }
-
     const usernameValue = username.value.trim().toLowerCase()
     const usernameOk =
       usernameValue.length >= 3 &&
@@ -67,11 +58,6 @@ async function submit() {
 
   try {
     if (mode.value === 'register') {
-      if (!publicSignupEnabled) {
-        error.value = 'Public signup will be available soon.'
-        return
-      }
-
       await authStore.register({
         email: email.value.trim(),
         password: password.value,
@@ -96,16 +82,16 @@ async function submit() {
 }
 
 function switchMode(nextMode: string) {
-  if (nextMode === 'register' && !publicSignupEnabled) {
-    error.value = 'Public signup will be available soon.'
-    return
-  }
-
   mode.value = nextMode
   error.value = ''
   if (nextMode !== 'register') {
     passwordConfirm.value = ''
   }
+}
+
+function loginWithBnet() {
+  const apiBase = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8000'
+  window.location.href = `${apiBase}/api/auth/battlenet/authorize`
 }
 </script>
 
@@ -119,23 +105,15 @@ function switchMode(nextMode: string) {
 
       <p v-if="error" class="status status-error">{{ error }}</p>
 
-      <div v-if="!publicSignupEnabled" class="auth-signup-lock" role="status" aria-live="polite">
-        <span class="material-symbols-rounded" aria-hidden="true">lock</span>
-        <div>
-          <strong>Public signup is currently disabled</strong>
-          <p class="muted">It will be available to everyone soon. Login is active if you already have an account.</p>
-        </div>
+      <div class="auth-bnet">
+        <button type="button" class="btn-bnet" @click="loginWithBnet">
+          <img class="btn-bnet-logo" :src="battlenetLogo" alt="" aria-hidden="true" />
+          <span class="btn-bnet-label">Sign in with Battle.net</span>
+        </button>
       </div>
 
-      <div class="auth-soon">
-        <button type="button" class="btn-bnet" disabled aria-disabled="true" title="Coming soon">
-          <span class="btn-bnet-brand">
-            <img class="btn-bnet-logo" :src="battlenetLogo" alt="Battle.net" />
-            <span class="btn-bnet-label">Connect with Battle.net</span>
-          </span>
-          <AppBadge label="Coming soon" radius="pill" bg="linear-gradient(135deg, #ef5f00, #f28b2f)" color="#fff" />
-        </button>
-        <p class="muted auth-soon-note">Social login is on the roadmap and will arrive in a future update.</p>
+      <div class="auth-divider" aria-hidden="true">
+        <span>or sign in with email</span>
       </div>
 
       <form class="grid-form" @submit.prevent="submit">
@@ -173,18 +151,13 @@ function switchMode(nextMode: string) {
         </button>
         <button
           class="btn-secondary"
-          :class="{ 'btn-disabled-feature': !publicSignupEnabled }"
-          :disabled="mode === 'register' || !publicSignupEnabled"
-          :title="publicSignupEnabled ? 'Register' : 'Public signup will be available soon'"
+          :disabled="mode === 'register'"
           @click="switchMode('register')"
           type="button"
         >
-          {{ publicSignupEnabled ? 'Register' : 'Register (Soon)' }}
+          Register
         </button>
       </div>
-      <p v-if="!publicSignupEnabled" class="muted auth-signup-disabled-note">
-        Public signup will be available soon.
-      </p>
     </section>
   </main>
 </template>
@@ -223,39 +196,65 @@ function switchMode(nextMode: string) {
   gap: 0.4rem;
 }
 
-.btn-bnet {
-  border: 1px dashed color-mix(in srgb, var(--line) 68%, #f06414 32%);
-  border-radius: var(--radius-md);
-  padding: 0.7rem 0.9rem;
-  background: linear-gradient(120deg, #fff5ed, #ffe9d7);
-  color: #5c2400;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  cursor: not-allowed;
-  opacity: 1;
+.auth-bnet {
+  display: grid;
 }
 
-.btn-bnet-brand {
-  display: inline-flex;
+.auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.7rem;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  height: 1px;
+  background: color-mix(in srgb, var(--line) 55%, transparent 45%);
+}
+
+.btn-bnet {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.72rem 1.1rem;
+  background: #148eff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  transition: background 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 2px 8px rgb(20 142 255 / 32%);
+}
+
+.btn-bnet:hover {
+  background: #1a9aff;
+  box-shadow: 0 3px 12px rgb(20 142 255 / 44%);
+}
+
+.btn-bnet:active {
+  background: #0e7de0;
+  box-shadow: 0 1px 4px rgb(20 142 255 / 24%);
 }
 
 .btn-bnet-logo {
   width: 1.55rem;
   height: 1.55rem;
   display: block;
-  background: #fff;
-  border: 1px solid color-mix(in srgb, #0b5ed7 22%, #ffffff 78%);
   border-radius: var(--radius-pill);
-  padding: 0.2rem;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
+  flex-shrink: 0;
+  background: #fff;
+  padding: 0.18rem;
 }
 
 .btn-bnet-label {
-  font-weight: 780;
+  font-weight: 700;
+  font-size: 0.97rem;
   letter-spacing: 0.01em;
 }
 
@@ -269,43 +268,12 @@ function switchMode(nextMode: string) {
   font-size: 0.86rem;
 }
 
-.auth-signup-lock {
-  border: 1px dashed color-mix(in srgb, var(--line) 64%, #f08b2f 36%);
-  background: linear-gradient(130deg, color-mix(in srgb, var(--card) 78%, #fff1df 22%), color-mix(in srgb, var(--card) 86%, #ffe5cc 14%));
-  border-radius: var(--radius-md);
-  padding: 0.6rem 0.72rem;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.55rem;
-  align-items: start;
-}
-
-.auth-signup-lock strong {
-  display: block;
-  font-size: 0.9rem;
-}
-
-.auth-signup-lock p {
-  margin: 0.12rem 0 0;
-  font-size: 0.84rem;
-}
-
 .btn-disabled-feature {
   border-style: dashed;
   opacity: 0.75;
 }
 
 @media (prefers-color-scheme: dark) {
-  .btn-bnet {
-    border-color: color-mix(in srgb, var(--line) 72%, #2e9bff 28%);
-    background: linear-gradient(120deg, #1b2433, #182134);
-    color: #dbe9ff;
-  }
-
-  .btn-bnet-logo {
-    background: #0f1725;
-    border-color: color-mix(in srgb, #2e9bff 45%, #0f1725 55%);
-  }
-
+  /* BNet blue works on both light and dark — no override needed */
 }
 </style>
