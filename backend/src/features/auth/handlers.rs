@@ -77,7 +77,11 @@ pub async fn battlenet_authorize(
         ));
     }
 
-    if state.config.battlenet_client_id.is_empty() {
+    let oauth_not_configured = state.config.battlenet_client_id.trim().is_empty()
+        || state.config.battlenet_client_secret.trim().is_empty()
+        || state.config.battlenet_redirect_uri.trim().is_empty();
+
+    if oauth_not_configured {
         return Redirect::to(&format!(
             "{}/auth/callback?error=oauth_not_configured",
             state.config.frontend_url

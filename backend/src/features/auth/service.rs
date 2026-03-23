@@ -506,7 +506,11 @@ pub async fn battlenet_connect_init_url(
     state: &AppState,
     user_id: Uuid,
 ) -> Result<String, ApiError> {
-    if state.config.battlenet_client_id.is_empty() {
+    let oauth_not_configured = state.config.battlenet_client_id.trim().is_empty()
+        || state.config.battlenet_client_secret.trim().is_empty()
+        || state.config.battlenet_redirect_uri.trim().is_empty();
+
+    if oauth_not_configured {
         return Err(bad_request("Battle.net login is not configured"));
     }
     if repo::has_provider_identity(&state.pool, user_id, "battlenet").await? {
