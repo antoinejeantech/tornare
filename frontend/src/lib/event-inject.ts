@@ -20,16 +20,16 @@ export interface EventCtxType {
   creatingMatch: boolean
   clearingBracket: boolean
   deletingEvent: boolean
-  deletingMatchId: string | number | null
+  deletingMatchId: string | null
   addingPlayer: boolean
-  deletingPlayers: Record<string | number, boolean>
-  deletingTeams: Record<string | number, boolean>
-  savingPlayerTeams: Record<string | number, boolean>
-  savingPlayerEdits: Record<string | number, boolean>
-  savingTeamEdits: Record<string | number, boolean>
-  savingMatchups: Record<string | number, boolean>
-  reportingWinners: Record<string | number, boolean>
-  cancellingWinners: Record<string | number, boolean>
+  deletingPlayers: Record<string, boolean>
+  deletingTeams: Record<string, boolean>
+  savingPlayerTeams: Record<string, boolean>
+  savingPlayerEdits: Record<string, boolean>
+  savingTeamEdits: Record<string, boolean>
+  savingMatchups: Record<string, boolean>
+  reportingWinners: Record<string, boolean>
+  cancellingWinners: Record<string, boolean>
   updatingEvent: boolean
   updatingSignupVisibility: boolean
   rotatingSignupLink: boolean
@@ -60,14 +60,14 @@ export interface EventCtxType {
 
   // ── Edit-team form fields ──
   editTeamName: string
-  editingTeamId: string | number | null
+  editingTeamId: string | null
 
   // ── Edit-player form fields ──
   editPlayerName: string
   editPlayerRole: string
   editPlayerRank: string
   editPlayerRoles: RoleRank[]
-  editingPlayerId: string | number | null
+  editingPlayerId: string | null
 
   // ── Edit-event form fields ──
   editEventName: string
@@ -96,26 +96,26 @@ export interface EventCtxType {
   createTeam: () => Promise<void>
   autoCreateSoloTeams: () => Promise<void>
   autoBalanceTeams: () => Promise<void>
-  saveTeamEdit: (teamId: string | number) => Promise<void>
+  saveTeamEdit: (teamId: string) => Promise<void>
   deleteTeam: (team: EventTeam) => Promise<void>
 
   // ── Player actions ──
   addPlayer: () => Promise<void>
-  savePlayerEdit: (playerId: string | number) => Promise<void>
-  assignPlayerToTeam: (playerId: string | number, teamId: string | number | null) => Promise<void>
-  assignPlayerToTeamWithRole: (playerId: string | number, teamId: string | number | null, role: string, rank: string) => Promise<void>
-  removePlayerFromTeam: (playerId: string | number) => Promise<void>
+  savePlayerEdit: (playerId: string) => Promise<void>
+  assignPlayerToTeam: (playerId: string, teamId: string | null) => Promise<void>
+  assignPlayerToTeamWithRole: (playerId: string, teamId: string | null, role: string, rank: string) => Promise<void>
+  removePlayerFromTeam: (playerId: string) => Promise<void>
   removePlayer: (player: EventPlayer) => Promise<void>
 
   // ── Match actions ──
   createMatch: () => Promise<void>
-  updateMatchStartDate: (matchId: string | number, startDate: string) => Promise<void>
+  updateMatchStartDate: (matchId: string, startDate: string) => Promise<void>
   generateTourneyBracket: (mode?: string) => Promise<void>
   clearTourneyBracket: () => Promise<void>
-  deleteMatch: (matchId: string | number) => Promise<void>
-  saveMatchup: (matchId: string | number) => Promise<boolean>
-  reportMatchWinner: (matchId: string | number, winnerTeamId: string | number) => Promise<void>
-  cancelMatchWinner: (matchId: string | number) => Promise<void>
+  deleteMatch: (matchId: string) => Promise<void>
+  saveMatchup: (matchId: string) => Promise<boolean>
+  reportMatchWinner: (matchId: string, winnerTeamId: string) => Promise<void>
+  cancelMatchWinner: (matchId: string) => Promise<void>
 
   // ── Event settings actions ──
   syncEventEditDraftFromEvent: () => void
@@ -127,7 +127,7 @@ export interface EventCtxType {
   rotateSignupLink: () => Promise<void>
   setSignupVisibility: (enabled: boolean) => Promise<void>
   setEventEnded: (ended: boolean) => Promise<void>
-  acceptSignupRequest: (requestId: string | number) => Promise<void>
-  declineSignupRequest: (requestId: string | number) => Promise<void>
+  acceptSignupRequest: (requestId: string) => Promise<void>
+  declineSignupRequest: (requestId: string) => Promise<void>
 }
 

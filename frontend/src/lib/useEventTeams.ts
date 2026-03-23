@@ -8,10 +8,10 @@ export function useEventTeams({
   const creatingTeam = ref(false)
   const creatingSoloTeams = ref(false)
   const balancingTeams = ref(false)
-  const deletingTeams = ref<Record<string | number, boolean>>({})
-  const savingTeamEdits = ref<Record<string | number, boolean>>({})
+  const deletingTeams = ref<Record<string, boolean>>({})
+  const savingTeamEdits = ref<Record<string, boolean>>({})
   const newTeamName = ref('')
-  const editingTeamId = ref<string | number | null>(null)
+  const editingTeamId = ref<string | null>(null)
   const editTeamName = ref('')
   const lastBalanceSummary = ref('')
   const lastBalancedFingerprint = ref<string | null>(null)
@@ -96,7 +96,7 @@ export function useEventTeams({
     }
   }
 
-  async function saveTeamEdit(teamId: string | number) {
+  async function saveTeamEdit(teamId: string) {
     if (!ensureOwnerAction() || !eventId.value || !editTeamName.value.trim() || savingTeamEdits.value[teamId]) return
     savingTeamEdits.value = { ...savingTeamEdits.value, [teamId]: true }
     try {
