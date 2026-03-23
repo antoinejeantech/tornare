@@ -5,7 +5,6 @@
  * proxyRefs unwraps Ref<T> → T at the type level, so all properties here
  * are their direct value types, not Ref-wrapped.
  */
-import type { InjectionKey } from 'vue'
 import type { Event, EventPlayer, EventTeam, OverwatchRank, RoleRank, SignupRequest } from '../types'
 
 export interface EventCtxType {
@@ -132,4 +131,3 @@ export interface EventCtxType {
   declineSignupRequest: (requestId: string | number) => Promise<void>
 }
 
-export const eventCtxKey: InjectionKey<EventCtxType> = Symbol('eventCtx')

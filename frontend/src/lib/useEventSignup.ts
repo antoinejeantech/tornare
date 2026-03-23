@@ -28,6 +28,7 @@ export function useEventSignup({
   function clearSignupData() {
     signupToken.value = ''
     signupRequests.value = []
+    reviewingSignupRequests.value = {}
   }
 
   async function loadOwnerSignupData() {
