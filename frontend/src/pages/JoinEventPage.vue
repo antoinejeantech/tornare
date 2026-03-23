@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { overwatchRanks } from '../lib/ranks'
 import { formatEventStartDate } from '../lib/dates'
 import { useEventStore } from '../stores/event'
+import { useAuthStore } from '../stores/auth'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import type { PublicSignupInfo } from '../types'
@@ -11,6 +12,7 @@ import type { PublicSignupInfo } from '../types'
 const route = useRoute()
 const router = useRouter()
 const eventStore = useEventStore()
+const authStore = useAuthStore()
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -142,7 +144,27 @@ async function submitRequest() {
   }
 }
 
-onMounted(loadSignupInfo)
+function prefillFromAuth() {
+  const user = authStore.user
+  if (!user) return
+
+  if (!playerName.value) {
+    playerName.value = user.battletag
+      ? `${user.display_name} (${user.battletag})`
+      : user.display_name
+  }
+
+  const entries: Array<{ role: string; rank: string }> = []
+  if (user.rank_tank && user.rank_tank !== 'Unranked') entries.push({ role: 'Tank', rank: user.rank_tank })
+  if (user.rank_dps && user.rank_dps !== 'Unranked') entries.push({ role: 'DPS', rank: user.rank_dps })
+  if (user.rank_support && user.rank_support !== 'Unranked') entries.push({ role: 'Support', rank: user.rank_support })
+  if (entries.length > 0) playerRoles.value = entries
+}
+
+onMounted(async () => {
+  await loadSignupInfo()
+  prefillFromAuth()
+})
 </script>
 
 <template>
@@ -216,6 +238,11 @@ onMounted(loadSignupInfo)
         <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
         <p v-if="signupRequestsFull" class="status status-blocked">Signup is currently unavailable because this event reached the request limit.</p>
+
+        <div v-if="!authStore.isAuthenticated" class="join-auth-hint">
+          <span class="material-symbols-rounded" aria-hidden="true">account_circle</span>
+          <p><RouterLink to="/auth">Sign in</RouterLink> to automatically prefill your name and ranks.</p>
+        </div>
 
         <form class="join-form" @submit.prevent="submitRequest">
           <label class="join-field join-field-full">
@@ -514,6 +541,33 @@ onMounted(loadSignupInfo)
   width: calc(100% + (var(--join-card-pad) * 2));
   margin: 1.05rem 0 1.05rem calc(var(--join-card-pad) * -1);
   background: color-mix(in srgb, var(--line) 72%, transparent);
+}
+
+.join-auth-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.9rem;
+  background: color-mix(in srgb, var(--primary-700) 14%, transparent 86%);
+  border: 1px solid color-mix(in srgb, var(--primary-500) 38%, var(--line) 62%);
+  border-radius: 8px;
+  color: var(--primary-300);
+  font-size: 0.875rem;
+}
+
+.join-auth-hint .material-symbols-rounded {
+  flex-shrink: 0;
+  font-size: 1.15rem;
+  opacity: 0.85;
+}
+
+.join-auth-hint p {
+  margin: 0;
+}
+
+.join-auth-hint a {
+  color: inherit;
+  text-underline-offset: 2px;
 }
 
 .join-form {
