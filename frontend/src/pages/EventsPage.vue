@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import { normalizeDatetimeLocalInput } from '../lib/dates'
@@ -15,6 +16,7 @@ interface PaginatedEventsResponse {
 }
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 const events = ref<Event[]>([])
 const featuredEvent = ref<Event | null>(null)
@@ -287,7 +289,7 @@ async function createEvent() {
     clearError()
     clearNotice()
 
-    await apiCall('/api/events', {
+    const created = await apiCall<Event>('/api/events', {
       method: 'POST',
       body: JSON.stringify({
         name: newEventName.value.trim(),
@@ -300,17 +302,9 @@ async function createEvent() {
       })
     })
 
-    const shouldLoadPageDirectly = currentPage.value === 1
-    currentPage.value = 1
-
-    await Promise.all([
-      shouldLoadPageDirectly ? loadEvents() : Promise.resolve(),
-      loadFeaturedEvent(),
-    ])
-
     resetCreateForm()
     showCreateModal.value = false
-    setNotice('Event created successfully')
+    router.push({ name: 'event', params: { id: created.id } })
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to create event')
   } finally {
