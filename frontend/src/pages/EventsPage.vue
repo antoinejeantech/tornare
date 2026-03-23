@@ -118,10 +118,6 @@ function clearError() {
   error.value = ''
 }
 
-function setNotice(message: string) {
-  notice.value = message
-}
-
 function clearNotice() {
   notice.value = ''
 }

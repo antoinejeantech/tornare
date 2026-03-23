@@ -152,7 +152,7 @@ async function deleteActiveMatch() {
 
 // ── Winner reporting ──────────────────────────────────────────────────────────
 async function reportWinner(matchId: string | number, teamId: string | number) {
-  await ctx.reportMatchWinner(matchId, teamId)
+  await ctx.reportMatchWinner(String(matchId), String(teamId))
 }
 
 async function cancelWinner() {

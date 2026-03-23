@@ -128,7 +128,7 @@ function toggleMatchupEditor(matchId: string | number) {
 }
 
 async function saveMatchupAndClose(matchId: string | number) {
-  const saved = await ctx.saveMatchup(matchId)
+  const saved = await ctx.saveMatchup(String(matchId))
   if (saved) {
     editingMatchups.value = {
       ...editingMatchups.value,
