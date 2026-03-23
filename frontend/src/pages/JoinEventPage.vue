@@ -160,9 +160,9 @@ onMounted(loadSignupInfo)
           <AppBadge
             label="Public Signup"
             radius="pill"
-            bg="color-mix(in srgb, var(--primary-700) 28%, var(--card) 72%)"
-            color="var(--primary-200)"
-            border="color-mix(in srgb, var(--primary-200) 88%, white 12%)"
+            bg="color-mix(in srgb, var(--primary-700) 22%, transparent 78%)"
+            color="var(--primary-300)"
+            border="color-mix(in srgb, var(--primary-500) 52%, var(--line) 48%)"
             style="justify-self: start"
           />
           <h2 class="join-event-title">{{ signupInfo.event_name }}</h2>
@@ -251,10 +251,9 @@ onMounted(loadSignupInfo)
                     <option v-for="rank in overwatchRanks" :key="rank" :value="rank">{{ rank }}</option>
                   </select>
                 </label>
-                <div class="join-role-remove-col">
+                <div v-if="playerRoles.length > 1" class="join-role-remove-col">
                   <span class="join-role-remove-spacer" aria-hidden="true">Role</span>
                   <button
-                    v-if="playerRoles.length > 1"
                     type="button"
                     class="join-role-remove"
                     :aria-label="`Remove role preference ${index + 1}`"
@@ -525,7 +524,7 @@ onMounted(loadSignupInfo)
 
 .join-roles-section {
   display: grid;
-  gap: 0.55rem;
+  gap: 0;
 }
 
 .join-roles-label {
@@ -537,6 +536,7 @@ onMounted(loadSignupInfo)
 .join-roles-list {
   list-style: none;
   margin: 0;
+  margin-bottom: 0.55rem;
   padding: 0;
   display: grid;
   gap: 0.55rem;
@@ -569,20 +569,22 @@ onMounted(loadSignupInfo)
 }
 
 .join-role-remove {
-  padding: 0.38rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
+  padding: 0.3rem;
   border-radius: var(--radius-sm);
-  color: var(--ink-2);
   cursor: pointer;
-  transition: color 0.12s;
+  color: var(--ink-2);
+  transition: color 0.14s, background 0.14s;
+  min-height: 2.12rem;
 }
 
 .join-role-remove:hover {
-  color: var(--danger, #f07070);
+  color: var(--danger, #e05c5c);
+  background: color-mix(in srgb, var(--danger, #e05c5c) 10%, transparent 90%);
 }
 
 .join-role-remove .material-symbols-rounded {
@@ -590,26 +592,25 @@ onMounted(loadSignupInfo)
 }
 
 .join-add-role {
-  justify-self: start;
-  display: inline-flex;
+  display: flex;
+  width: 100%;
   align-items: center;
+  justify-content: center;
   gap: 0.3rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  padding: 0.3rem 0.7rem 0.3rem 0.4rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid color-mix(in srgb, var(--line) 78%, var(--brand-1) 22%);
-  background: color-mix(in srgb, var(--bg-0) 64%, var(--card) 36%);
+  background: color-mix(in srgb, var(--bg-1) 60%, var(--card) 40%);
+  border: 1px solid var(--line);
   color: var(--ink-2);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.65rem;
+  font-size: 0.76rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition: border-color 0.14s, color 0.14s;
 }
 
 .join-add-role:hover {
-  background: color-mix(in srgb, var(--bg-0) 82%, var(--brand-1) 18%);
-  border-color: color-mix(in srgb, var(--line-strong) 72%, var(--brand-1) 28%);
-  color: color-mix(in srgb, white 88%, var(--ink-1) 12%);
+  border-color: var(--primary-500);
+  color: var(--primary-300);
 }
 
 .join-add-role .material-symbols-rounded {
