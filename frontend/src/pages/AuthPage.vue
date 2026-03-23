@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { getApiBase } from '../lib/api'
 import battlenetLogo from '../assets/branding/bnet-logo.png'
 
 const router = useRouter()
@@ -90,8 +91,7 @@ function switchMode(nextMode: string) {
 }
 
 function loginWithBnet() {
-  const apiBase = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8000'
-  window.location.href = `${apiBase}/api/auth/battlenet/authorize`
+  window.location.href = `${getApiBase()}/api/auth/battlenet/authorize`
 }
 </script>
 

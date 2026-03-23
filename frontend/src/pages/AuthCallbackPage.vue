@@ -9,11 +9,34 @@ const authStore = useAuthStore()
 
 const error = ref('')
 
-onMounted(async () => {
-  const query = route.query as Record<string, string>
+function getQueryParam(value: unknown): string {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (Array.isArray(value)) {
+    return typeof value[0] === 'string' ? value[0] : ''
+  }
+  return ''
+}
 
-  if (query.error) {
-    const oauthError = query.error
+function sanitizeRedirectPath(rawRedirect: string): string {
+  if (!rawRedirect.startsWith('/')) {
+    return '/events'
+  }
+  // Reject protocol-relative URLs like //attacker.example
+  if (rawRedirect.startsWith('//')) {
+    return '/events'
+  }
+  return rawRedirect
+}
+
+onMounted(async () => {
+  const oauthError = getQueryParam(route.query.error)
+  const connected = getQueryParam(route.query.connected)
+  const profileIdQuery = getQueryParam(route.query.profile_id)
+  const redirectQuery = getQueryParam(route.query.redirect)
+
+  if (oauthError) {
     error.value =
       oauthError === 'access_denied'
         ? 'Battle.net sign-in was cancelled.'
@@ -25,13 +48,13 @@ onMounted(async () => {
     return
   }
 
-  if (query.connected === 'true') {
+  if (connected === 'true') {
     try {
       await authStore.fetchMe()
     } catch {
       // best effort — user may not be authenticated in this tab
     }
-    const profileId = query.profile_id || authStore.user?.id
+    const profileId = profileIdQuery || authStore.user?.id
     router.replace(profileId ? `/profiles/${profileId}` : '/events')
     return
   }
@@ -52,8 +75,7 @@ onMounted(async () => {
 
   try {
     await authStore.initFromOAuth(access_token, refresh_token)
-    const redirect = typeof query.redirect === 'string' ? query.redirect : '/events'
-    router.replace(redirect)
+    router.replace(sanitizeRedirectPath(redirectQuery || '/events'))
   } catch {
     error.value = 'Authentication failed. Please try again.'
   }
