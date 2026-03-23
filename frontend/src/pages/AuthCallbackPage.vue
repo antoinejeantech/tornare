@@ -11,15 +11,17 @@ const error = ref('')
 
 onMounted(async () => {
   const query = route.query as Record<string, string>
-  const { access_token, refresh_token, error: oauthError } = query
 
-  if (oauthError) {
+  if (query.error) {
+    const oauthError = query.error
     error.value =
       oauthError === 'access_denied'
         ? 'Battle.net sign-in was cancelled.'
         : oauthError === 'oauth_not_configured'
           ? 'Battle.net login is not yet configured.'
-          : 'Battle.net sign-in failed. Please try again.'
+          : oauthError === 'rate_limited'
+            ? 'Too many requests. Please wait a moment and try again.'
+            : 'Battle.net sign-in failed. Please try again.'
     return
   }
 
@@ -34,6 +36,15 @@ onMounted(async () => {
     return
   }
 
+  // Tokens are passed via URL fragment to avoid exposure in logs and history.
+  const hash = window.location.hash.slice(1)
+  const hashParams = new URLSearchParams(hash)
+  const access_token = hashParams.get('access_token')
+  const refresh_token = hashParams.get('refresh_token')
+
+  // Clear the fragment from browser history before doing anything with the tokens.
+  history.replaceState(null, '', window.location.pathname + window.location.search)
+
   if (!access_token || !refresh_token) {
     error.value = 'Invalid callback parameters.'
     return
@@ -41,7 +52,7 @@ onMounted(async () => {
 
   try {
     await authStore.initFromOAuth(access_token, refresh_token)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/events'
+    const redirect = typeof query.redirect === 'string' ? query.redirect : '/events'
     router.replace(redirect)
   } catch {
     error.value = 'Authentication failed. Please try again.'

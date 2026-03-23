@@ -27,7 +27,6 @@ const kpis = ref({
   upcoming_tourneys_this_week: 0,
 })
 const error = ref('')
-const notice = ref('')
 const loadingEvents = ref(false)
 const creatingEvent = ref(false)
 const activeOwnerFilter = ref('all')
@@ -111,15 +110,10 @@ const hasActiveFilters = computed(() => {
 
 function setError(message: string) {
   error.value = message
-  notice.value = ''
 }
 
 function clearError() {
   error.value = ''
-}
-
-function clearNotice() {
-  notice.value = ''
 }
 
 function setTypeFilter(filter: string) {
@@ -155,7 +149,6 @@ function openCreateModal() {
   }
 
   clearError()
-  clearNotice()
   showCreateModal.value = true
 }
 
@@ -177,7 +170,6 @@ async function loadEvents() {
   loadingEvents.value = true
   try {
     clearError()
-    clearNotice()
     const params = new URLSearchParams()
     if (activeOwnerFilter.value !== 'all') {
       params.set('owner', activeOwnerFilter.value)
@@ -283,7 +275,6 @@ async function createEvent() {
   creatingEvent.value = true
   try {
     clearError()
-    clearNotice()
 
     const created = await apiCall<Event>('/api/events', {
       method: 'POST',
@@ -500,7 +491,6 @@ onBeforeUnmount(() => {
     </section>
 
     <p v-if="error" class="status status-error">{{ error }}</p>
-    <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
     <section class="card events-list-shell reveal-block reveal-3">
       <p v-if="loadingEvents">Loading events...</p>

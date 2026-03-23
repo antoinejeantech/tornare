@@ -191,11 +191,6 @@ function loginWithBnet() {
   gap: 0.55rem;
 }
 
-.auth-soon {
-  display: grid;
-  gap: 0.4rem;
-}
-
 .auth-bnet {
   display: grid;
 }
@@ -256,21 +251,6 @@ function loginWithBnet() {
   font-weight: 700;
   font-size: 0.97rem;
   letter-spacing: 0.01em;
-}
-
-.auth-soon-note {
-  margin: 0;
-  font-size: 0.88rem;
-}
-
-.auth-signup-disabled-note {
-  margin: -0.1rem 0 0;
-  font-size: 0.86rem;
-}
-
-.btn-disabled-feature {
-  border-style: dashed;
-  opacity: 0.75;
 }
 
 @media (prefers-color-scheme: dark) {

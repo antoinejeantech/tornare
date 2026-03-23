@@ -401,7 +401,7 @@ onMounted(async () => {
               <button
                 v-if="!profile.can_edit_battletag"
                 type="button"
-                class="battletag-link"
+                class="battletag-link battletag-link-active"
                 :disabled="disconnectingBnet"
                 @click="disconnectBnetAccount"
               >
