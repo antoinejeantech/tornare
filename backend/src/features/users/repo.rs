@@ -236,3 +236,33 @@ pub async fn delete_user_by_id(
         .map_err(internal_error)?;
     Ok(result.rows_affected() > 0)
 }
+
+pub async fn search_users(
+    pool: &PgPool,
+    query: &str,
+) -> Result<Vec<(Uuid, String, String)>, crate::shared::errors::ApiError> {
+    let pattern = format!("%{}%", query);
+    let rows = sqlx::query(
+        "SELECT id, username, display_name
+         FROM users
+         WHERE is_active = true
+           AND (username ILIKE $1 OR display_name ILIKE $1)
+         ORDER BY
+             CASE WHEN username ILIKE $2 THEN 0
+                  WHEN display_name ILIKE $2 THEN 1
+                  ELSE 2
+             END,
+             display_name
+         LIMIT 8",
+    )
+    .bind(&pattern)
+    .bind(format!("{}%", query))
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.get("id"), r.get("username"), r.get("display_name")))
+        .collect())
+}

@@ -55,6 +55,10 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/auth/battlenet/connect-init", post(auth::battlenet_connect_init))
         .route("/api/auth/battlenet/disconnect", delete(auth::battlenet_disconnect))
         .route(
+            "/api/users",
+            get(users::search_users),
+        )
+        .route(
             "/api/users/{user_id}",
             get(users::get_user_profile)
                 .put(users::update_user_profile)

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::HeaderMap,
     Json,
 };
@@ -9,7 +9,7 @@ use crate::{
     app::state::AppState,
     features::{
         auth::{models::AuthUser, require_authenticated_user_id},
-        users::models::UpdateUserProfileInput,
+        users::models::{SearchUsersQuery, UpdateUserProfileInput, UserSearchResult},
     },
     shared::{
         errors::ApiResult,
@@ -18,6 +18,15 @@ use crate::{
 };
 
 use super::service;
+
+pub async fn search_users(
+    State(state): State<AppState>,
+    Query(params): Query<SearchUsersQuery>,
+) -> ApiResult<Vec<UserSearchResult>> {
+    let q = params.search.unwrap_or_default();
+    let q = q.trim().to_string();
+    service::search_users(&state, &q).await.map(Json)
+}
 
 pub async fn get_user_profile(
     Path(user_id): Path<Uuid>,

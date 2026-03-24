@@ -4,7 +4,7 @@ use crate::{
     app::state::AppState,
     features::{
         auth::models::AuthUser,
-        users::models::{UpdateUserProfileInput, OVERWATCH_RANKS},
+        users::models::{UpdateUserProfileInput, UserSearchResult, OVERWATCH_RANKS},
     },
     shared::{
         crypto::hash_password,
@@ -175,3 +175,18 @@ fn validate_rank(role: &str, rank: &str) -> Result<(), ApiError> {
     Err(bad_request(&format!("Invalid {} rank", role)))
 }
 
+pub async fn search_users(
+    state: &AppState,
+    query: &str,
+) -> Result<Vec<UserSearchResult>, ApiError> {
+    if query.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let rows = repo::search_users(&state.pool, query).await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(id, username, display_name)| UserSearchResult { id, username, display_name })
+        .collect())
+}
