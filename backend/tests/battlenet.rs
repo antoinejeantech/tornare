@@ -1,4 +1,4 @@
-//! Tests for Battle.net OAuth features: disconnect guard and soft-delete reconnect behavior.
+//! Tests for Battle.net OAuth features: disconnect guard and hard-delete disconnect behavior.
 //!
 //! Run with:
 //!   cargo test --test battlenet
@@ -94,11 +94,10 @@ async fn disconnect_battlenet_succeeds_when_user_has_password(pool: PgPool) {
     );
 }
 
-/// After a successful disconnect the identity row must be soft-deleted
-/// (provider = 'battlenet_disconnected') rather than removed entirely,
-/// so that the login flow can still recognise the returning user.
+/// After a successful disconnect the identity row must be hard-deleted —
+/// no ghost row should remain under any provider name.
 #[sqlx::test]
-async fn disconnect_battlenet_soft_deletes_identity(pool: PgPool) {
+async fn disconnect_battlenet_hard_deletes_identity(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
@@ -126,20 +125,19 @@ async fn disconnect_battlenet_soft_deletes_identity(pool: PgPool) {
         .expect("disconnect request failed");
     assert_eq!(res.status().as_u16(), 200, "disconnect must succeed");
 
-    // The identity must now be soft-deleted, not removed.
-    let row: Option<(String,)> = sqlx::query_as(
-        "SELECT provider FROM auth_identities
+    // The identity must be fully removed — no row under any provider.
+    let row_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM auth_identities
          WHERE user_id = $1 AND provider_user_id = 'test-sub-soft-del'",
     )
     .bind(user_id)
-    .fetch_optional(&pool)
+    .fetch_one(&pool)
     .await
     .expect("DB query failed");
 
-    let (provider,) = row.expect("identity row must still exist after disconnect");
     assert_eq!(
-        provider, "battlenet_disconnected",
-        "disconnected identity must have provider='battlenet_disconnected'"
+        row_count.0, 0,
+        "identity row must be fully deleted after disconnect, no ghost rows"
     );
 }
 
@@ -224,8 +222,8 @@ async fn disconnected_bnet_sub_is_fully_removed(pool: PgPool) {
     assert_eq!(count.0, 0, "no auth_identity rows must remain after hard delete");
 }
 
-/// After a disconnect + reconnect via `ensure_bnet_identity`, the sub must be
-/// active again (`battlenet_disconnected` row upgraded to `battlenet`).
+/// After calling `ensure_bnet_identity` for a sub with no existing row,
+/// a fresh active 'battlenet' row must be inserted.
 #[sqlx::test]
 async fn ensure_bnet_identity_inserts_new_active_row(pool: PgPool) {
     let user_a_id = Uuid::new_v4();

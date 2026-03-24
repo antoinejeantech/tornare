@@ -129,7 +129,7 @@ Timestamp contract:
 - `GET /api/auth/battlenet/authorize` start Battle.net login
 - `GET /api/auth/battlenet/callback` handle Battle.net OAuth callback
 - `POST /api/auth/battlenet/complete` finish Battle.net signup after email collection
-- `POST /api/auth/battlenet/connect-init` start Battle.net connect flow for an existing account
+- `GET /api/auth/battlenet/connect-init` start Battle.net connect flow for an existing account (browser redirect, pass `?token=<access_token>`)
 - `DELETE /api/auth/battlenet/disconnect` disconnect the linked Battle.net account
 
 - `GET /api/users/:user_id` fetch a user profile
