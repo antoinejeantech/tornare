@@ -126,7 +126,6 @@ const statusVariant = computed(() => {
 
     <div class="event-actions-col" aria-label="Status and actions">
       <AppBadge :variant="statusVariant" :label="statusLabel" />
-      <RouterLink class="event-details-btn" :to="to">Details</RouterLink>
     </div>
   </li>
 </template>
@@ -330,30 +329,6 @@ const statusVariant = computed(() => {
   min-width: 82px;
 }
 
-.event-details-btn {
-  position: relative;
-  z-index: 2;
-  min-width: 78px;
-  box-sizing: border-box;
-  text-align: center;
-  border: 1px solid color-mix(in srgb, var(--line-strong) 82%, white 18%);
-  background: color-mix(in srgb, var(--grey-900) 74%, black 26%);
-  color: white;
-  border-radius: var(--radius-sm);
-  text-decoration: none;
-  padding: 0.28rem 0.56rem;
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.event-details-btn:hover {
-  border-color: color-mix(in srgb, var(--line-strong) 72%, white 28%);
-  background: color-mix(in srgb, var(--grey-900) 68%, black 32%);
-  color: white;
-}
-
 @media (max-width: 920px) {
   .event-list-item {
     grid-template-columns: minmax(0, 1fr) auto;
@@ -398,10 +373,6 @@ const statusVariant = computed(() => {
 
   .event-actions-col :deep(.app-badge) {
     min-width: auto;
-  }
-
-  .event-details-btn {
-    display: none;
   }
 
   .event-list-title {
