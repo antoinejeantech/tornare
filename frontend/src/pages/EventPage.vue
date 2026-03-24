@@ -458,7 +458,10 @@ provide('eventCtx', proxyRefs({
               >
                 {{ updatingFeaturedEvent ? 'Updating...' : (event.is_featured ? 'Remove spotlight' : 'Set as spotlight') }}
               </button>
-              <ActionCtaButton v-if="headerJoinRoute && !event.is_ended" :to="headerJoinRoute">Join event</ActionCtaButton>
+              <ActionCtaButton v-if="headerJoinRoute && !event.is_ended" :to="headerJoinRoute">
+                <span class="material-symbols-rounded" aria-hidden="true">how_to_reg</span>
+                Join event
+              </ActionCtaButton>
             </div>
           </div>
 
