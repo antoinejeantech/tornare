@@ -61,9 +61,9 @@ const hasAccountChanges = computed(() => {
     return false
   }
 
-  const nextDisplayName = editDisplayName.value.trim()
-  const nextUsername = editUsername.value.trim().toLowerCase()
-  const nextEmail = editEmail.value.trim().toLowerCase()
+  const nextDisplayName = String(editDisplayName.value ?? '').trim()
+  const nextUsername = String(editUsername.value ?? '').trim().toLowerCase()
+  const nextEmail = String(editEmail.value ?? '').trim().toLowerCase()
   const currentUsername = String(profile.value.username || '').trim().toLowerCase()
   const currentDisplayName = String(profile.value.display_name || '').trim()
   const currentEmail = String(profile.value.email || '').trim().toLowerCase()
@@ -206,10 +206,10 @@ async function saveProfile() {
     return
   }
 
-  const nextDisplayName = editDisplayName.value.trim()
-  const nextUsername = editUsername.value.trim().toLowerCase()
-  const nextEmail = editEmail.value.trim().toLowerCase()
-  const nextBattletag = editBattletag.value.trim()
+  const nextDisplayName = String(editDisplayName.value ?? '').trim()
+  const nextUsername = String(editUsername.value ?? '').trim().toLowerCase()
+  const nextEmail = String(editEmail.value ?? '').trim().toLowerCase()
+  const nextBattletag = String(editBattletag.value ?? '').trim()
 
   if (!nextUsername) {
     setError('Username is required')
@@ -231,7 +231,7 @@ async function saveProfile() {
     return
   }
 
-  if (!nextEmail || !nextEmail.includes('@')) {
+  if (!nextEmail || !/@/.test(nextEmail)) {
     setError('A valid email is required')
     return
   }
