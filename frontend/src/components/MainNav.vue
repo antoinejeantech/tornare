@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../lib/api'
+import { useDebounce } from '../lib/useDebounce'
+import { useRequestSequence } from '../lib/useRequestSequence'
 import tornareLogo from '../assets/branding/tornare-logo-pulse.svg'
 
 interface UserSearchResult {
@@ -20,25 +22,37 @@ const notificationsOpen = ref(false)
 const searchQuery = ref('')
 const searchResults = ref<UserSearchResult[]>([])
 const searchOpen = ref(false)
-let searchTimer: ReturnType<typeof setTimeout> | null = null
+const { debounced: debouncedSearch, cancel: cancelSearch } = useDebounce(300)
+const { next: nextSearchId, isCurrent: isCurrentSearch, invalidate: invalidateSearch } = useRequestSequence()
 
 function onSearchInput() {
   const q = searchQuery.value.trim()
   if (!q) {
+    invalidateSearch()
     searchResults.value = []
     searchOpen.value = false
     return
   }
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => fetchSearchResults(q), 300)
+  debouncedSearch(() => fetchSearchResults(q))
 }
 
 async function fetchSearchResults(q: string) {
+  const requestId = nextSearchId()
+
   try {
     const res = await apiCall<UserSearchResult[]>(`/api/users?search=${encodeURIComponent(q)}`)
+
+    if (!isCurrentSearch(requestId) || q !== searchQuery.value.trim()) {
+      return
+    }
+
     searchResults.value = res
     searchOpen.value = res.length > 0
   } catch {
+    if (!isCurrentSearch(requestId) || q !== searchQuery.value.trim()) {
+      return
+    }
+
     searchResults.value = []
     searchOpen.value = false
   }
@@ -50,6 +64,8 @@ function goToProfile(id: string) {
 }
 
 function clearSearch() {
+  invalidateSearch()
+  cancelSearch()
   searchQuery.value = ''
   searchResults.value = []
   searchOpen.value = false
@@ -200,10 +216,12 @@ onBeforeUnmount(() => {
         <div class="top-nav-search" @keydown.escape="clearSearch">
           <span class="material-symbols-rounded top-nav-search-icon" aria-hidden="true">search</span>
           <input
+            id="main-nav-user-search"
             v-model="searchQuery"
             class="top-nav-search-input"
             type="search"
             placeholder="Search users..."
+            aria-label="Search users"
             autocomplete="off"
             @input="onSearchInput"
           />

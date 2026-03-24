@@ -5,6 +5,8 @@ import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import { normalizeDatetimeLocalInput } from '../lib/dates'
 import { formatOptionsForType } from '../lib/event-format'
+import { useDebounce } from '../lib/useDebounce'
+import { useRequestSequence } from '../lib/useRequestSequence'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
@@ -36,10 +38,10 @@ const showEventsKpis = false
 const eventSearchQuery = ref('')
 const activeSort = ref('soonest')
 const showCreateModal = ref(false)
-const searchDebounceTimer = ref<number | null>(null)
-let latestLoadRequestId = 0
-let eventsRequestController: AbortController | null = null
 const SEARCH_DEBOUNCE_MS = 350
+const { debounced: debouncedLoad } = useDebounce(SEARCH_DEBOUNCE_MS)
+const { next: nextLoadId, isCurrent: isCurrentLoad } = useRequestSequence()
+let eventsRequestController: AbortController | null = null
 const pageSize = ref(12)
 const pageSizeOptions = [12, 24, 48]
 const currentPage = ref(1)
@@ -166,7 +168,7 @@ async function loadEvents() {
   }
   eventsRequestController = new AbortController()
 
-  const requestId = ++latestLoadRequestId
+  const requestId = nextLoadId()
   loadingEvents.value = true
   try {
     clearError()
@@ -193,7 +195,7 @@ async function loadEvents() {
     const path = query ? `/api/events?${query}` : '/api/events'
     const response = await apiCall<PaginatedEventsResponse>(path, { signal: eventsRequestController.signal })
 
-    if (requestId !== latestLoadRequestId) {
+    if (!isCurrentLoad(requestId)) {
       return
     }
 
@@ -208,12 +210,12 @@ async function loadEvents() {
     if (err instanceof Error && err.name === 'AbortError') {
       return
     }
-    if (requestId !== latestLoadRequestId) {
+    if (!isCurrentLoad(requestId)) {
       return
     }
     setError(err instanceof Error ? err.message : 'Failed to load events')
   } finally {
-    if (requestId === latestLoadRequestId) {
+    if (isCurrentLoad(requestId)) {
       loadingEvents.value = false
     }
   }
@@ -316,13 +318,10 @@ watch(pageSize, () => {
 })
 
 watch(eventSearchQuery, () => {
-  if (searchDebounceTimer.value) {
-    window.clearTimeout(searchDebounceTimer.value)
-  }
-  searchDebounceTimer.value = window.setTimeout(() => {
+  debouncedLoad(() => {
     currentPage.value = 1
     loadEvents()
-  }, SEARCH_DEBOUNCE_MS)
+  })
 })
 
 watch(currentPage, () => {
@@ -330,9 +329,6 @@ watch(currentPage, () => {
 })
 
 onBeforeUnmount(() => {
-  if (searchDebounceTimer.value) {
-    window.clearTimeout(searchDebounceTimer.value)
-  }
   if (eventsRequestController) {
     eventsRequestController.abort()
   }
