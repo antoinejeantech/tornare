@@ -157,6 +157,26 @@ async fn admin_can_delete_another_users_account(pool: PgPool) {
     );
 }
 
+#[sqlx::test]
+async fn admin_cannot_delete_their_own_account(pool: PgPool) {
+    let base = spawn_test_server(pool.clone()).await;
+    let client = Client::new();
+
+    let admin = register(&client, &base, "selfdelete@test.local", "selfdelete").await;
+    let admin_id = admin["user"]["id"].as_str().expect("admin must have id").to_string();
+    let admin_token = admin["access_token"].as_str().expect("admin must have token").to_string();
+
+    promote_to_admin(&pool, &admin_id).await;
+
+    let res = client
+        .delete(format!("{base}/api/users/{admin_id}"))
+        .bearer_auth(&admin_token)
+        .send()
+        .await
+        .expect("delete request must complete");
+    assert_eq!(res.status().as_u16(), 403, "admin self-delete must be rejected");
+}
+
 /// A regular (non-admin) user must not be able to delete another account.
 #[sqlx::test]
 async fn non_admin_cannot_delete_user_account(pool: PgPool) {

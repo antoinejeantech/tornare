@@ -151,6 +151,10 @@ pub async fn delete_user_account(
     authenticated_user_id: Uuid,
     target_user_id: Uuid,
 ) -> Result<(), ApiError> {
+    if authenticated_user_id == target_user_id {
+        return Err(forbidden("Admins cannot delete their own account"));
+    }
+
     let Some(actor) = repo::find_user_profile_by_id(&state.pool, authenticated_user_id).await? else {
         return Err(forbidden("You do not have permission to delete this account"));
     };
