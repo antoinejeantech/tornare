@@ -217,13 +217,13 @@ pub async fn upsert_overwatch_profile(
 pub async fn delete_user_by_id(
     pool: &PgPool,
     user_id: Uuid,
-) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("DELETE FROM users WHERE id = $1")
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let result = sqlx::query("DELETE FROM users WHERE id = $1")
         .bind(user_id)
         .execute(pool)
         .await
         .map_err(internal_error)?;
-    Ok(())
+    Ok(result.rows_affected() > 0)
 }
 
 pub async fn has_provider_identity(

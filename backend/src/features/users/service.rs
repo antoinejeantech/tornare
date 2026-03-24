@@ -159,7 +159,10 @@ pub async fn delete_user_account(
         return Err(forbidden("Only admins can delete accounts"));
     }
 
-    repo::delete_user_by_id(&state.pool, target_user_id).await?;
+    let deleted = repo::delete_user_by_id(&state.pool, target_user_id).await?;
+    if !deleted {
+        return Err(not_found("User not found"));
+    }
     Ok(())
 }
 

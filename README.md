@@ -54,6 +54,7 @@ make shell
 make run
 make check
 make test
+make test-e2e
 make node-shell
 make node-install
 make node-build
@@ -69,8 +70,44 @@ make down
 - Create missing env files from examples: `make bootstrap`
 - Run Rust app in dev container: `make run`
 - Compile checks: `make check`
-- Run backend tests: `make test`
+- Run all backend tests: `make test`
+- Run the cross-domain end-to-end flow only: `make test-e2e`
 - Build frontend in node-dev container: `make node-build`
+
+## Testing
+
+Backend integration tests are split by domain:
+
+- `backend/tests/users.rs`: registration, profile editing, admin account deletion
+- `backend/tests/events.rs`: event lifecycle, roster/teams, signups, auto-balance, visibility
+- `backend/tests/battlenet.rs`: Battle.net connect/disconnect and reconnect edge cases
+- `backend/tests/e2e.rs`: one full happy-path flow that crosses auth + events
+
+Run everything:
+
+```bash
+make test
+```
+
+`make test` starts `postgres` and `rust-dev` first, then runs the full backend test suite with the container-safe `DATABASE_URL`.
+
+Run the dedicated end-to-end flow only:
+
+```bash
+make test-e2e
+```
+
+Run directly with Cargo from `backend/`:
+
+```bash
+cargo test
+cargo test --test users
+cargo test --test events
+cargo test --test battlenet
+cargo test --test e2e -- --test-threads=1
+```
+
+If you are not running inside Docker, export a valid `DATABASE_URL` before running integration tests.
 
 ## Backend endpoints
 
@@ -89,9 +126,15 @@ Timestamp contract:
 - `GET /api/auth/me` fetch the authenticated user
 - `POST /api/auth/refresh` refresh auth tokens
 - `POST /api/auth/logout` log out
+- `GET /api/auth/battlenet/authorize` start Battle.net login
+- `GET /api/auth/battlenet/callback` handle Battle.net OAuth callback
+- `POST /api/auth/battlenet/complete` finish Battle.net signup after email collection
+- `POST /api/auth/battlenet/connect-init` start Battle.net connect flow for an existing account
+- `DELETE /api/auth/battlenet/disconnect` disconnect the linked Battle.net account
 
 - `GET /api/users/:user_id` fetch a user profile
 - `PUT /api/users/:user_id` update a user profile
+- `DELETE /api/users/:user_id` delete a user profile (admin only)
 
 - `GET /api/events` list events
 - `POST /api/events` create an event (`PUG` or `TOURNEY`, optional `start_date` must follow the timestamp contract above)
