@@ -62,11 +62,11 @@ enum OAuthMode {
     Connect(Uuid),
 }
 
-pub fn build_oauth_state(jwt_secret: &str) -> Result<String, ApiError> {
+pub fn build_oauth_state(jwt_secret: &str) -> Result<(String, String), ApiError> {
     build_state_with_mode(jwt_secret, "login", None)
 }
 
-pub fn build_oauth_connect_state(jwt_secret: &str, user_id: Uuid) -> Result<String, ApiError> {
+pub fn build_oauth_connect_state(jwt_secret: &str, user_id: Uuid) -> Result<(String, String), ApiError> {
     build_state_with_mode(jwt_secret, "connect", Some(user_id))
 }
 
@@ -74,9 +74,10 @@ pub async fn handle_battlenet_redirect(
     state: &AppState,
     code: &str,
     csrf_state: &str,
+    nonce: &str,
 ) -> Result<BnetCallbackResult, ApiError> {
     info!("handling battlenet oauth redirect");
-    let mode = verify_and_parse_oauth_state(&state.config.jwt_secret, csrf_state)
+    let mode = verify_and_parse_oauth_state(&state.config.jwt_secret, csrf_state, nonce)
         .ok_or_else(|| {
             warn!("battlenet oauth state invalid or expired");
             bad_request("Invalid or expired OAuth state")
@@ -154,7 +155,7 @@ pub async fn complete_battlenet_signup(
 pub async fn battlenet_connect_init_url(
     state: &AppState,
     user_id: Uuid,
-) -> Result<String, ApiError> {
+) -> Result<(String, String), ApiError> {
     let oauth_not_configured = state.config.battlenet_client_id.trim().is_empty()
         || state.config.battlenet_client_secret.trim().is_empty()
         || state.config.battlenet_redirect_uri.trim().is_empty();
@@ -167,13 +168,14 @@ pub async fn battlenet_connect_init_url(
             "A Battle.net account is already connected to this profile",
         ));
     }
-    let csrf_state = build_oauth_connect_state(&state.config.jwt_secret, user_id)?;
-    Ok(format!(
+    let (csrf_state, nonce) = build_oauth_connect_state(&state.config.jwt_secret, user_id)?;
+    let url = format!(
         "https://oauth.battle.net/authorize?client_id={}&scope=openid&state={}&redirect_uri={}&response_type=code",
         urlencoding::encode(&state.config.battlenet_client_id),
         urlencoding::encode(&csrf_state),
         urlencoding::encode(&state.config.battlenet_redirect_uri),
-    ))
+    );
+    Ok((url, nonce))
 }
 
 pub async fn disconnect_battlenet(state: &AppState, user_id: Uuid) -> Result<(), ApiError> {
@@ -194,24 +196,25 @@ fn build_state_with_mode(
     jwt_secret: &str,
     mode: &str,
     user_id: Option<Uuid>,
-) -> Result<String, ApiError> {
+) -> Result<(String, String), ApiError> {
+    let nonce = Uuid::new_v4().simple().to_string();
     let claims = BnetOAuthStateClaims {
         exp: current_unix_timestamp() + OAUTH_STATE_TTL_SECONDS,
         token_type: "bnet_oauth_state".to_string(),
         mode: mode.to_string(),
         user_id: user_id.map(|value| value.to_string()),
-        nonce: Uuid::new_v4().simple().to_string(),
+        nonce: nonce.clone(),
     };
-
-    encode(
+    let jwt = encode(
         &Header::default(),
         &claims,
         &EncodingKey::from_secret(jwt_secret.as_bytes()),
     )
-    .map_err(internal_error)
+    .map_err(internal_error)?;
+    Ok((jwt, nonce))
 }
 
-fn verify_and_parse_oauth_state(jwt_secret: &str, state: &str) -> Option<OAuthMode> {
+fn verify_and_parse_oauth_state(jwt_secret: &str, state: &str, nonce: &str) -> Option<OAuthMode> {
     let claims = decode::<BnetOAuthStateClaims>(
         state,
         &DecodingKey::from_secret(jwt_secret.as_bytes()),
@@ -221,6 +224,10 @@ fn verify_and_parse_oauth_state(jwt_secret: &str, state: &str) -> Option<OAuthMo
     .claims;
 
     if claims.token_type != "bnet_oauth_state" {
+        return None;
+    }
+
+    if claims.nonce != nonce {
         return None;
     }
 
@@ -329,22 +336,20 @@ async fn upsert_or_create_bnet_user(
             id
         }
         None => {
-            if let Some(existing) = repo::find_user_login_by_email(&state.pool, email).await? {
-                info!(user_id = %existing.id, "battlenet login relinking existing user by email");
-                repo::ensure_bnet_identity(&state.pool, existing.id, sub).await?;
-                repo::upsert_bnet_game_profile(&state.pool, existing.id, sub, battletag).await?;
-                existing.id
-            } else {
-                let new_id = Uuid::new_v4();
-                let (base_username, display_name) = username_from_battletag(battletag);
-                let username = resolve_unique_username(&state.pool, &base_username).await?;
-                repo::insert_bnet_user(&state.pool, new_id, email, &username, &display_name).await?;
-                repo::ensure_bnet_identity(&state.pool, new_id, sub).await?;
-                repo::insert_default_role(&state.pool, new_id).await?;
-                repo::upsert_bnet_game_profile(&state.pool, new_id, sub, battletag).await?;
-                info!(%new_id, "battlenet login created new user");
-                new_id
+            if repo::find_user_login_by_email(&state.pool, email).await?.is_some() {
+                return Err(bad_request(
+                    "An account with this email already exists. Please log in with your email and password, then connect Battle.net from your profile settings.",
+                ));
             }
+            let new_id = Uuid::new_v4();
+            let (base_username, display_name) = username_from_battletag(battletag);
+            let username = resolve_unique_username(&state.pool, &base_username).await?;
+            repo::insert_bnet_user(&state.pool, new_id, email, &username, &display_name).await?;
+            repo::ensure_bnet_identity(&state.pool, new_id, sub).await?;
+            repo::insert_default_role(&state.pool, new_id).await?;
+            repo::upsert_bnet_game_profile(&state.pool, new_id, sub, battletag).await?;
+            info!(%new_id, "battlenet login created new user");
+            new_id
         }
     };
 
@@ -360,7 +365,7 @@ async fn handle_bnet_connect(
     info!(%user_id, "handling battlenet connect");
     // Only block if the sub is *actively* linked to a different user.
     // A disconnected sub is fair game for any user to claim.
-    if let Some(existing_id) = repo::find_active_user_id_by_bnet_sub(&state.pool, sub).await? {
+    if let Some(existing_id) = repo::find_user_id_by_bnet_sub(&state.pool, sub).await? {
         if existing_id != user_id {
             warn!(%user_id, %existing_id, "battlenet connect rejected: identity linked to another user");
             return Err(bad_request(

@@ -48,11 +48,6 @@ pub struct LogoutInput {
     pub refresh_token: String,
 }
 
-#[derive(Serialize)]
-pub struct BnetConnectInitResponse {
-    pub url: String,
-}
-
 #[derive(Deserialize)]
 pub struct BnetCompleteInput {
     pub pending_token: String,
