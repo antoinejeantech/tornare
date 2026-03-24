@@ -118,7 +118,7 @@ pub async fn battlenet_callback(
         Ok(BnetCallbackResult::RequiresEmail { pending_token, battletag }) => {
             info!("battlenet callback requires email completion");
             Redirect::to(&format!(
-                "{}/auth/callback?needs_email=true&pending_token={}&battletag={}",
+                "{}/auth/callback#needs_email=true&pending_token={}&battletag={}",
                 frontend_url,
                 urlencoding::encode(&pending_token),
                 urlencoding::encode(&battletag),

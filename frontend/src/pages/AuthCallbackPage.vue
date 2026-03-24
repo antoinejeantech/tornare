@@ -35,14 +35,31 @@ function sanitizeRedirectPath(rawRedirect: string): string {
   return rawRedirect
 }
 
+function clearSensitiveCallbackData(): void {
+  const url = new URL(window.location.href)
+  url.hash = ''
+  url.searchParams.delete('needs_email')
+  url.searchParams.delete('pending_token')
+  url.searchParams.delete('battletag')
+  history.replaceState(null, '', url.pathname + url.search)
+}
+
 onMounted(async () => {
+  const hashParams = new URLSearchParams(window.location.hash.slice(1))
+
   const oauthError = getQueryParam(route.query.error)
   const connected = getQueryParam(route.query.connected)
   const profileIdQuery = getQueryParam(route.query.profile_id)
   const redirectQuery = getQueryParam(route.query.redirect)
-  const needsEmailQuery = getQueryParam(route.query.needs_email)
-  const pendingTokenQuery = getQueryParam(route.query.pending_token)
-  const battletagQuery = getQueryParam(route.query.battletag)
+  const needsEmailFlag = hashParams.get('needs_email') || getQueryParam(route.query.needs_email)
+  const pendingTokenValue = hashParams.get('pending_token') || getQueryParam(route.query.pending_token)
+  const battletagValue = hashParams.get('battletag') || getQueryParam(route.query.battletag)
+  const accessToken = hashParams.get('access_token')
+  const refreshToken = hashParams.get('refresh_token')
+
+  if (window.location.hash || pendingTokenValue) {
+    clearSensitiveCallbackData()
+  }
 
   if (oauthError) {
     error.value =
@@ -56,14 +73,14 @@ onMounted(async () => {
     return
   }
 
-  if (needsEmailQuery === 'true') {
-    if (!pendingTokenQuery) {
+  if (needsEmailFlag === 'true') {
+    if (!pendingTokenValue) {
       error.value = 'Battle.net sign-in is missing continuation data. Please try again.'
       return
     }
     needsEmail.value = true
-    pendingToken.value = pendingTokenQuery
-    battletag.value = battletagQuery
+    pendingToken.value = pendingTokenValue
+    battletag.value = battletagValue
     return
   }
 
@@ -78,22 +95,13 @@ onMounted(async () => {
     return
   }
 
-  // Tokens are passed via URL fragment to avoid exposure in logs and history.
-  const hash = window.location.hash.slice(1)
-  const hashParams = new URLSearchParams(hash)
-  const access_token = hashParams.get('access_token')
-  const refresh_token = hashParams.get('refresh_token')
-
-  // Clear the fragment from browser history before doing anything with the tokens.
-  history.replaceState(null, '', window.location.pathname + window.location.search)
-
-  if (!access_token || !refresh_token) {
+  if (!accessToken || !refreshToken) {
     error.value = 'Invalid callback parameters.'
     return
   }
 
   try {
-    await authStore.initFromOAuth(access_token, refresh_token)
+    await authStore.initFromOAuth(accessToken, refreshToken)
     router.replace(sanitizeRedirectPath(redirectQuery || '/events'))
   } catch {
     error.value = 'Authentication failed. Please try again.'
