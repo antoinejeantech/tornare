@@ -45,7 +45,16 @@ pub async fn battlenet_authorize(
         ));
     }
 
-    let csrf_state = battlenet_service::build_oauth_state(&state.config.jwt_secret);
+    let csrf_state = match battlenet_service::build_oauth_state(&state.config.jwt_secret) {
+        Ok(state_token) => state_token,
+        Err(_) => {
+            error!("battlenet authorize failed: oauth_state_generation_failed");
+            return Redirect::to(&format!(
+                "{}/auth/callback?error=oauth_state_generation_failed",
+                state.config.frontend_url,
+            ));
+        }
+    };
     let url = format!(
         "https://oauth.battle.net/authorize?client_id={}&scope=openid&state={}&redirect_uri={}&response_type=code",
         urlencoding::encode(&state.config.battlenet_client_id),
@@ -112,7 +121,8 @@ pub async fn battlenet_callback(
             info!(%user_id, "battlenet callback completed: connect flow succeeded");
             Redirect::to(&format!(
                 "{}/auth/callback?connected=true&profile_id={}",
-                frontend_url, user_id,
+                frontend_url,
+                urlencoding::encode(&user_id.to_string()),
             ))
         }
         Ok(BnetCallbackResult::RequiresEmail { pending_token, battletag }) => {

@@ -1,8 +1,7 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -19,8 +18,10 @@ use crate::{
 use super::repo;
 use super::service;
 
-const OAUTH_STATE_TTL_SECONDS: u64 = 600;
+const OAUTH_STATE_TTL_SECONDS: usize = 600;
 const BNET_PENDING_SIGNUP_TTL_SECONDS: usize = 10 * 60;
+const BNET_HTTP_CONNECT_TIMEOUT_SECONDS: u64 = 5;
+const BNET_HTTP_REQUEST_TIMEOUT_SECONDS: u64 = 15;
 
 pub enum BnetCallbackResult {
     LoggedIn(AuthResponse),
@@ -34,6 +35,15 @@ struct BnetPendingSignupClaims {
     battletag: String,
     exp: usize,
     token_type: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct BnetOAuthStateClaims {
+    exp: usize,
+    token_type: String,
+    mode: String,
+    user_id: Option<String>,
+    nonce: String,
 }
 
 #[derive(Deserialize)]
@@ -52,13 +62,12 @@ enum OAuthMode {
     Connect(Uuid),
 }
 
-pub fn build_oauth_state(jwt_secret: &str) -> String {
-    build_state_with_mode(jwt_secret, "login")
+pub fn build_oauth_state(jwt_secret: &str) -> Result<String, ApiError> {
+    build_state_with_mode(jwt_secret, "login", None)
 }
 
-pub fn build_oauth_connect_state(jwt_secret: &str, user_id: Uuid) -> String {
-    let mode_tag = format!("connect:{}", user_id.as_simple());
-    build_state_with_mode(jwt_secret, &mode_tag)
+pub fn build_oauth_connect_state(jwt_secret: &str, user_id: Uuid) -> Result<String, ApiError> {
+    build_state_with_mode(jwt_secret, "connect", Some(user_id))
 }
 
 pub async fn handle_battlenet_redirect(
@@ -158,7 +167,7 @@ pub async fn battlenet_connect_init_url(
             "A Battle.net account is already connected to this profile",
         ));
     }
-    let csrf_state = build_oauth_connect_state(&state.config.jwt_secret, user_id);
+    let csrf_state = build_oauth_connect_state(&state.config.jwt_secret, user_id)?;
     Ok(format!(
         "https://oauth.battle.net/authorize?client_id={}&scope=openid&state={}&redirect_uri={}&response_type=code",
         urlencoding::encode(&state.config.battlenet_client_id),
@@ -181,48 +190,57 @@ pub async fn disconnect_battlenet(state: &AppState, user_id: Uuid) -> Result<(),
     Ok(())
 }
 
-fn build_state_with_mode(jwt_secret: &str, mode_tag: &str) -> String {
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    let ts_hex = format!("{:x}", now);
-    let nonce = Uuid::new_v4().simple().to_string();
-    let sig = sha256_hex(&format!("{}.{}.{}.{}", ts_hex, nonce, mode_tag, jwt_secret));
-    format!("{}.{}.{}.{}", ts_hex, nonce, mode_tag, sig)
+fn build_state_with_mode(
+    jwt_secret: &str,
+    mode: &str,
+    user_id: Option<Uuid>,
+) -> Result<String, ApiError> {
+    let claims = BnetOAuthStateClaims {
+        exp: current_unix_timestamp() + OAUTH_STATE_TTL_SECONDS,
+        token_type: "bnet_oauth_state".to_string(),
+        mode: mode.to_string(),
+        user_id: user_id.map(|value| value.to_string()),
+        nonce: Uuid::new_v4().simple().to_string(),
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(jwt_secret.as_bytes()),
+    )
+    .map_err(internal_error)
 }
 
 fn verify_and_parse_oauth_state(jwt_secret: &str, state: &str) -> Option<OAuthMode> {
-    let last_dot = state.rfind('.')?;
-    let (prefix, provided_sig) = (&state[..last_dot], &state[last_dot + 1..]);
+    let claims = decode::<BnetOAuthStateClaims>(
+        state,
+        &DecodingKey::from_secret(jwt_secret.as_bytes()),
+        &Validation::default(),
+    )
+    .ok()?
+    .claims;
 
-    let parts: Vec<&str> = prefix.splitn(3, '.').collect();
-    if parts.len() != 3 {
-        return None;
-    }
-    let (ts_hex, nonce, mode_tag) = (parts[0], parts[1], parts[2]);
-
-    let ts_val = u64::from_str_radix(ts_hex, 16).ok()?;
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    if now.saturating_sub(ts_val) > OAUTH_STATE_TTL_SECONDS {
+    if claims.token_type != "bnet_oauth_state" {
         return None;
     }
 
-    let expected_sig = sha256_hex(&format!("{}.{}.{}.{}", ts_hex, nonce, mode_tag, jwt_secret));
-    if !constant_time_eq(provided_sig.as_bytes(), expected_sig.as_bytes()) {
-        return None;
+    match claims.mode.as_str() {
+        "login" => Some(OAuthMode::Login),
+        "connect" => claims
+            .user_id
+            .as_deref()
+            .and_then(|value| Uuid::parse_str(value).ok())
+            .map(OAuthMode::Connect),
+        _ => None,
     }
+}
 
-    if mode_tag == "login" {
-        Some(OAuthMode::Login)
-    } else if let Some(uuid_str) = mode_tag.strip_prefix("connect:") {
-        Uuid::parse_str(uuid_str).ok().map(OAuthMode::Connect)
-    } else {
-        None
-    }
+fn build_bnet_http_client() -> Result<reqwest::Client, ApiError> {
+    reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(BNET_HTTP_CONNECT_TIMEOUT_SECONDS))
+        .timeout(Duration::from_secs(BNET_HTTP_REQUEST_TIMEOUT_SECONDS))
+        .build()
+        .map_err(internal_error)
 }
 
 async fn exchange_bnet_code(
@@ -230,7 +248,7 @@ async fn exchange_bnet_code(
     code: &str,
 ) -> Result<(String, String), ApiError> {
     info!("battlenet token exchange started");
-    let client = reqwest::Client::new();
+    let client = build_bnet_http_client()?;
 
     let token_resp = client
         .post("https://oauth.battle.net/token")
@@ -423,19 +441,6 @@ async fn resolve_unique_username(pool: &PgPool, base: &str) -> Result<String, Ap
 
     let suffix = &Uuid::new_v4().simple().to_string()[..8];
     Ok(format!("{}-{}", &base[..base.len().min(15)], suffix))
-}
-
-fn sha256_hex(input: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(input.as_bytes());
-    hex::encode(hasher.finalize())
-}
-
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    a.iter().zip(b.iter()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
 }
 
 fn current_unix_timestamp() -> usize {
