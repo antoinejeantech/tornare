@@ -124,6 +124,10 @@ pub fn require_authenticated_user_id(state: &AppState, headers: &HeaderMap) -> R
         .strip_prefix("Bearer ")
         .ok_or_else(|| unauthorized("Authorization header must use Bearer token"))?;
 
+    verify_access_token_str(state, token)
+}
+
+pub fn verify_access_token_str(state: &AppState, token: &str) -> Result<Uuid, ApiError> {
     let token_data = decode::<AccessClaims>(
         token,
         &DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
