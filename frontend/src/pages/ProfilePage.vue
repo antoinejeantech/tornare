@@ -287,9 +287,10 @@ async function connectBnetAccount() {
   connectingBnet.value = true
   try {
     await authStore.connectBnetInit()
-    // connectBnetInit navigates away; if it throws, land back here
+    // connectBnetInit normally navigates away immediately.
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to initiate Battle.net connection')
+  } finally {
     connectingBnet.value = false
   }
 }
