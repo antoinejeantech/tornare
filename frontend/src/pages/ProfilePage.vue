@@ -144,10 +144,15 @@ function hydrateFormFromProfile(value: AuthUser | null | undefined) {
   profileFormTouched.value = false
 }
 
-function startEdit(section: string) {
+function startEdit(section: 'account' | 'ranks') {
   if (section === 'account') {
+    editingRanks.value = false
     editingAccount.value = true
+    return
   }
+
+  editingAccount.value = false
+  editingRanks.value = true
 }
 
 function cancelEditRanks() {
@@ -474,7 +479,7 @@ onMounted(async () => {
             <template v-if="!editingRanks">
               <div class="rank-tiles-wrap">
                 <div class="rank-tiles-header">
-                  <button class="rank-edit-btn" type="button" @click="editingRanks = true">
+                  <button class="rank-edit-btn" type="button" @click="startEdit('ranks')">
                     <span class="material-symbols-rounded" aria-hidden="true">edit</span>
                     <span>Edit ranks</span>
                   </button>
