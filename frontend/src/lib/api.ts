@@ -1,4 +1,9 @@
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+export const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+export function getApiBase(): string {
+  return apiBase
+}
+
 const ACCESS_TOKEN_STORAGE_KEY = 'tornare_access_token'
 const REFRESH_TOKEN_STORAGE_KEY = 'tornare_refresh_token'
 

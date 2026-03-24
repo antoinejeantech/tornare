@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { EventCtxType } from '../../lib/event-inject'
+import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventMatch } from '../../types'
 
 interface BracketRound {
@@ -128,7 +128,7 @@ function toggleMatchupEditor(matchId: string | number) {
 }
 
 async function saveMatchupAndClose(matchId: string | number) {
-  const saved = await ctx.saveMatchup(matchId)
+  const saved = await ctx.saveMatchup(String(matchId))
   if (saved) {
     editingMatchups.value = {
       ...editingMatchups.value,

@@ -10,6 +10,7 @@ import EventPage from './pages/EventPage.vue'
 import AboutPage from './pages/AboutPage.vue'
 import NewsPage from './pages/NewsPage.vue'
 import AuthPage from './pages/AuthPage.vue'
+import AuthCallbackPage from './pages/AuthCallbackPage.vue'
 import JoinEventPage from './pages/JoinEventPage.vue'
 import ProfilePage from './pages/ProfilePage.vue'
 import PrivacyPage from './pages/PrivacyPage.vue'
@@ -32,6 +33,7 @@ const router = createRouter({
 		{ path: '/faq', name: 'faq', component: FaqPage, meta: { title: 'FAQ | Tornare' } },
 		{ path: '/support', name: 'support', component: SupportPage, meta: { title: 'Support | Tornare' } },
 		{ path: '/auth', name: 'auth', component: AuthPage, meta: { title: 'Sign In | Tornare' } },
+		{ path: '/auth/callback', name: 'auth-callback', component: AuthCallbackPage, meta: { title: 'Signing in… | Tornare' } },
 		{ path: '/events/:id', name: 'event', component: EventPage, meta: { title: 'Event Setup | Tornare' } },
 		{ path: '/join/:token', name: 'join-event', component: JoinEventPage, meta: { title: 'Join Event | Tornare' } },
 		{ path: '/profiles/:id', name: 'profile', component: ProfilePage, meta: { title: 'Profile | Tornare' } },

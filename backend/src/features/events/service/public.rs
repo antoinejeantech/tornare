@@ -54,6 +54,7 @@ pub async fn list_events_public(
             Some(user_id) if !has_global_manage_access => Some(user_id),
             _ => None,
         },
+        Some(other) => Uuid::parse_str(other).ok(),
         _ => None,
     };
 

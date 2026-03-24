@@ -3,13 +3,73 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { apiCall } from '../lib/api'
+import { useDebounce } from '../composables/useDebounce'
+import { useRequestSequence } from '../composables/useRequestSequence'
 import tornareLogo from '../assets/branding/tornare-logo-pulse.svg'
+
+interface UserSearchResult {
+  id: string
+  username: string
+  display_name: string
+}
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
 const notificationsOpen = ref(false)
+const searchQuery = ref('')
+const searchResults = ref<UserSearchResult[]>([])
+const searchOpen = ref(false)
+const { debounced: debouncedSearch, cancel: cancelSearch } = useDebounce(300)
+const { next: nextSearchId, isCurrent: isCurrentSearch, invalidate: invalidateSearch } = useRequestSequence()
+
+function onSearchInput() {
+  const q = searchQuery.value.trim()
+  if (!q) {
+    invalidateSearch()
+    searchResults.value = []
+    searchOpen.value = false
+    return
+  }
+  debouncedSearch(() => fetchSearchResults(q))
+}
+
+async function fetchSearchResults(q: string) {
+  const requestId = nextSearchId()
+
+  try {
+    const res = await apiCall<UserSearchResult[]>(`/api/users?search=${encodeURIComponent(q)}`)
+
+    if (!isCurrentSearch(requestId) || q !== searchQuery.value.trim()) {
+      return
+    }
+
+    searchResults.value = res
+    searchOpen.value = res.length > 0
+  } catch {
+    if (!isCurrentSearch(requestId) || q !== searchQuery.value.trim()) {
+      return
+    }
+
+    searchResults.value = []
+    searchOpen.value = false
+  }
+}
+
+function goToProfile(id: string) {
+  router.push({ name: 'profile', params: { id } })
+  clearSearch()
+}
+
+function clearSearch() {
+  invalidateSearch()
+  cancelSearch()
+  searchQuery.value = ''
+  searchResults.value = []
+  searchOpen.value = false
+}
 const themeMode = ref('dark')
 const THEME_STORAGE_KEY = 'tornare_theme'
 
@@ -57,6 +117,9 @@ function handleDocumentClick(event: MouseEvent) {
 
   if (!target.closest('.top-nav-notification')) {
     closeNotifications()
+  }
+  if (!target.closest('.top-nav-search')) {
+    searchOpen.value = false
   }
 }
 
@@ -150,9 +213,30 @@ onBeforeUnmount(() => {
           <span class="material-symbols-rounded" aria-hidden="true">article</span>
           <span>News</span>
         </RouterLink>
-        <div class="top-nav-fake-search" aria-hidden="true">
-          <span class="material-symbols-rounded" aria-hidden="true">search</span>
-          <span>Search</span>
+        <div class="top-nav-search" @keydown.escape="clearSearch">
+          <span class="material-symbols-rounded top-nav-search-icon" aria-hidden="true">search</span>
+          <input
+            id="main-nav-user-search"
+            v-model="searchQuery"
+            class="top-nav-search-input"
+            type="search"
+            placeholder="Search users..."
+            aria-label="Search users"
+            autocomplete="off"
+            @input="onSearchInput"
+          />
+          <div v-if="searchOpen && searchResults.length" class="top-nav-search-dropdown">
+            <button
+              v-for="user in searchResults"
+              :key="user.id"
+              class="top-nav-search-result"
+              type="button"
+              @click="goToProfile(user.id)"
+            >
+              <span class="result-display-name">{{ user.display_name }}</span>
+              <span class="result-username">@{{ user.username }}</span>
+            </button>
+          </div>
         </div>
         <RouterLink v-if="!authStore.isAuthenticated" class="top-nav-link" :to="loginRoute" @click="closeMobileMenu">
           <span class="material-symbols-rounded" aria-hidden="true">login</span>
@@ -231,7 +315,7 @@ onBeforeUnmount(() => {
   padding: 0.8rem 1rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.8rem;
 }
 
@@ -274,7 +358,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 0.42rem;
-  margin-left: auto;
+  flex: 1;
 }
 
 .top-nav-mobile-toggle {
@@ -353,14 +437,10 @@ onBeforeUnmount(() => {
 
 .top-nav-link:hover {
   color: var(--ink-1);
-  background: color-mix(in srgb, var(--card) 82%, var(--bg-1) 18%);
-  border-color: var(--line-strong);
-  border-radius: var(--radius-pill);
-  transform: none;
 }
 
 .top-nav-link:hover .material-symbols-rounded {
-  color: color-mix(in srgb, var(--ink-1) 92%, #fff 8%);
+  color: var(--ink-1);
 }
 
 .top-nav-link:focus-visible {
@@ -384,25 +464,112 @@ onBeforeUnmount(() => {
   transform: scaleX(1);
 }
 
-.top-nav-fake-search {
-  min-width: 140px;
+.top-nav-search {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.28rem;
-  padding: 0.34rem 0.62rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid color-mix(in srgb, #5b6f93 46%, var(--line) 54%);
-  background: var(--bg-0);
-  color: var(--ink-muted);
-  font-size: 0.78rem;
-  font-weight: 650;
+  gap: 0.3rem;
+  padding: 0.04rem 0.72rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--line) 40%, #0a0d12 60%);
+  background: color-mix(in srgb, var(--bg-0) 60%, var(--bg-1, #1a1d24) 40%);
+  color: var(--ink-2);
+  font-weight: 620;
   letter-spacing: 0.01em;
-  box-shadow: none;
+  transition: border-color 0.14s ease, color 0.14s ease;
+  margin-left: auto;
 }
 
-.top-nav-fake-search .material-symbols-rounded {
-  font-size: 0.92rem;
+.top-nav-search:focus-within {
+  border-color: color-mix(in srgb, var(--brand-1) 50%, var(--line) 50%);
+  color: var(--ink-1);
+}
+
+.top-nav-search-icon {
+  font-size: 1rem;
   color: color-mix(in srgb, var(--ink-muted) 88%, var(--ink-1) 12%);
+  flex-shrink: 0;
+}
+
+.top-nav-search:focus-within .top-nav-search-icon {
+  color: var(--ink-1);
+}
+
+.top-nav-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  padding-block: 0.15rem;
+  color: var(--ink-1);
+  font-size: 0.8rem;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+  width: 148px;
+  min-width: 0;
+}
+
+.top-nav-search-input::placeholder {
+  color: var(--ink-muted);
+  font-weight: 620;
+}
+
+.top-nav-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.top-nav-search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  background: var(--bg-1, #1a1d24);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+  z-index: 200;
+}
+
+.top-nav-search-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.52rem 0.72rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.top-nav-search-result:last-child {
+  border-bottom: none;
+}
+
+.top-nav-search-result:hover {
+  background: color-mix(in srgb, var(--brand-1) 10%, transparent 90%);
+}
+
+.result-display-name {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ink-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+.result-username {
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
 .top-nav-user-menu {
@@ -517,6 +684,7 @@ onBeforeUnmount(() => {
 .top-nav-user-action {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.4rem;
   width: 100%;
   border-radius: var(--radius-sm);
@@ -611,9 +779,15 @@ onBeforeUnmount(() => {
     display: none;
   }
 
-  .top-nav-fake-search {
-    min-width: 104px;
+  .top-nav-search {
     padding-inline: 0.52rem;
+    margin-left: 0;
+  }
+  .top-nav-search-input {
+    width: 80px;
+  }
+  .top-nav-search-dropdown {
+    min-width: 240px;
   }
 }
 </style>

@@ -28,7 +28,12 @@ async fn main() {
     let jwt_secret = env_or_default("JWT_SECRET", "dev-only-change-me", is_production);
     let cors_raw = env_or_default("CORS_ALLOWED_ORIGINS", "http://localhost:5173", is_production);
     let cors_allowed_origins = parse_allowed_origins(&cors_raw);
-    let public_signup_enabled = env_bool_or_default("PUBLIC_SIGNUP_ENABLED", false);
+    let battlenet_client_id = env::var("BATTLENET_CLIENT_ID").unwrap_or_default();
+    let battlenet_client_secret = env::var("BATTLENET_CLIENT_SECRET").unwrap_or_default();
+    let battlenet_redirect_uri = env::var("BATTLENET_REDIRECT_URI")
+        .unwrap_or_else(|_| "http://localhost:8000/api/auth/battlenet/callback".to_string());
+    let frontend_url = env::var("FRONTEND_URL")
+        .unwrap_or_else(|_| "http://localhost:5173".to_string());
 
     if is_production && jwt_secret == "dev-only-change-me" {
         panic!("JWT_SECRET must be set to a strong value in production");
@@ -58,7 +63,10 @@ async fn main() {
         config: AppConfig {
             jwt_secret,
             cors_allowed_origins,
-            public_signup_enabled,
+            battlenet_client_id,
+            battlenet_client_secret,
+            battlenet_redirect_uri,
+            frontend_url,
         },
     };
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")
@@ -97,16 +105,6 @@ fn env_or_default(key: &str, fallback: &str, require_value: bool) -> String {
         Ok(value) if !value.trim().is_empty() => value,
         _ if require_value => panic!("{key} must be set in production"),
         _ => fallback.to_string(),
-    }
-}
-
-fn env_bool_or_default(key: &str, fallback: bool) -> bool {
-    match env::var(key) {
-        Ok(value) => {
-            let normalized = value.trim().to_lowercase();
-            matches!(normalized.as_str(), "1" | "true" | "yes" | "on")
-        }
-        Err(_) => fallback,
     }
 }
 

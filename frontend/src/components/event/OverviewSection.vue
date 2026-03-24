@@ -4,7 +4,7 @@ import { RouterLink } from 'vue-router'
 import { formatEventStartDate, getDateTimestamp } from '../../lib/dates'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
-import type { EventCtxType } from '../../lib/event-inject'
+import type { EventCtxType } from '../../composables/event/event-inject'
 
 const ctx = inject<EventCtxType>('eventCtx')!
 

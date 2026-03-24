@@ -1,4 +1,5 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 pub const OVERWATCH_RANKS: [&str; 9] = [
     "Unranked",
@@ -23,4 +24,16 @@ pub struct UpdateUserProfileInput {
     pub rank_support: String,
     pub new_password: Option<String>,
     pub new_password_confirm: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct SearchUsersQuery {
+    pub search: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct UserSearchResult {
+    pub id: Uuid,
+    pub username: String,
+    pub display_name: String,
 }

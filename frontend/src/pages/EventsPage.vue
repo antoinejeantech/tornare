@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import { normalizeDatetimeLocalInput } from '../lib/dates'
 import { formatOptionsForType } from '../lib/event-format'
+import { useDebounce } from '../composables/useDebounce'
+import { useRequestSequence } from '../composables/useRequestSequence'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
@@ -15,6 +18,8 @@ interface PaginatedEventsResponse {
 }
 
 const authStore = useAuthStore()
+const router = useRouter()
+const route = useRoute()
 
 const events = ref<Event[]>([])
 const featuredEvent = ref<Event | null>(null)
@@ -25,7 +30,6 @@ const kpis = ref({
   upcoming_tourneys_this_week: 0,
 })
 const error = ref('')
-const notice = ref('')
 const loadingEvents = ref(false)
 const creatingEvent = ref(false)
 const activeOwnerFilter = ref('all')
@@ -35,10 +39,10 @@ const showEventsKpis = false
 const eventSearchQuery = ref('')
 const activeSort = ref('soonest')
 const showCreateModal = ref(false)
-const searchDebounceTimer = ref<number | null>(null)
-let latestLoadRequestId = 0
-let eventsRequestController: AbortController | null = null
 const SEARCH_DEBOUNCE_MS = 350
+const { debounced: debouncedLoad } = useDebounce(SEARCH_DEBOUNCE_MS)
+const { next: nextLoadId, isCurrent: isCurrentLoad } = useRequestSequence()
+let eventsRequestController: AbortController | null = null
 const pageSize = ref(12)
 const pageSizeOptions = [12, 24, 48]
 const currentPage = ref(1)
@@ -109,19 +113,10 @@ const hasActiveFilters = computed(() => {
 
 function setError(message: string) {
   error.value = message
-  notice.value = ''
 }
 
 function clearError() {
   error.value = ''
-}
-
-function setNotice(message: string) {
-  notice.value = message
-}
-
-function clearNotice() {
-  notice.value = ''
 }
 
 function setTypeFilter(filter: string) {
@@ -157,7 +152,6 @@ function openCreateModal() {
   }
 
   clearError()
-  clearNotice()
   showCreateModal.value = true
 }
 
@@ -175,11 +169,10 @@ async function loadEvents() {
   }
   eventsRequestController = new AbortController()
 
-  const requestId = ++latestLoadRequestId
+  const requestId = nextLoadId()
   loadingEvents.value = true
   try {
     clearError()
-    clearNotice()
     const params = new URLSearchParams()
     if (activeOwnerFilter.value !== 'all') {
       params.set('owner', activeOwnerFilter.value)
@@ -203,7 +196,7 @@ async function loadEvents() {
     const path = query ? `/api/events?${query}` : '/api/events'
     const response = await apiCall<PaginatedEventsResponse>(path, { signal: eventsRequestController.signal })
 
-    if (requestId !== latestLoadRequestId) {
+    if (!isCurrentLoad(requestId)) {
       return
     }
 
@@ -218,12 +211,12 @@ async function loadEvents() {
     if (err instanceof Error && err.name === 'AbortError') {
       return
     }
-    if (requestId !== latestLoadRequestId) {
+    if (!isCurrentLoad(requestId)) {
       return
     }
     setError(err instanceof Error ? err.message : 'Failed to load events')
   } finally {
-    if (requestId === latestLoadRequestId) {
+    if (isCurrentLoad(requestId)) {
       loadingEvents.value = false
     }
   }
@@ -285,9 +278,8 @@ async function createEvent() {
   creatingEvent.value = true
   try {
     clearError()
-    clearNotice()
 
-    await apiCall('/api/events', {
+    const created = await apiCall<Event>('/api/events', {
       method: 'POST',
       body: JSON.stringify({
         name: newEventName.value.trim(),
@@ -300,17 +292,9 @@ async function createEvent() {
       })
     })
 
-    const shouldLoadPageDirectly = currentPage.value === 1
-    currentPage.value = 1
-
-    await Promise.all([
-      shouldLoadPageDirectly ? loadEvents() : Promise.resolve(),
-      loadFeaturedEvent(),
-    ])
-
     resetCreateForm()
     showCreateModal.value = false
-    setNotice('Event created successfully')
+    router.push({ name: 'event', params: { id: created.id } })
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to create event')
   } finally {
@@ -319,39 +303,57 @@ async function createEvent() {
 }
 
 onMounted(() => {
+  const q = route.query
+  if (q.owner)  activeOwnerFilter.value  = String(q.owner)
+  if (q.type)   activeTypeFilter.value   = String(q.type)
+  if (q.sort)   activeSort.value         = String(q.sort)
+  if (q.ended)  showEndedEvents.value    = q.ended === 'true'
+  if (q.search) eventSearchQuery.value   = String(q.search)
+  if (q.page)   currentPage.value        = Math.max(1, Number(q.page) || 1)
+  if (q.per_page) pageSize.value         = Number(q.per_page) || 12
   loadFeaturedEvent()
   loadEvents()
   window.addEventListener('keydown', handleGlobalKeyDown)
 })
 
+function syncUrl() {
+  const query: Record<string, string> = {}
+  if (activeOwnerFilter.value !== 'all')   query.owner    = activeOwnerFilter.value
+  if (activeTypeFilter.value !== 'all')    query.type     = activeTypeFilter.value
+  if (activeSort.value !== 'soonest')      query.sort     = activeSort.value
+  if (showEndedEvents.value)               query.ended    = 'true'
+  if (eventSearchQuery.value.trim())       query.search   = eventSearchQuery.value.trim()
+  if (currentPage.value > 1)              query.page     = String(currentPage.value)
+  if (pageSize.value !== 12)              query.per_page = String(pageSize.value)
+  router.replace({ name: 'events', query })
+}
+
 watch([activeOwnerFilter, activeTypeFilter, activeSort, showEndedEvents], () => {
   currentPage.value = 1
+  syncUrl()
   loadEvents()
 })
 
 watch(pageSize, () => {
   currentPage.value = 1
+  syncUrl()
   loadEvents()
 })
 
 watch(eventSearchQuery, () => {
-  if (searchDebounceTimer.value) {
-    window.clearTimeout(searchDebounceTimer.value)
-  }
-  searchDebounceTimer.value = window.setTimeout(() => {
+  debouncedLoad(() => {
     currentPage.value = 1
+    syncUrl()
     loadEvents()
-  }, SEARCH_DEBOUNCE_MS)
+  })
 })
 
 watch(currentPage, () => {
+  syncUrl()
   loadEvents()
 })
 
 onBeforeUnmount(() => {
-  if (searchDebounceTimer.value) {
-    window.clearTimeout(searchDebounceTimer.value)
-  }
   if (eventsRequestController) {
     eventsRequestController.abort()
   }
@@ -510,7 +512,6 @@ onBeforeUnmount(() => {
     </section>
 
     <p v-if="error" class="status status-error">{{ error }}</p>
-    <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
     <section class="card events-list-shell reveal-block reveal-3">
       <p v-if="loadingEvents">Loading events...</p>

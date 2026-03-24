@@ -3,7 +3,7 @@ import { computed, inject } from 'vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
 import { getRoleIcon } from '../../lib/roles'
-import type { EventCtxType } from '../../lib/event-inject'
+import type { EventCtxType } from '../../composables/event/event-inject'
 import type { SignupRequest } from '../../types'
 
 const ctx = inject<EventCtxType>('eventCtx')!

@@ -4,7 +4,7 @@ import PugEventMatchesSection from './PugEventMatchesSection.vue'
 import TourneyEventMatchesSection from './TourneyEventMatchesSection.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import ActionCtaButton from '../ui/ActionCtaButton.vue'
-import type { EventCtxType } from '../../lib/event-inject'
+import type { EventCtxType } from '../../composables/event/event-inject'
 
 const ctx = inject<EventCtxType>('eventCtx')!
 const isTourney = computed(() => Boolean(ctx.isTourneyEvent))

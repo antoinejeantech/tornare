@@ -4,10 +4,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
+import { getRoleIcon } from '../lib/roles'
 import { useAuthStore } from '../stores/auth'
+import { useAlertsStore } from '../stores/alerts'
+import { useConfirm } from '../composables/confirm'
 import ProfileHeroCard from '../components/profile/ProfileHeroCard.vue'
 import ProfileGamesCard from '../components/profile/ProfileGamesCard.vue'
-import type { AuthUser } from '../types'
+import EventListItem from '../components/events/EventListItem.vue'
+import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
+import type { AuthUser, Event } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,11 +21,14 @@ const authStore = useAuthStore()
 const profile = ref<AuthUser | null>(null)
 const loadingProfile = ref(false)
 const savingProfile = ref(false)
+const connectingBnet = ref(false)
+const disconnectingBnet = ref(false)
+const deletingAccount = ref(false)
 const error = ref('')
 const notice = ref('')
 const profileFormTouched = ref(false)
 const editingAccount = ref(false)
-const editingOverwatch = ref(false)
+const editingRanks = ref(false)
 const editUsername = ref('')
 const editDisplayName = ref('')
 const editEmail = ref('')
@@ -30,6 +38,12 @@ const editRankDps = ref('Unranked')
 const editRankSupport = ref('Unranked')
 const editPassword = ref('')
 const editPasswordConfirm = ref('')
+
+const userEvents = ref<Event[]>([])
+const loadingUserEvents = ref(false)
+
+const alertsStore = useAlertsStore()
+const confirm = useConfirm()
 
 const profileId = computed(() => String(route.params.id || ''))
 const viewerId = computed(() => String(authStore.user?.id || ''))
@@ -52,9 +66,9 @@ const hasAccountChanges = computed(() => {
     return false
   }
 
-  const nextDisplayName = editDisplayName.value.trim()
-  const nextUsername = editUsername.value.trim().toLowerCase()
-  const nextEmail = editEmail.value.trim().toLowerCase()
+  const nextDisplayName = String(editDisplayName.value ?? '').trim()
+  const nextUsername = String(editUsername.value ?? '').trim().toLowerCase()
+  const nextEmail = String(editEmail.value ?? '').trim().toLowerCase()
   const currentUsername = String(profile.value.username || '').trim().toLowerCase()
   const currentDisplayName = String(profile.value.display_name || '').trim()
   const currentEmail = String(profile.value.email || '').trim().toLowerCase()
@@ -99,7 +113,7 @@ const canSaveAccountSection = computed(() => {
   return canSaveProfile.value && editingAccount.value && hasAccountChanges.value
 })
 const canSaveOverwatchSection = computed(() => {
-  return canSaveProfile.value && editingOverwatch.value && hasOverwatchChanges.value
+  return canSaveProfile.value && hasOverwatchChanges.value
 })
 
 const overwatchSummaryRows = computed(() => {
@@ -135,26 +149,26 @@ function hydrateFormFromProfile(value: AuthUser | null | undefined) {
   profileFormTouched.value = false
 }
 
-function startEdit(section: string) {
+function startEdit(section: 'account' | 'ranks') {
   if (section === 'account') {
+    editingRanks.value = false
     editingAccount.value = true
-    editingOverwatch.value = false
     return
   }
 
-  if (section === 'overwatch') {
-    editingOverwatch.value = true
-    editingAccount.value = false
-  }
+  editingAccount.value = false
+  editingRanks.value = true
+}
+
+function cancelEditRanks() {
+  hydrateFormFromProfile(profile.value)
+  editingRanks.value = false
 }
 
 function cancelEditSection(section: string) {
   hydrateFormFromProfile(profile.value)
   if (section === 'account') {
     editingAccount.value = false
-  }
-  if (section === 'overwatch') {
-    editingOverwatch.value = false
   }
 }
 
@@ -183,7 +197,7 @@ async function loadProfile() {
     profile.value = response
     hydrateFormFromProfile(response)
     editingAccount.value = false
-    editingOverwatch.value = false
+    editingRanks.value = false
   } catch (err) {
     profile.value = null
     setError(err instanceof Error ? err.message : 'Failed to load profile')
@@ -197,10 +211,10 @@ async function saveProfile() {
     return
   }
 
-  const nextDisplayName = editDisplayName.value.trim()
-  const nextUsername = editUsername.value.trim().toLowerCase()
-  const nextEmail = editEmail.value.trim().toLowerCase()
-  const nextBattletag = editBattletag.value.trim()
+  const nextDisplayName = String(editDisplayName.value ?? '').trim()
+  const nextUsername = String(editUsername.value ?? '').trim().toLowerCase()
+  const nextEmail = String(editEmail.value ?? '').trim().toLowerCase()
+  const nextBattletag = String(editBattletag.value ?? '').trim()
 
   if (!nextUsername) {
     setError('Username is required')
@@ -222,7 +236,7 @@ async function saveProfile() {
     return
   }
 
-  if (!nextEmail || !nextEmail.includes('@')) {
+  if (!nextEmail || !/@/.test(nextEmail)) {
     setError('A valid email is required')
     return
   }
@@ -265,7 +279,7 @@ async function saveProfile() {
       authStore.user = updated
     }
     editingAccount.value = false
-    editingOverwatch.value = false
+    editingRanks.value = false
     setNotice('Profile updated')
   } catch (err) {
     setError(err instanceof Error ? err.message : 'Failed to update profile')
@@ -276,6 +290,62 @@ async function saveProfile() {
 
 function goToEvents() {
   router.push({ name: 'events' })
+}
+
+async function connectBnetAccount() {
+  if (connectingBnet.value) return
+  connectingBnet.value = true
+  try {
+    await authStore.connectBnetInit()
+    // connectBnetInit normally navigates away immediately.
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to initiate Battle.net connection')
+  } finally {
+    connectingBnet.value = false
+  }
+}
+
+async function disconnectBnetAccount() {
+  if (disconnectingBnet.value) return
+  disconnectingBnet.value = true
+  try {
+    await authStore.disconnectBnet()
+    await loadProfile()
+    alertsStore.push({ type: 'success', message: 'Battle.net account disconnected' })
+  } catch (err) {
+    alertsStore.push({
+      type: 'error',
+      message: err instanceof Error ? err.message : 'Failed to disconnect Battle.net',
+      duration: 6000,
+    })
+  } finally {
+    disconnectingBnet.value = false
+  }
+}
+
+async function deleteUserAccount() {
+  if (deletingAccount.value || !profile.value) return
+  const confirmed = await confirm.ask({
+    title: 'Delete account',
+    message: `Permanently delete ${profile.value.display_name}'s account? This cannot be undone.`,
+    confirmText: 'Delete account',
+    tone: 'danger',
+  })
+  if (!confirmed) return
+  deletingAccount.value = true
+  try {
+    await apiCall(`/api/users/${profile.value.id}`, { method: 'DELETE' })
+    alertsStore.push({ type: 'success', message: 'Account deleted' })
+    router.push('/events')
+  } catch (err) {
+    alertsStore.push({
+      type: 'error',
+      message: err instanceof Error ? err.message : 'Failed to delete account',
+      duration: 6000,
+    })
+  } finally {
+    deletingAccount.value = false
+  }
 }
 
 watch(
@@ -293,13 +363,29 @@ watch(
     }
 
     editingAccount.value = false
-    editingOverwatch.value = false
+    editingRanks.value = false
   }
 )
 
 onMounted(async () => {
   await loadProfile()
+  loadUserEvents()
 })
+
+async function loadUserEvents() {
+  if (!profileId.value) return
+  loadingUserEvents.value = true
+  try {
+    const res = await apiCall<{ items: Event[]; total: number }>(
+      `/api/events?owner=${encodeURIComponent(profileId.value)}&per_page=5&sort=newest`
+    )
+    userEvents.value = res?.items ?? []
+  } catch {
+    userEvents.value = []
+  } finally {
+    loadingUserEvents.value = false
+  }
+}
 </script>
 
 <template>
@@ -328,6 +414,18 @@ onMounted(async () => {
           :profile-initial="profileInitial"
           @edit-account="startEdit('account')"
         >
+          <template v-if="isAdminViewer && profileId !== viewerId" #hero-actions>
+            <button
+              type="button"
+              class="hero-icon-btn hero-icon-btn-danger"
+              title="Delete account"
+              :disabled="deletingAccount"
+              @click="deleteUserAccount"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">delete</span>
+              <span class="sr-only">Delete account</span>
+            </button>
+          </template>
           <template #account-edit>
             <form class="profile-form" @submit.prevent="saveProfile">
               <label>
@@ -352,10 +450,12 @@ onMounted(async () => {
               </label>
               <div class="form-actions">
                 <button type="submit" class="btn-primary" :disabled="!canSaveAccountSection">
-                  {{ savingProfile ? 'Saving...' : 'Save account' }}
+                  <span class="material-symbols-rounded" aria-hidden="true">{{ savingProfile ? 'hourglass_empty' : 'save' }}</span>
+                  <span>{{ savingProfile ? 'Saving...' : 'Save account' }}</span>
                 </button>
                 <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditSection('account')">
-                  Cancel
+                  <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                  <span>Cancel</span>
                 </button>
               </div>
             </form>
@@ -367,18 +467,59 @@ onMounted(async () => {
         <ProfileGamesCard
           :profile="profile"
           :can-edit="canEdit"
-          :editing-overwatch="editingOverwatch"
           :overwatch-summary-rows="overwatchSummaryRows"
           :overwatch-logo="overwatchLogo"
-          @edit-overwatch="startEdit('overwatch')"
         >
-          <template #overwatch-edit>
-            <form class="profile-form" @submit.prevent="saveProfile">
-              <p class="profile-note-title">Battle.net connection</p>
-              <p class="muted profile-note">
-                Battletag is managed by Battle.net OAuth and cannot be edited manually here.
+          <template #overwatch-bnet-action>
+            <template v-if="canEdit">
+              <p v-if="!profile.can_edit_battletag && !profile.has_password" class="bnet-no-password-warning">
+                Set a password before disconnecting Battle.net, otherwise you will lose access to your account.
               </p>
-              <p class="profile-static-value">{{ profile.battletag || 'Not connected yet' }}</p>
+              <button
+                v-if="!profile.can_edit_battletag"
+                type="button"
+                class="battletag-link battletag-link-active"
+                :disabled="disconnectingBnet || !profile.has_password"
+                @click="disconnectBnetAccount"
+              >
+                {{ disconnectingBnet ? 'Disconnecting...' : 'Disconnect Battle.net' }}
+              </button>
+              <button
+                v-else
+                type="button"
+                class="battletag-link battletag-link-active"
+                :disabled="connectingBnet"
+                @click="connectBnetAccount"
+              >
+                {{ connectingBnet ? 'Connecting...' : 'Connect Battle.net Account' }}
+              </button>
+            </template>
+          </template>
+
+          <template v-if="canEdit" #overwatch-ranks>
+            <template v-if="!editingRanks">
+              <div class="rank-tiles-wrap">
+                <div class="rank-tiles-header">
+                  <button class="rank-edit-btn" type="button" @click="startEdit('ranks')">
+                    <span class="material-symbols-rounded" aria-hidden="true">edit</span>
+                    <span>Edit ranks</span>
+                  </button>
+                </div>
+                <div class="rank-tile-grid">
+                  <article v-for="entry in overwatchSummaryRows" :key="entry.role" class="rank-tile">
+                    <p class="rank-role">
+                      <span>{{ entry.role }}</span>
+                      <span class="material-symbols-rounded rank-role-icon" aria-hidden="true">{{ getRoleIcon(entry.role) }}</span>
+                    </p>
+                    <p class="rank-value">
+                      <img class="rank-icon" :src="entry.icon" :alt="`${entry.rank} rank`" />
+                      <span>{{ entry.rank }}</span>
+                    </p>
+                  </article>
+                </div>
+              </div>
+            </template>
+            <form v-else class="profile-form" @submit.prevent="saveProfile">
               <div class="profile-ranks-grid">
                 <label>
                   Tank rank
@@ -401,16 +542,38 @@ onMounted(async () => {
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn-primary" :disabled="!canSaveOverwatchSection">
-                  {{ savingProfile ? 'Saving...' : 'Save Overwatch' }}
+                  <span class="material-symbols-rounded" aria-hidden="true">{{ savingProfile ? 'hourglass_empty' : 'save' }}</span>
+                  <span>{{ savingProfile ? 'Saving...' : 'Save ranks' }}</span>
                 </button>
-                <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditSection('overwatch')">
-                  Cancel
+                <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditRanks">
+                  <span class="material-symbols-rounded" aria-hidden="true">close</span>
+                  <span>Cancel</span>
                 </button>
               </div>
             </form>
           </template>
         </ProfileGamesCard>
       </div>
+    </section>
+
+    <section v-if="profile" class="profile-events-section">
+      <div class="profile-events-header">
+        <h2 class="profile-section-title">{{ profile.display_name }}'s last 5 events</h2>
+        <InlineArrowLink
+          :to="{ name: 'events', query: { owner: profileId } }"
+          label="See all"
+        />
+      </div>
+      <p v-if="loadingUserEvents" class="muted">Loading...</p>
+      <p v-else-if="userEvents.length === 0" class="muted">No events yet.</p>
+      <ul v-else class="profile-events-list">
+        <EventListItem
+          v-for="event in userEvents"
+          :key="event.id"
+          :event="event"
+          :to="{ name: 'event', params: { id: event.id } }"
+        />
+      </ul>
     </section>
 
     <section v-else class="card">
@@ -422,6 +585,36 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.profile-events-section {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.profile-events-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.profile-section-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-muted);
+}
+
+.profile-events-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
 .profile-shell {
   max-width: 1260px;
   width: min(96vw, 1260px);
@@ -462,7 +655,7 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.9rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .profile-layout :deep(.card) {
@@ -471,7 +664,13 @@ onMounted(async () => {
 
 .profile-column {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
   animation: profile-card-in 320ms ease-out both;
+}
+
+.profile-column :deep(.card) {
+  flex: 1;
 }
 
 .profile-column-right {
@@ -489,6 +688,69 @@ onMounted(async () => {
 .profile-form label {
   display: grid;
   gap: 0.3rem;
+}
+
+/* BNet slot buttons rendered inside ProfileGamesCard */
+:deep(.battletag-link) {
+  justify-self: center;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: color-mix(in srgb, var(--ink-muted) 82%, transparent 18%);
+  cursor: not-allowed;
+}
+
+:deep(.battletag-link-active) {
+  color: color-mix(in srgb, var(--brand-1) 95%, #ffefbf 5%);
+  cursor: pointer;
+}
+
+:deep(.battletag-link-active:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.bnet-no-password-warning {
+  margin: 0 0 0.45rem;
+  font-size: 0.82rem;
+  color: var(--status-warning, #c97c00);
+}
+
+:deep(.hero-icon-btn-danger) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--status-error, #c0392b) 40%, var(--line) 60%);
+  background: transparent;
+  color: var(--status-error, #c0392b);
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+
+:deep(.hero-icon-btn-danger .material-symbols-rounded) {
+  font-size: 1.1rem;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+}
+
+:deep(.hero-icon-btn-danger:hover:not(:disabled)) {
+  background: color-mix(in srgb, var(--status-error, #c0392b) 12%, transparent);
+  border-color: var(--status-error, #c0392b);
+}
+
+:deep(.hero-icon-btn-danger:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+:deep(.battletag-link-active:hover) {
+  text-decoration: underline;
 }
 
 .profile-note {
@@ -519,6 +781,11 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.form-actions .material-symbols-rounded {
+  font-size: 1rem;
+  font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+}
+
 @keyframes profile-card-in {
   from {
     opacity: 0;
@@ -531,12 +798,105 @@ onMounted(async () => {
   }
 }
 
+/* Rank tiles — scoped CSS from ProfileGamesCard doesn't reach slot content, so we re-declare here */
+.rank-tiles-wrap {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.rank-tiles-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rank-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.72rem;
+}
+
+.rank-tile {
+  display: grid;
+  gap: 0.46rem;
+  padding: 0.84rem 0.84rem 0.72rem;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--line) 26%, transparent 74%);
+  position: relative;
+}
+
+.rank-role,
+.rank-value {
+  margin: 0;
+}
+
+.rank-role {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: var(--ink-1);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+.rank-role-icon {
+  font-size: 0.92rem;
+  color: color-mix(in srgb, var(--brand-1) 92%, #ffe7aa 8%);
+}
+
+.rank-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-weight: 760;
+  color: var(--ink-1);
+}
+
+.rank-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.rank-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.36rem;
+  align-self: start;
+  justify-self: start;
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--line) 50%, transparent 50%);
+  border-radius: var(--radius-sm);
+  padding: 0.32rem 0.72rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+
+.rank-edit-btn:hover {
+  color: var(--ink-1);
+  border-color: color-mix(in srgb, var(--line) 80%, transparent 20%);
+}
+
+.rank-edit-btn .material-symbols-rounded {
+  font-size: 0.92rem;
+  font-variation-settings: 'FILL' 0, 'wght' 450, 'GRAD' 0, 'opsz' 20;
+}
+
 @media (max-width: 980px) {
   .profile-layout {
     grid-template-columns: 1fr;
   }
 
   .profile-ranks-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rank-tile-grid {
     grid-template-columns: 1fr;
   }
 }

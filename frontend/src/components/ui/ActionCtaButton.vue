@@ -40,6 +40,7 @@ function handleClick(event: MouseEvent) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.38rem;
   min-height: 2.2rem;
   padding: 0.52rem 0.92rem;
   border: 1px solid color-mix(in srgb, var(--brand-1) 78%, var(--line) 22%);

@@ -124,6 +124,10 @@ pub fn require_authenticated_user_id(state: &AppState, headers: &HeaderMap) -> R
         .strip_prefix("Bearer ")
         .ok_or_else(|| unauthorized("Authorization header must use Bearer token"))?;
 
+    verify_access_token_str(state, token)
+}
+
+pub fn verify_access_token_str(state: &AppState, token: &str) -> Result<Uuid, ApiError> {
     let token_data = decode::<AccessClaims>(
         token,
         &DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
@@ -151,8 +155,6 @@ pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<Auth
         return Err(forbidden("User account is inactive"));
     }
 
-    let has_battlenet_identity = repo::has_provider_identity(&state.pool, user_id, "battlenet").await?;
-
     Ok(AuthUser {
         id: row.id,
         email: row.email,
@@ -163,7 +165,8 @@ pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<Auth
         rank_tank: row.rank_tank,
         rank_dps: row.rank_dps,
         rank_support: row.rank_support,
-        can_edit_battletag: !has_battlenet_identity,
+        can_edit_battletag: !row.has_battlenet_identity,
+        has_password: row.has_password,
     })
 }
 
@@ -199,7 +202,7 @@ fn verify_password(stored_hash: &str, password: &str) -> Result<(), ApiError> {
         .map_err(|_| unauthorized("Invalid email or password"))
 }
 
-async fn issue_auth_response(
+pub(crate) async fn issue_auth_response(
     state: &AppState,
     user: AuthUser,
     existing_session_id: Option<Uuid>,

@@ -5,7 +5,7 @@ import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
-import type { EventCtxType } from '../../lib/event-inject'
+import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventPlayer, EventTeam, RoleRank } from '../../types'
 
 const ctx = inject<EventCtxType>('eventCtx')!
@@ -257,7 +257,7 @@ function clearAllAssignmentSearches() {
 }
 
 async function selectAssignResult(teamId: string | number, playerId: string | number) {
-  await ctx.assignPlayerToTeam(playerId, teamId)
+  await ctx.assignPlayerToTeam(String(playerId), String(teamId))
   setAssignmentSearch(teamId, '')
 }
 
@@ -309,7 +309,7 @@ async function assignUnassignedPlayerToPickedTeam(playerId: string | number) {
 
   teamPickerBusyPlayerId.value = String(playerId)
   try {
-    await ctx.assignPlayerToTeam(playerId, teamId)
+    await ctx.assignPlayerToTeam(String(playerId), teamId)
     closeTeamPicker()
   } finally {
     teamPickerBusyPlayerId.value = ''
@@ -324,7 +324,7 @@ async function assignUnassignedPlayerToPickedTeamWithRole(playerId: string | num
 
   teamPickerBusyPlayerId.value = String(playerId)
   try {
-    await ctx.assignPlayerToTeamWithRole(playerId, teamId, role, rank)
+    await ctx.assignPlayerToTeamWithRole(String(playerId), teamId, role, rank)
     closeTeamPicker()
   } finally {
     teamPickerBusyPlayerId.value = ''

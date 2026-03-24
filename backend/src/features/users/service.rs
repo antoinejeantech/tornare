@@ -4,7 +4,7 @@ use crate::{
     app::state::AppState,
     features::{
         auth::models::AuthUser,
-        users::models::{UpdateUserProfileInput, OVERWATCH_RANKS},
+        users::models::{UpdateUserProfileInput, UserSearchResult, OVERWATCH_RANKS},
     },
     shared::{
         crypto::hash_password,
@@ -27,8 +27,6 @@ pub async fn get_user_profile_public(
         return Err(not_found("User not found"));
     }
 
-    let has_battlenet_identity = repo::has_provider_identity(&state.pool, user_id, "battlenet").await?;
-
     Ok(AuthUser {
         id: row.id,
         email: row.email,
@@ -39,7 +37,8 @@ pub async fn get_user_profile_public(
         rank_tank: row.rank_tank,
         rank_dps: row.rank_dps,
         rank_support: row.rank_support,
-        can_edit_battletag: !has_battlenet_identity,
+        can_edit_battletag: !row.has_battlenet_identity,
+        has_password: row.has_password,
     })
 }
 
@@ -144,6 +143,30 @@ pub async fn update_user_profile_for_user(
     get_user_profile_public(state, target_user_id).await
 }
 
+pub async fn delete_user_account(
+    state: &AppState,
+    authenticated_user_id: Uuid,
+    target_user_id: Uuid,
+) -> Result<(), ApiError> {
+    if authenticated_user_id == target_user_id {
+        return Err(forbidden("Admins cannot delete their own account"));
+    }
+
+    let Some(actor) = repo::find_user_profile_by_id(&state.pool, authenticated_user_id).await? else {
+        return Err(forbidden("You do not have permission to delete this account"));
+    };
+
+    if !actor.is_active || !actor.role.eq_ignore_ascii_case("admin") {
+        return Err(forbidden("Only admins can delete accounts"));
+    }
+
+    let deleted = repo::delete_user_by_id(&state.pool, target_user_id).await?;
+    if !deleted {
+        return Err(not_found("User not found"));
+    }
+    Ok(())
+}
+
 fn validate_rank(role: &str, rank: &str) -> Result<(), ApiError> {
     if OVERWATCH_RANKS.contains(&rank) {
         return Ok(());
@@ -152,3 +175,18 @@ fn validate_rank(role: &str, rank: &str) -> Result<(), ApiError> {
     Err(bad_request(&format!("Invalid {} rank", role)))
 }
 
+pub async fn search_users(
+    state: &AppState,
+    query: &str,
+) -> Result<Vec<UserSearchResult>, ApiError> {
+    if query.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let rows = repo::search_users(&state.pool, query).await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(id, username, display_name)| UserSearchResult { id, username, display_name })
+        .collect())
+}

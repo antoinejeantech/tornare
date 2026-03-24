@@ -18,6 +18,8 @@ pub struct UserProfileRow {
     pub rank_dps: String,
     pub rank_support: String,
     pub is_active: bool,
+    pub has_battlenet_identity: bool,
+    pub has_password: bool,
 }
 
 pub async fn find_user_profile_by_id(
@@ -50,7 +52,14 @@ pub async fn find_user_profile_by_id(
                     COALESCE(op.rank_tank, 'Unranked') AS rank_tank,
                     COALESCE(op.rank_dps, 'Unranked') AS rank_dps,
                     COALESCE(op.rank_support, 'Unranked') AS rank_support,
-                        u.is_active
+                    u.is_active,
+                    EXISTS(
+                        SELECT 1
+                        FROM auth_identities ai
+                        WHERE ai.user_id = u.id
+                          AND ai.provider = 'battlenet'
+                    ) AS has_battlenet_identity,
+                    (u.password_hash IS NOT NULL) AS has_password
                  FROM users u
                  LEFT JOIN user_game_profiles ugp
                      ON ugp.user_id = u.id
@@ -75,6 +84,8 @@ pub async fn find_user_profile_by_id(
         rank_dps: r.get("rank_dps"),
         rank_support: r.get("rank_support"),
         is_active: r.get("is_active"),
+        has_battlenet_identity: r.get("has_battlenet_identity"),
+        has_password: r.get("has_password"),
     }))
 }
 
@@ -214,17 +225,44 @@ pub async fn upsert_overwatch_profile(
     Ok(())
 }
 
-pub async fn has_provider_identity(
+pub async fn delete_user_by_id(
     pool: &PgPool,
     user_id: Uuid,
-    provider: &str,
 ) -> Result<bool, crate::shared::errors::ApiError> {
-    let row = sqlx::query("SELECT id FROM auth_identities WHERE user_id = $1 AND provider = $2")
+    let result = sqlx::query("DELETE FROM users WHERE id = $1")
         .bind(user_id)
-        .bind(provider)
-        .fetch_optional(pool)
+        .execute(pool)
         .await
         .map_err(internal_error)?;
+    Ok(result.rows_affected() > 0)
+}
 
-    Ok(row.is_some())
+pub async fn search_users(
+    pool: &PgPool,
+    query: &str,
+) -> Result<Vec<(Uuid, String, String)>, crate::shared::errors::ApiError> {
+    let pattern = format!("%{}%", query);
+    let rows = sqlx::query(
+        "SELECT id, username, display_name
+         FROM users
+         WHERE is_active = true
+           AND (username ILIKE $1 OR display_name ILIKE $1)
+         ORDER BY
+             CASE WHEN username ILIKE $2 THEN 0
+                  WHEN display_name ILIKE $2 THEN 1
+                  ELSE 2
+             END,
+             display_name
+         LIMIT 8",
+    )
+    .bind(&pattern)
+    .bind(format!("{}%", query))
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| (r.get("id"), r.get("username"), r.get("display_name")))
+        .collect())
 }

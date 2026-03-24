@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { AuthSession, AuthUser } from '../types'
-import { apiCall, clearAccessToken, getAccessToken, setAccessToken, syncAccessTokenFromStorage } from '../lib/api'
+import { apiBase, apiCall, clearAccessToken, getAccessToken, setAccessToken, syncAccessTokenFromStorage } from '../lib/api'
 
 const REFRESH_TOKEN_STORAGE_KEY = 'tornare_refresh_token'
 let initializePromise: Promise<void> | null = null
@@ -75,6 +75,37 @@ export const useAuthStore = defineStore('auth', {
       this.user = me
       this.syncTokensFromStorage()
       return me
+    },
+    async initFromOAuth(accessToken: string, refreshToken: string): Promise<void> {
+      setAccessToken(accessToken)
+      setStoredRefreshToken(refreshToken)
+      this.accessToken = accessToken
+      this.refreshToken = refreshToken
+      try {
+        await this.fetchMe()
+      } catch (err) {
+        this.clearSession()
+        throw err
+      }
+      this.initialized = true
+    },
+    async completeBnetSignup(pendingToken: string, email: string): Promise<void> {
+      const response = await apiCall<AuthSession>('/api/auth/battlenet/complete', {
+        method: 'POST',
+        body: JSON.stringify({
+          pending_token: pendingToken,
+          email,
+        }),
+      })
+      this.setSession(response)
+      this.initialized = true
+    },
+    async connectBnetInit(): Promise<void> {
+      window.location.href = `${apiBase}/api/auth/battlenet/connect-init?token=${encodeURIComponent(this.accessToken)}`
+    },
+    async disconnectBnet(): Promise<void> {
+      await apiCall('/api/auth/battlenet/disconnect', { method: 'DELETE' })
+      await this.fetchMe()
     },
     async refreshAccessToken(): Promise<AuthSession> {
       this.syncTokensFromStorage()

@@ -123,6 +123,7 @@ export interface AuthUser {
   rank_dps: OverwatchRank
   rank_support: OverwatchRank
   can_edit_battletag: boolean
+  has_password: boolean
 }
 
 export interface AuthSession {
