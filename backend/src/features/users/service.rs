@@ -27,9 +27,6 @@ pub async fn get_user_profile_public(
         return Err(not_found("User not found"));
     }
 
-    let has_battlenet_identity = repo::has_provider_identity(&state.pool, user_id, "battlenet").await?;
-    let has_password = crate::features::auth::repo::user_has_password(&state.pool, user_id).await?;
-
     Ok(AuthUser {
         id: row.id,
         email: row.email,
@@ -40,8 +37,8 @@ pub async fn get_user_profile_public(
         rank_tank: row.rank_tank,
         rank_dps: row.rank_dps,
         rank_support: row.rank_support,
-        can_edit_battletag: !has_battlenet_identity,
-        has_password,
+        can_edit_battletag: !row.has_battlenet_identity,
+        has_password: row.has_password,
     })
 }
 

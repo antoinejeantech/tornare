@@ -18,6 +18,8 @@ pub struct UserProfileRow {
     pub rank_dps: String,
     pub rank_support: String,
     pub is_active: bool,
+    pub has_battlenet_identity: bool,
+    pub has_password: bool,
 }
 
 pub async fn find_user_profile_by_id(
@@ -50,7 +52,14 @@ pub async fn find_user_profile_by_id(
                     COALESCE(op.rank_tank, 'Unranked') AS rank_tank,
                     COALESCE(op.rank_dps, 'Unranked') AS rank_dps,
                     COALESCE(op.rank_support, 'Unranked') AS rank_support,
-                        u.is_active
+                    u.is_active,
+                    EXISTS(
+                        SELECT 1
+                        FROM auth_identities ai
+                        WHERE ai.user_id = u.id
+                          AND ai.provider = 'battlenet'
+                    ) AS has_battlenet_identity,
+                    (u.password_hash IS NOT NULL) AS has_password
                  FROM users u
                  LEFT JOIN user_game_profiles ugp
                      ON ugp.user_id = u.id
@@ -75,6 +84,8 @@ pub async fn find_user_profile_by_id(
         rank_dps: r.get("rank_dps"),
         rank_support: r.get("rank_support"),
         is_active: r.get("is_active"),
+        has_battlenet_identity: r.get("has_battlenet_identity"),
+        has_password: r.get("has_password"),
     }))
 }
 
@@ -224,19 +235,4 @@ pub async fn delete_user_by_id(
         .await
         .map_err(internal_error)?;
     Ok(result.rows_affected() > 0)
-}
-
-pub async fn has_provider_identity(
-    pool: &PgPool,
-    user_id: Uuid,
-    provider: &str,
-) -> Result<bool, crate::shared::errors::ApiError> {
-    let row = sqlx::query("SELECT id FROM auth_identities WHERE user_id = $1 AND provider = $2")
-        .bind(user_id)
-        .bind(provider)
-        .fetch_optional(pool)
-        .await
-        .map_err(internal_error)?;
-
-    Ok(row.is_some())
 }
