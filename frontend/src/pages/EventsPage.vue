@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import { normalizeDatetimeLocalInput } from '../lib/dates'
@@ -19,6 +19,7 @@ interface PaginatedEventsResponse {
 
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 const events = ref<Event[]>([])
 const featuredEvent = ref<Event | null>(null)
@@ -302,29 +303,53 @@ async function createEvent() {
 }
 
 onMounted(() => {
+  const q = route.query
+  if (q.owner)  activeOwnerFilter.value  = String(q.owner)
+  if (q.type)   activeTypeFilter.value   = String(q.type)
+  if (q.sort)   activeSort.value         = String(q.sort)
+  if (q.ended)  showEndedEvents.value    = q.ended === 'true'
+  if (q.search) eventSearchQuery.value   = String(q.search)
+  if (q.page)   currentPage.value        = Math.max(1, Number(q.page) || 1)
+  if (q.per_page) pageSize.value         = Number(q.per_page) || 12
   loadFeaturedEvent()
   loadEvents()
   window.addEventListener('keydown', handleGlobalKeyDown)
 })
 
+function syncUrl() {
+  const query: Record<string, string> = {}
+  if (activeOwnerFilter.value !== 'all')   query.owner    = activeOwnerFilter.value
+  if (activeTypeFilter.value !== 'all')    query.type     = activeTypeFilter.value
+  if (activeSort.value !== 'soonest')      query.sort     = activeSort.value
+  if (showEndedEvents.value)               query.ended    = 'true'
+  if (eventSearchQuery.value.trim())       query.search   = eventSearchQuery.value.trim()
+  if (currentPage.value > 1)              query.page     = String(currentPage.value)
+  if (pageSize.value !== 12)              query.per_page = String(pageSize.value)
+  router.replace({ name: 'events', query })
+}
+
 watch([activeOwnerFilter, activeTypeFilter, activeSort, showEndedEvents], () => {
   currentPage.value = 1
+  syncUrl()
   loadEvents()
 })
 
 watch(pageSize, () => {
   currentPage.value = 1
+  syncUrl()
   loadEvents()
 })
 
 watch(eventSearchQuery, () => {
   debouncedLoad(() => {
     currentPage.value = 1
+    syncUrl()
     loadEvents()
   })
 })
 
 watch(currentPage, () => {
+  syncUrl()
   loadEvents()
 })
 

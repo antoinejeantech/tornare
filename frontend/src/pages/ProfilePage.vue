@@ -10,7 +10,9 @@ import { useAlertsStore } from '../stores/alerts'
 import { useConfirm } from '../composables/confirm'
 import ProfileHeroCard from '../components/profile/ProfileHeroCard.vue'
 import ProfileGamesCard from '../components/profile/ProfileGamesCard.vue'
-import type { AuthUser } from '../types'
+import EventListItem from '../components/events/EventListItem.vue'
+import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
+import type { AuthUser, Event } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -36,6 +38,9 @@ const editRankDps = ref('Unranked')
 const editRankSupport = ref('Unranked')
 const editPassword = ref('')
 const editPasswordConfirm = ref('')
+
+const userEvents = ref<Event[]>([])
+const loadingUserEvents = ref(false)
 
 const alertsStore = useAlertsStore()
 const confirm = useConfirm()
@@ -364,7 +369,23 @@ watch(
 
 onMounted(async () => {
   await loadProfile()
+  loadUserEvents()
 })
+
+async function loadUserEvents() {
+  if (!profileId.value) return
+  loadingUserEvents.value = true
+  try {
+    const res = await apiCall<{ items: Event[]; total: number }>(
+      `/api/events?owner=${encodeURIComponent(profileId.value)}&per_page=5&sort=newest`
+    )
+    userEvents.value = res?.items ?? []
+  } catch {
+    userEvents.value = []
+  } finally {
+    loadingUserEvents.value = false
+  }
+}
 </script>
 
 <template>
@@ -429,7 +450,7 @@ onMounted(async () => {
               </label>
               <div class="form-actions">
                 <button type="submit" class="btn-primary" :disabled="!canSaveAccountSection">
-                  <span class="material-symbols-rounded" aria-hidden="true">{{ savingProfile ? 'hourglass_empty' : 'check' }}</span>
+                  <span class="material-symbols-rounded" aria-hidden="true">{{ savingProfile ? 'hourglass_empty' : 'save' }}</span>
                   <span>{{ savingProfile ? 'Saving...' : 'Save account' }}</span>
                 </button>
                 <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditSection('account')">
@@ -521,7 +542,7 @@ onMounted(async () => {
               </div>
               <div class="form-actions">
                 <button type="submit" class="btn-primary" :disabled="!canSaveOverwatchSection">
-                  <span class="material-symbols-rounded" aria-hidden="true">{{ savingProfile ? 'hourglass_empty' : 'check' }}</span>
+                  <span class="material-symbols-rounded" aria-hidden="true">{{ savingProfile ? 'hourglass_empty' : 'save' }}</span>
                   <span>{{ savingProfile ? 'Saving...' : 'Save ranks' }}</span>
                 </button>
                 <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditRanks">
@@ -535,6 +556,26 @@ onMounted(async () => {
       </div>
     </section>
 
+    <section v-if="profile" class="profile-events-section">
+      <div class="profile-events-header">
+        <h2 class="profile-section-title">{{ profile.display_name }}'s last 5 events</h2>
+        <InlineArrowLink
+          :to="{ name: 'events', query: { owner: profileId } }"
+          label="See all"
+        />
+      </div>
+      <p v-if="loadingUserEvents" class="muted">Loading...</p>
+      <p v-else-if="userEvents.length === 0" class="muted">No events yet.</p>
+      <ul v-else class="profile-events-list">
+        <EventListItem
+          v-for="event in userEvents"
+          :key="event.id"
+          :event="event"
+          :to="{ name: 'event', params: { id: event.id } }"
+        />
+      </ul>
+    </section>
+
     <section v-else class="card">
       <h2>Profile not found</h2>
       <p class="muted">The user may not exist.</p>
@@ -544,6 +585,36 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.profile-events-section {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.profile-events-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.profile-section-title {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-muted);
+}
+
+.profile-events-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
 .profile-shell {
   max-width: 1260px;
   width: min(96vw, 1260px);
@@ -584,7 +655,7 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.9rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .profile-layout :deep(.card) {
@@ -593,7 +664,13 @@ onMounted(async () => {
 
 .profile-column {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
   animation: profile-card-in 320ms ease-out both;
+}
+
+.profile-column :deep(.card) {
+  flex: 1;
 }
 
 .profile-column-right {

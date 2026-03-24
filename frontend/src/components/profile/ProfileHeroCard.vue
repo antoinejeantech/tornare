@@ -74,6 +74,7 @@ defineEmits<{
   position: relative;
   overflow: hidden;
   display: grid;
+  align-content: start;
   gap: 1.08rem;
   padding: 1.2rem;
 }
