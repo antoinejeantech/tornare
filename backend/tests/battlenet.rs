@@ -173,14 +173,11 @@ async fn me_endpoint_reports_has_password_for_password_account(pool: PgPool) {
 // Battle.net reconnect: disconnected sub can be claimed by a different user
 // ---------------------------------------------------------------------------
 
-/// When user A disconnects their Battle.net account, the linked sub is
-/// soft-deleted (provider='battlenet_disconnected').  `find_active_user_id_by_bnet_sub`
-/// must return None for that sub, allowing user B to connect the same sub.
-/// `find_user_id_by_bnet_sub` (used by the login flow) must still return
-/// user A's ID so returning users are recognised.
+/// When user A disconnects their Battle.net account, the identity row is
+/// hard-deleted. Both `find_user_id_by_bnet_sub` (login flow) and any
+/// subsequent connection check must return None for that sub.
 #[sqlx::test]
-async fn disconnected_bnet_sub_is_available_for_new_connection(pool: PgPool) {
-    // Insert a minimal user directly — no HTTP server needed for this DB-level test.
+async fn disconnected_bnet_sub_is_fully_removed(pool: PgPool) {
     let user_a_id = Uuid::new_v4();
     sqlx::query(
         "INSERT INTO users (id, email, username, display_name)
@@ -191,42 +188,46 @@ async fn disconnected_bnet_sub_is_available_for_new_connection(pool: PgPool) {
     .await
     .expect("failed to insert user A");
 
-    // Insert a soft-deleted (disconnected) bnet identity for user A.
     let sub = "reconnect-test-sub-99999";
     sqlx::query(
         "INSERT INTO auth_identities (id, user_id, provider, provider_user_id)
-         VALUES (gen_random_uuid(), $1, 'battlenet_disconnected', $2)",
+         VALUES (gen_random_uuid(), $1, 'battlenet', $2)",
     )
     .bind(user_a_id)
     .bind(sub)
     .execute(&pool)
     .await
-    .expect("failed to insert disconnected bnet identity");
+    .expect("failed to insert bnet identity");
 
-    // find_active_user_id_by_bnet_sub must return None — sub is available.
-    let active = tornare::features::auth::repo::find_active_user_id_by_bnet_sub(&pool, sub)
+    // Hard-delete via remove_bnet_identity.
+    tornare::features::auth::repo::remove_bnet_identity(&pool, user_a_id)
         .await
-        .unwrap_or_else(|_| panic!("find_active_user_id_by_bnet_sub must not error"));
-    assert!(
-        active.is_none(),
-        "a 'battlenet_disconnected' identity must not block a new connection for the same sub"
-    );
+        .unwrap_or_else(|_| panic!("remove_bnet_identity must not error"));
 
-    // find_user_id_by_bnet_sub (login flow) must still return user A's ID.
+    // Row must be fully gone — login flow returns None.
     let login_match = tornare::features::auth::repo::find_user_id_by_bnet_sub(&pool, sub)
         .await
         .unwrap_or_else(|_| panic!("find_user_id_by_bnet_sub must not error"));
-    assert_eq!(
-        login_match,
-        Some(user_a_id),
-        "login flow must still recognise user A through a disconnected sub"
+    assert!(
+        login_match.is_none(),
+        "after disconnect the sub must not be found by the login flow"
     );
+
+    // Row count in auth_identities for this user must be zero.
+    let count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM auth_identities WHERE provider_user_id = $1",
+    )
+    .bind(sub)
+    .fetch_one(&pool)
+    .await
+    .expect("count query must succeed");
+    assert_eq!(count.0, 0, "no auth_identity rows must remain after hard delete");
 }
 
 /// After a disconnect + reconnect via `ensure_bnet_identity`, the sub must be
 /// active again (`battlenet_disconnected` row upgraded to `battlenet`).
 #[sqlx::test]
-async fn ensure_bnet_identity_reactivates_disconnected_sub(pool: PgPool) {
+async fn ensure_bnet_identity_inserts_new_active_row(pool: PgPool) {
     let user_a_id = Uuid::new_v4();
     sqlx::query(
         "INSERT INTO users (id, email, username, display_name)
@@ -238,17 +239,8 @@ async fn ensure_bnet_identity_reactivates_disconnected_sub(pool: PgPool) {
     .expect("failed to insert user");
 
     let sub = "reactivate-sub-88888";
-    sqlx::query(
-        "INSERT INTO auth_identities (id, user_id, provider, provider_user_id)
-         VALUES (gen_random_uuid(), $1, 'battlenet_disconnected', $2)",
-    )
-    .bind(user_a_id)
-    .bind(sub)
-    .execute(&pool)
-    .await
-    .expect("failed to insert disconnected identity");
 
-    // Simulate the reconnect path the bnet callback uses.
+    // No prior row — ensure_bnet_identity must insert a fresh active row.
     tornare::features::auth::repo::ensure_bnet_identity(&pool, user_a_id, sub)
         .await
         .unwrap_or_else(|_| panic!("ensure_bnet_identity must succeed"));
@@ -260,11 +252,11 @@ async fn ensure_bnet_identity_reactivates_disconnected_sub(pool: PgPool) {
     .bind(sub)
     .fetch_one(&pool)
     .await
-    .expect("identity row must exist after reactivation");
+    .expect("identity row must exist after ensure_bnet_identity");
 
     assert_eq!(
         provider, "battlenet",
-        "ensure_bnet_identity must upgrade 'battlenet_disconnected' back to 'battlenet'"
+        "ensure_bnet_identity must create an active 'battlenet' row"
     );
 }
 
