@@ -5,7 +5,7 @@
  * proxyRefs unwraps Ref<T> → T at the type level, so all properties here
  * are their direct value types, not Ref-wrapped.
  */
-import type { Event, EventPlayer, EventTeam, OverwatchRank, RoleRank, SignupRequest } from '../types'
+import type { Event, EventPlayer, EventTeam, OverwatchRank, RoleRank, SignupRequest } from '../../types'
 
 export interface EventCtxType {
   // ── Core event state ──

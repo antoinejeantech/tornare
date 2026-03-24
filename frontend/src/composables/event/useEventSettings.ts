@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import type { EventSettingsCtx } from './event-ctx'
-import { formatOptionsForType } from './event-format'
-import { isoToDatetimeLocalValue, normalizeDatetimeLocalInput } from './dates'
+import { formatOptionsForType } from '../../lib/event-format'
+import { isoToDatetimeLocalValue, normalizeDatetimeLocalInput } from '../../lib/dates'
 
 export function useEventSettings({
   event, eventId, ensureOwnerAction, setError, setNotice, hydrateSelections, eventStore, confirm, router,

@@ -3,7 +3,7 @@ import { computed, inject, ref } from 'vue'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import ActionCtaButton from '../ui/ActionCtaButton.vue'
-import type { EventCtxType } from '../../lib/event-inject'
+import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventPlayer, OverwatchRole, RoleRank } from '../../types'
 
 const ctx = inject<EventCtxType>('eventCtx')!

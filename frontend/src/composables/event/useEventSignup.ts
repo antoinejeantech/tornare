@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import type { EventSignupCtx } from './event-ctx'
-import type { SignupRequest } from '../types'
+import type { SignupRequest } from '../../types'
 
 export function useEventSignup({
   event, eventId, canManageEvent, hasEventAdminAccess, ensureOwnerAction, setError, setNotice, hydrateSelections, eventStore, confirm,

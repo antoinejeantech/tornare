@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import type { SharedEventCtx } from './event-ctx'
-import type { Event, EventTeam } from '../types'
+import type { Event, EventTeam } from '../../types'
 
 export function useEventTeams({
   event, eventId, ensureOwnerAction, setError, setNotice, hydrateSelections, eventStore, confirm,

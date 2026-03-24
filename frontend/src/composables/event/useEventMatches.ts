@@ -1,6 +1,6 @@
 import { computed, nextTick, ref } from 'vue'
 import type { EventMatchesCtx } from './event-ctx'
-import { normalizeDatetimeLocalInput } from './dates'
+import { normalizeDatetimeLocalInput } from '../../lib/dates'
 
 export function useEventMatches({
   event, eventId, isTourneyEvent, ensureOwnerAction, setError, setNotice, hydrateSelections, matchupSelections, eventStore, matchStore, confirm,

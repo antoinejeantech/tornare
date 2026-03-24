@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 import type { EventPlayersCtx } from './event-ctx'
-import type { EventPlayer, RoleRank } from '../types'
+import type { EventPlayer, RoleRank } from '../../types'
 
 export function useEventPlayers({
   event, eventId, eventIsFull, ensureOwnerAction, setError, setNotice, hydrateSelections, clearLastBalancedFingerprint, eventStore, confirm,

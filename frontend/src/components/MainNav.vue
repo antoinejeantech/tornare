@@ -4,8 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../lib/api'
-import { useDebounce } from '../lib/useDebounce'
-import { useRequestSequence } from '../lib/useRequestSequence'
+import { useDebounce } from '../composables/useDebounce'
+import { useRequestSequence } from '../composables/useRequestSequence'
 import tornareLogo from '../assets/branding/tornare-logo-pulse.svg'
 
 interface UserSearchResult {
@@ -501,7 +501,7 @@ onBeforeUnmount(() => {
   outline: none;
   padding-block: 0.15rem;
   color: var(--ink-1);
-  font-size: inherit;
+  font-size: 0.8rem;
   font-weight: 620;
   letter-spacing: 0.01em;
   width: 148px;
