@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     app::{security::enforce_rate_limit, state::AppState},
     features::{
-        auth::{maybe_authenticated_user_id, require_authenticated_user_id},
+        auth::{maybe_authenticated_user_id, require_authenticated_user_id, strict_maybe_authenticated_user_id},
         events::models::{
             AddPlayerInput, AssignEventPlayerTeamInput,
             AutoBalanceTeamsResponse, CreateEventInput, CreateEventMatchInput,
@@ -40,7 +40,7 @@ pub async fn get_event(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> ApiResult<Event> {
-    let viewer_user_id = maybe_authenticated_user_id(&state, &headers);
+    let viewer_user_id = strict_maybe_authenticated_user_id(&state, &headers)?;
     service::get_event_public(&state, event_id, viewer_user_id)
         .await
         .map(Json)
@@ -50,7 +50,7 @@ pub async fn get_featured_event(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> ApiResult<Option<Event>> {
-    let viewer_user_id = maybe_authenticated_user_id(&state, &headers);
+    let viewer_user_id = strict_maybe_authenticated_user_id(&state, &headers)?;
     service::get_featured_event_public(&state, viewer_user_id)
         .await
         .map(Json)
