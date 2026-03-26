@@ -483,26 +483,25 @@ pub async fn set_matchup_for_user(
         return Err(not_found("Match not found in this event"));
     };
 
-    match (payload.team_a_id, payload.team_b_id) {
-        (Some(team_a_id), Some(team_b_id)) => {
-            if team_a_id == team_b_id {
-                return Err(bad_request("A match must have two different teams"));
-            }
+    let (team_a_id, team_b_id) = (payload.team_a_id, payload.team_b_id);
 
-            if !events_repo::event_team_exists(&state.pool, event_id, team_a_id).await? {
-                return Err(not_found("Team A not found in this event"));
-            }
-            if !events_repo::event_team_exists(&state.pool, event_id, team_b_id).await? {
-                return Err(not_found("Team B not found in this event"));
-            }
-
-            repo::set_matchup_in_tx(&mut tx, match_id, team_a_id, team_b_id).await?;
+    if let (Some(a), Some(b)) = (team_a_id, team_b_id) {
+        if a == b {
+            return Err(bad_request("A match must have two different teams"));
         }
-        (None, None) => {
-            repo::clear_matchup_in_tx(&mut tx, match_id).await?;
-        }
-        _ => return Err(bad_request("Provide both teams or clear both")),
     }
+    if let Some(a) = team_a_id {
+        if !events_repo::event_team_exists(&state.pool, event_id, a).await? {
+            return Err(not_found("Team A not found in this event"));
+        }
+    }
+    if let Some(b) = team_b_id {
+        if !events_repo::event_team_exists(&state.pool, event_id, b).await? {
+            return Err(not_found("Team B not found in this event"));
+        }
+    }
+
+    repo::set_matchup_in_tx(&mut tx, match_id, team_a_id, team_b_id).await?;
 
     if match_state.is_bracket {
         invalidate_match_winner_and_downstream(&mut tx, match_id).await?;
