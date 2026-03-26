@@ -50,6 +50,15 @@ pub fn not_found(message: &str) -> ApiError {
     )
 }
 
+pub fn conflict(message: &str) -> ApiError {
+    (
+        StatusCode::CONFLICT,
+        Json(ErrorResponse {
+            error: message.to_string(),
+        }),
+    )
+}
+
 pub fn internal_error(error: impl std::fmt::Display) -> ApiError {
     tracing::error!("{error}");
     (

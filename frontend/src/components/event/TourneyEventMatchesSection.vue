@@ -3,16 +3,11 @@ import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } fr
 import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventMatch } from '../../types'
 
-interface BracketRound {
-  id: string
-  label: string
-  cards: EventMatch[]
-}
-
 const ctx = inject<EventCtxType>('eventCtx')!
 const editingMatchups = ref<Record<string | number, boolean>>({})
 const bracketWrapEl = ref<HTMLElement | null>(null)
 const measuredCardHeight = ref(104)
+const bracketLinks = ref<Array<{ id: string; d: string; status: string }>>([])
 let resizeObserver: ResizeObserver | null = null
 
 function nextPowerOfTwo(value: number): number {
@@ -133,11 +128,20 @@ function displayTeamName(match: EventMatch, slot: 'A' | 'B'): string {
   return match.team_b_name || 'TBD'
 }
 
+function nextMatchIsFull(match: EventMatch): boolean {
+  if (!match.next_match_id) return false
+  const nextMatch = ctx.event?.matches?.find((m) => String(m.id) === String(match.next_match_id))
+  return Boolean(nextMatch && nextMatch.team_a_id && nextMatch.team_b_id)
+}
+
 function canReportWinner(match: EventMatch, teamId: string | number | null | undefined): boolean {
   if (!ctx.canManageEvent || !teamId) {
     return false
   }
   if (match.winner_team_id) {
+    return false
+  }
+  if (nextMatchIsFull(match)) {
     return false
   }
   return Boolean(match.team_a_id && match.team_b_id)
@@ -184,14 +188,9 @@ function roundListStyle(roundIndex: number) {
   const gap = Math.max(0, centerStep - cardHeight)
   const edgePadding = Math.max(0, (centerStep - cardHeight) / 2)
 
-  const previousCardsCount = rounds[roundIndex - 1]?.cards?.length || cardsCount
-  const childCenterStep = roundIndex > 0
-    ? roundCenterStep(previousCardsCount, cardHeight, baseGap)
-    : 0
   return {
     '--round-gap': `${gap}px`,
     '--round-pad': `${edgePadding}px`,
-    '--child-center-step': `${childCenterStep}px`,
   }
 }
 
@@ -282,22 +281,6 @@ const maxRoundCards = computed(() => {
   return Math.max(1, ...bracketRounds.value.map((round) => round.cards.length))
 })
 
-const linkageInfo = computed(() => {
-  const matches = Array.isArray(ctx.event?.matches) ? ctx.event.matches : []
-  const hasParent = new Set()
-  const hasNext = new Set()
-
-  for (const match of matches) {
-    const id = String(match.id)
-    if (match.next_match_id) {
-      hasNext.add(id)
-      hasParent.add(String(match.next_match_id))
-    }
-  }
-
-  return { hasParent, hasNext }
-})
-
 const hasGeneratedMatches = computed(() => {
   return Array.isArray(ctx.event?.matches) && ctx.event.matches.length > 0
 })
@@ -313,124 +296,6 @@ const hasEnoughTeamsForBracket = computed(() => {
 const hasPlayedMatches = computed(() => {
   return Array.isArray(ctx.event?.matches) && ctx.event.matches.some((match) => Boolean(match.winner_team_id))
 })
-
-const previewLinkageInfo = computed(() => {
-  const hasParent = new Set()
-  const hasNext = new Set()
-
-  const teamCount = Math.max(2, ctx.event?.teams?.length || 0)
-  const mainSize = mainBracketSize(teamCount)
-  const playInCount = teamCount - mainSize
-  const mainRoundStart = playInCount > 0 ? 2 : 1
-  const mainRounds = bracketRoundsCount(mainSize)
-
-  const placeholderId = (round: number, position: number) => `placeholder-${round}-${position}`
-
-  // Main bracket internal links (quarterfinals -> semifinals -> final, etc.)
-  for (let idx = 0; idx < mainRounds - 1; idx += 1) {
-    const round = mainRoundStart + idx
-    const matchesInRound = Math.max(1, mainSize >> (idx + 1))
-
-    for (let position = 1; position <= matchesInRound; position += 1) {
-      const currentId = placeholderId(round, position)
-      const parentRound = round + 1
-      const parentPosition = Math.floor((position + 1) / 2)
-      const parentId = placeholderId(parentRound, parentPosition)
-
-      hasNext.add(currentId)
-      hasParent.add(parentId)
-    }
-  }
-
-  // Play-in links are wired exactly like backend: direct slots first, then play-in slots.
-  if (playInCount > 0) {
-    const directCount = teamCount - (playInCount * 2)
-    const firstRoundMatches = Math.max(1, mainSize / 2)
-    const slots = []
-
-    for (let idx = 0; idx < directCount; idx += 1) {
-      slots.push({ type: 'direct' })
-    }
-    for (let idx = 0; idx < playInCount; idx += 1) {
-      slots.push({ type: 'playin', playInIdx: idx })
-    }
-
-    for (let position = 1; position <= firstRoundMatches; position += 1) {
-      const slotA = slots[(position - 1) * 2]
-      const slotB = slots[(position - 1) * 2 + 1]
-      const parentId = placeholderId(mainRoundStart, position)
-
-      if (slotA?.type === 'playin') {
-        const playInId = placeholderId(1, (slotA.playInIdx ?? 0) + 1)
-        hasNext.add(playInId)
-        hasParent.add(parentId)
-      }
-      if (slotB?.type === 'playin') {
-        const playInId = placeholderId(1, (slotB.playInIdx ?? 0) + 1)
-        hasNext.add(playInId)
-        hasParent.add(parentId)
-      }
-    }
-  }
-
-  return { hasParent, hasNext }
-})
-
-function hasParentLink(match: EventMatch): boolean {
-  const id = String(match.id)
-  if (hasGeneratedMatches.value) {
-    return linkageInfo.value.hasParent.has(id)
-  }
-  return previewLinkageInfo.value.hasParent.has(id)
-}
-
-function hasNextLink(match: EventMatch): boolean {
-  const id = String(match.id)
-  if (hasGeneratedMatches.value) {
-    return linkageInfo.value.hasNext.has(id)
-  }
-  return previewLinkageInfo.value.hasNext.has(id)
-}
-
-function showOutgoingLink(match: EventMatch, round: BracketRound, roundIndex: number): boolean {
-  if (!hasNextLink(match)) {
-    return false
-  }
-
-  const nextRound = bracketRounds.value[roundIndex + 1]
-  if (!nextRound) {
-    return false
-  }
-
-  return hasRegularTransition(nextRound.cards.length, round.cards.length)
-}
-
-function showParentFork(match: EventMatch, round: BracketRound, roundIndex: number): boolean {
-  if (!hasParentLink(match) || roundIndex <= 0) {
-    return false
-  }
-
-  const previousRound = bracketRounds.value[roundIndex - 1]
-  if (!previousRound) {
-    return false
-  }
-
-  return hasRegularTransition(round.cards.length, previousRound.cards.length)
-}
-
-function hasRegularTransition(parentCount: number, childCount: number): boolean {
-  return childCount === parentCount * 2
-}
-
-function roundCenterStep(cardsCount: number, cardHeight = 212, baseGap = 16): number {
-  const effectiveCardHeight = measuredCardHeight.value || cardHeight
-  const maxCards = maxRoundCards.value
-  const columnHeight = (maxCards * effectiveCardHeight) + ((maxCards - 1) * baseGap)
-  const safeCards = Math.max(1, cardsCount)
-
-  // Keep connector geometry in sync with roundListStyle center distribution.
-  return columnHeight / safeCards
-}
 
 async function refreshMeasuredCardHeight() {
   const hasEditing = Object.values(editingMatchups.value).some(Boolean)
@@ -460,12 +325,52 @@ async function refreshMeasuredCardHeight() {
   }
 }
 
+async function refreshBracketLinks() {
+  await nextTick()
+  const container = bracketWrapEl.value
+  if (!container) { bracketLinks.value = []; return }
+  const containerRect = container.getBoundingClientRect()
+  const matches = Array.isArray(ctx.event?.matches) ? ctx.event.matches : []
+  const links: Array<{ id: string; d: string; status: string }> = []
+
+  for (const match of matches) {
+    if (!match.next_match_id || match.isPlaceholder) continue
+    const fromEl = container.querySelector(`[data-match-id="${match.id}"]`) as HTMLElement | null
+    const toEl   = container.querySelector(`[data-match-id="${match.next_match_id}"]`) as HTMLElement | null
+    if (!fromEl || !toEl) continue
+
+    const fromRect = fromEl.getBoundingClientRect()
+    const toRect   = toEl.getBoundingClientRect()
+
+    const x1 = fromRect.right - containerRect.left
+    const y1 = fromRect.top + fromRect.height / 2 - containerRect.top
+    const x2 = toRect.left - containerRect.left
+    // Aim at slot A (top third) or slot B (bottom third) of the target card
+    const slotFraction = match.next_match_slot === 'A' ? 0.28
+                       : match.next_match_slot === 'B' ? 0.72
+                       : 0.5
+    const y2 = toRect.top + toRect.height * slotFraction - containerRect.top
+
+    // Right-angle path: horizontal → vertical → horizontal
+    const midX = (x1 + x2) / 2
+    const d = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`
+    const status = match.winner_team_id ? 'completed'
+                 : match.status === 'READY' ? 'ready'
+                 : match.status === 'COMPLETED' ? 'completed'
+                 : 'open'
+    links.push({ id: String(match.id), d, status })
+  }
+
+  bracketLinks.value = links
+}
+
 onMounted(async () => {
   await refreshMeasuredCardHeight()
 
   if (typeof ResizeObserver !== 'undefined' && bracketWrapEl.value) {
     resizeObserver = new ResizeObserver(() => {
       refreshMeasuredCardHeight()
+      refreshBracketLinks()
     })
     resizeObserver.observe(bracketWrapEl.value)
   }
@@ -482,8 +387,13 @@ watch(bracketRounds, () => {
   refreshMeasuredCardHeight()
 }, { deep: true })
 
+watch(() => ctx.event?.matches, () => {
+  refreshBracketLinks()
+}, { deep: true, immediate: true })
+
 watch(editingMatchups, () => {
   refreshMeasuredCardHeight()
+  refreshBracketLinks()
 }, { deep: true })
 </script>
 
@@ -574,13 +484,13 @@ watch(editingMatchups, () => {
           v-for="(round, roundIndex) in bracketRounds"
           :key="round.id"
           class="bracket-round"
-          :class="{ 'has-connectors': roundIndex > 0, 'round-first': roundIndex === 0 }"
         >
           <h4 class="bracket-round-title">{{ round.label }}</h4>
           <div class="bracket-round-list" :style="roundListStyle(roundIndex)">
             <article
               v-for="match in round.cards"
               :key="match.id"
+              :data-match-id="String(match.id)"
               class="bracket-match"
               :class="{
                 'is-ready': match.status === 'READY',
@@ -589,19 +499,6 @@ watch(editingMatchups, () => {
                 'is-editing-card': ctx.canManageEvent && !match.isPlaceholder && isEditingMatchup(match.id),
               }"
             >
-              <!-- Bracket connectors -->
-              <span
-                v-if="showOutgoingLink(match, round, roundIndex)"
-                class="child-outgoing-link"
-                aria-hidden="true"
-              ></span>
-              <span v-if="showParentFork(match, round, roundIndex)" class="parent-incoming-link" aria-hidden="true">
-                <span class="fork-segment fork-spine"></span>
-                <span class="fork-segment fork-arm-top"></span>
-                <span class="fork-segment fork-arm-bottom"></span>
-                <span class="fork-segment fork-arm-right"></span>
-              </span>
-
               <!-- Card header: title + status badge -->
               <div class="match-header">
                 <span
@@ -617,6 +514,13 @@ watch(editingMatchups, () => {
                 >
                   {{ match.winner_team_name ? 'Done' : (match.status || 'Open') }}
                 </span>
+                <button
+                  v-if="ctx.canManageEvent && !match.isPlaceholder && !match.winner_team_id && match.team_a_id && match.team_b_id && nextMatchIsFull(match)"
+                  class="match-warning-icon"
+                  type="button"
+                  data-tooltip="Next match is full &#x2014; clear a team there before reporting a result here"
+                  aria-label="Warning: next match is full"
+                >⚠️</button>
               </div>
 
               <!-- Team rows -->
@@ -716,6 +620,21 @@ watch(editingMatchups, () => {
             </article>
           </div>
         </section>
+
+      <!-- SVG overlay: bracket connectors -->
+      <svg
+        v-if="bracketLinks.length"
+        class="bracket-connectors-svg"
+        aria-hidden="true"
+      >
+        <path
+          v-for="link in bracketLinks"
+          :key="link.id"
+          :d="link.d"
+          class="bracket-connector-path"
+          :class="`connector-${link.status}`"
+        />
+      </svg>
       </div>
     </div>
   </div>
@@ -795,6 +714,7 @@ watch(editingMatchups, () => {
   gap: var(--col-gap);
   min-width: max-content;
   align-items: stretch;
+  position: relative;
 }
 
 /* ── Round column ─────────────────────────────── */
@@ -825,10 +745,8 @@ watch(editingMatchups, () => {
 
 /* ── Match card ───────────────────────────────── */
 .bracket-match {
-  --connector-stroke: 2px;
-  --connector-overlap: 2px;
-  --connector-ink: color-mix(in srgb, var(--line) 80%, transparent 20%);
   position: relative;
+  z-index: 1;
   /* All cards in a column must share the same height so that top: 50% on
      connectors resolves to the same absolute Y. Use min-height (not height)
      so content is never clipped; JS measures the tallest card and injects
@@ -849,17 +767,14 @@ watch(editingMatchups, () => {
 }
 
 .bracket-match.is-ready {
-  --connector-ink: color-mix(in srgb, var(--brand-1) 60%, var(--line) 40%);
   border-color: color-mix(in srgb, var(--brand-1) 35%, var(--line) 65%);
 }
 
 .bracket-match.is-completed {
-  --connector-ink: color-mix(in srgb, #1da56f 60%, var(--line) 40%);
   border-color: color-mix(in srgb, #17a36b 40%, var(--line) 60%);
 }
 
 .bracket-match.is-placeholder {
-  --connector-ink: color-mix(in srgb, var(--line) 60%, transparent 40%);
   opacity: 0.65;
   border-style: dashed;
 }
@@ -974,6 +889,56 @@ watch(editingMatchups, () => {
 }
 
 /* ── Admin controls ───────────────────────────── */
+.match-warning-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: help;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.match-warning-icon::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(200px, 80vw);
+  padding: 0.3rem 0.5rem;
+  background: #1c1917;
+  color: #fef9c3;
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1.4;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 20;
+  white-space: normal;
+  text-align: left;
+}
+
+.match-warning-icon:hover::after,
+.match-warning-icon:focus-visible::after {
+  opacity: 1;
+}
+
+/* Lift the card above its siblings so the tooltip isn't clipped by adjacent cards. */
+.bracket-match:has(.match-warning-icon:hover),
+.bracket-match:has(.match-warning-icon:focus-visible) {
+  z-index: 10;
+}
+
 .match-admin-row {
   display: flex;
   align-items: center;
@@ -988,62 +953,45 @@ watch(editingMatchups, () => {
   white-space: nowrap;
 }
 
-/* ── Bracket connectors ───────────────────────── */
-.child-outgoing-link {
+/* ── Play-in SVG connectors ──────────────────── */
+.bracket-connectors-svg {
   position: absolute;
-  right: calc((var(--col-gap) / -2) - var(--connector-overlap));
-  top: calc(50% - (var(--connector-stroke) / 2));
-  width: calc((var(--col-gap) / 2) + var(--connector-overlap));
-  height: var(--connector-stroke);
-  border-radius: var(--radius-pill);
-  background: var(--connector-ink);
-  pointer-events: none;
-}
-
-.parent-incoming-link {
-  position: absolute;
-  --fork-center-x: calc((100% - var(--connector-stroke)) / 2);
-  left: calc((var(--col-gap) / -2) - var(--connector-overlap));
-  top: 50%;
-  width: calc((var(--col-gap) / 2) + var(--connector-overlap));
-  height: var(--child-center-step, calc(var(--card-min-height) + 8px));
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.fork-segment {
-  position: absolute;
-  background: var(--connector-ink);
-  border-radius: var(--radius-pill);
-}
-
-.fork-spine {
-  left: var(--fork-center-x);
   top: 0;
-  width: var(--connector-stroke);
-  height: 100%;
-}
-
-.fork-arm-top,
-.fork-arm-bottom {
   left: 0;
-  width: calc(var(--fork-center-x) + var(--connector-stroke));
-  height: var(--connector-stroke);
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
 }
 
-.fork-arm-top {
-  top: calc(0px - (var(--connector-stroke) / 2));
+.bracket-connector-path {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
 }
 
-.fork-arm-bottom {
-  bottom: calc(0px - (var(--connector-stroke) / 2));
+/* Status-based colours */
+.connector-open {
+  stroke: color-mix(in srgb, var(--line) 80%, transparent 20%);
+  stroke-opacity: 0.7;
 }
 
-.fork-arm-right {
-  left: var(--fork-center-x);
-  width: calc(100% - var(--fork-center-x) + var(--connector-overlap));
-  top: calc(50% - (var(--connector-stroke) / 2));
-  height: var(--connector-stroke);
+.connector-ready {
+  stroke: color-mix(in srgb, var(--brand-1) 60%, var(--line) 40%);
+  stroke-opacity: 0.85;
+}
+
+.connector-completed {
+  stroke: color-mix(in srgb, #1da56f 60%, var(--line) 40%);
+  stroke-opacity: 0.85;
+}
+
+.connector-placeholder {
+  stroke: color-mix(in srgb, var(--line) 55%, transparent 45%);
+  stroke-opacity: 0.5;
+  stroke-dasharray: 4 3;
 }
 
 /* ── Stats bar ────────────────────────────────── */
@@ -1123,11 +1071,6 @@ watch(editingMatchups, () => {
   .bracket-round-list {
     gap: 0.5rem;
     min-height: auto;
-  }
-
-  .parent-incoming-link,
-  .child-outgoing-link {
-    display: none;
   }
 
   .bracket-match {

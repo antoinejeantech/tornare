@@ -18,7 +18,7 @@ use crate::{
         },
     },
     shared::{
-        errors::{bad_request, internal_error, not_found, ApiError},
+        errors::{bad_request, conflict, internal_error, not_found, ApiError},
         models::MessageResponse,
         numeric::i32_to_u8,
         serde_utils::NullableField,
@@ -252,13 +252,30 @@ pub async fn generate_tourney_bracket_for_user(
         PlayIn(usize),
     }
 
-    // Fill main round-1 slots with direct teams first, then play-in winners.
+    // Fill main round-1 slots, interleaving direct seeds with play-in slots.
+    // Each paired slot (slot_a, slot_b) of a main-round match ideally gets one
+    // direct seed + one play-in feeder so bye teams are spread across the bracket
+    // rather than facing each other. Extra direct seeds (when D > P) are paired
+    // together; extra play-ins (when P > D) likewise.
     let mut slots: Vec<FirstRoundSlot> = Vec::with_capacity(main_size);
-    for team_id in team_ids.iter().take(direct_count) {
-        slots.push(FirstRoundSlot::Direct(*team_id));
+    let num_mixed = direct_count.min(play_in_count);
+    for i in 0..num_mixed {
+        slots.push(FirstRoundSlot::Direct(team_ids[i]));
+        slots.push(FirstRoundSlot::PlayIn(i));
     }
-    for idx in 0..play_in_count {
-        slots.push(FirstRoundSlot::PlayIn(idx));
+    // Extra direct seeds (D > P): pair them together.
+    let mut di = num_mixed;
+    while di < direct_count {
+        slots.push(FirstRoundSlot::Direct(team_ids[di]));
+        slots.push(FirstRoundSlot::Direct(team_ids[di + 1]));
+        di += 2;
+    }
+    // Extra play-ins (P > D): pair them together.
+    let mut pi = num_mixed;
+    while pi < play_in_count {
+        slots.push(FirstRoundSlot::PlayIn(pi));
+        slots.push(FirstRoundSlot::PlayIn(pi + 1));
+        pi += 2;
     }
 
     for plan in plans
@@ -755,18 +772,6 @@ async fn propagate_match_winners(
             continue;
         };
 
-        match next_match_slot.as_deref() {
-            Some("A") => {
-                repo::set_matchup_slot_in_tx(tx, next_match_id, "A", current_winner_team_id)
-                    .await?;
-            }
-            Some("B") => {
-                repo::set_matchup_slot_in_tx(tx, next_match_id, "B", current_winner_team_id)
-                    .await?;
-            }
-            _ => continue,
-        }
-
         let (team_a_id, team_b_id, winner_already_set) =
             repo::get_match_state_in_tx(tx, next_match_id).await?;
 
@@ -774,17 +779,45 @@ async fn propagate_match_winners(
             continue;
         }
 
-        match (team_a_id, team_b_id) {
-            (Some(_), Some(_)) => {
-                repo::set_match_status_in_tx(tx, next_match_id, MatchStatus::Ready.as_db_value()).await?;
-            }
-            (Some(_), None) | (None, Some(_)) => {
-                repo::set_match_status_in_tx(tx, next_match_id, MatchStatus::Open.as_db_value()).await?;
-            }
-            (None, None) => {
-                repo::set_match_status_in_tx(tx, next_match_id, MatchStatus::Open.as_db_value()).await?;
-            }
+        // If both slots are already occupied the next match cannot accept another team.
+        if team_a_id.is_some() && team_b_id.is_some() {
+            return Err(conflict(
+                "Cannot advance winner: the next match already has two teams assigned",
+            ));
         }
+
+        // Use the configured slot when it is free; otherwise fall back to the other slot so
+        // that a direct-seeded (bye) team is never overwritten.
+        let effective_slot = match next_match_slot.as_deref() {
+            Some("A") => {
+                if team_a_id.is_none() {
+                    "A"
+                } else {
+                    "B"
+                }
+            }
+            Some("B") => {
+                if team_b_id.is_none() {
+                    "B"
+                } else {
+                    "A"
+                }
+            }
+            _ => continue,
+        };
+
+        repo::set_matchup_slot_in_tx(tx, next_match_id, effective_slot, current_winner_team_id)
+            .await?;
+
+        // Re-read to determine the updated status.
+        let (new_team_a_id, new_team_b_id, _) =
+            repo::get_match_state_in_tx(tx, next_match_id).await?;
+
+        let next_status = match (new_team_a_id, new_team_b_id) {
+            (Some(_), Some(_)) => MatchStatus::Ready.as_db_value(),
+            _ => MatchStatus::Open.as_db_value(),
+        };
+        repo::set_match_status_in_tx(tx, next_match_id, next_status).await?;
     }
 
     Ok(())
