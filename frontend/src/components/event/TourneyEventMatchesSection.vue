@@ -334,7 +334,7 @@ async function refreshBracketLinks() {
   const links: Array<{ id: string; d: string; status: string }> = []
 
   for (const match of matches) {
-    if (!match.next_match_id || (match as any).isPlaceholder) continue
+    if (!match.next_match_id || match.isPlaceholder) continue
     const fromEl = container.querySelector(`[data-match-id="${match.id}"]`) as HTMLElement | null
     const toEl   = container.querySelector(`[data-match-id="${match.next_match_id}"]`) as HTMLElement | null
     if (!fromEl || !toEl) continue
@@ -357,7 +357,6 @@ async function refreshBracketLinks() {
     const status = match.winner_team_id ? 'completed'
                  : match.status === 'READY' ? 'ready'
                  : match.status === 'COMPLETED' ? 'completed'
-                 : (match as any).isPlaceholder ? 'placeholder'
                  : 'open'
     links.push({ id: String(match.id), d, status })
   }
@@ -367,7 +366,6 @@ async function refreshBracketLinks() {
 
 onMounted(async () => {
   await refreshMeasuredCardHeight()
-  refreshBracketLinks()
 
   if (typeof ResizeObserver !== 'undefined' && bracketWrapEl.value) {
     resizeObserver = new ResizeObserver(() => {
