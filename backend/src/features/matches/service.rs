@@ -483,7 +483,12 @@ pub async fn set_matchup_for_user(
         return Err(not_found("Match not found in this event"));
     };
 
-    let (team_a_id, team_b_id) = (payload.team_a_id, payload.team_b_id);
+    let team_a_id = payload
+        .team_a_id
+        .ok_or_else(|| bad_request("team_a_id and team_b_id must both be provided"))?;
+    let team_b_id = payload
+        .team_b_id
+        .ok_or_else(|| bad_request("team_a_id and team_b_id must both be provided"))?;
 
     if let (Some(a), Some(b)) = (team_a_id, team_b_id) {
         if a == b {
