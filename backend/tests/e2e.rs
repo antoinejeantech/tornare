@@ -226,6 +226,25 @@ async fn user_can_register_login_create_and_read_event(pool: PgPool) {
         "set matchup should reject omitted team fields"
     );
 
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/matches/{match_id}/matchup"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "team_a_id": team_a_id,
+            "team_b_id": null
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        res.status().as_u16(),
+        200,
+        "set matchup should accept explicit null for one team"
+    );
+    let one_sided_match: Value = res.json().await.unwrap();
+    assert_eq!(one_sided_match["team_a_id"].as_str().unwrap(), team_a_id);
+    assert!(one_sided_match["team_b_id"].is_null());
+
     // 9. Set the matchup with the two teams.
     let res = client
         .post(format!("{base}/api/events/{event_id}/matches/{match_id}/matchup"))

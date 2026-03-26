@@ -6,6 +6,7 @@ use super::domain::{
 };
 use crate::shared::{
     errors::{bad_request, ApiError},
+    serde_utils::NullableField,
     validation::parse_rfc3339_timestamp,
 };
 
@@ -270,8 +271,10 @@ pub struct AssignEventPlayerTeamInput {
 
 #[derive(Deserialize)]
 pub struct SetMatchupInput {
-    pub team_a_id: Option<Option<Uuid>>,
-    pub team_b_id: Option<Option<Uuid>>,
+    #[serde(default)]
+    pub team_a_id: NullableField<Uuid>,
+    #[serde(default)]
+    pub team_b_id: NullableField<Uuid>,
 }
 
 #[derive(Deserialize)]

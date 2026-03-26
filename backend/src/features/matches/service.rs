@@ -21,6 +21,7 @@ use crate::{
         errors::{bad_request, internal_error, not_found, ApiError},
         models::MessageResponse,
         numeric::i32_to_u8,
+        serde_utils::NullableField,
         validation::normalize_optional_rfc3339_timestamp,
     },
 };
@@ -483,12 +484,20 @@ pub async fn set_matchup_for_user(
         return Err(not_found("Match not found in this event"));
     };
 
-    let team_a_id = payload
-        .team_a_id
-        .ok_or_else(|| bad_request("team_a_id and team_b_id must both be provided"))?;
-    let team_b_id = payload
-        .team_b_id
-        .ok_or_else(|| bad_request("team_a_id and team_b_id must both be provided"))?;
+    let team_a_id = match payload.team_a_id {
+        NullableField::Missing => {
+            return Err(bad_request("team_a_id and team_b_id must both be provided"));
+        }
+        NullableField::Null => None,
+        NullableField::Value(value) => Some(value),
+    };
+    let team_b_id = match payload.team_b_id {
+        NullableField::Missing => {
+            return Err(bad_request("team_a_id and team_b_id must both be provided"));
+        }
+        NullableField::Null => None,
+        NullableField::Value(value) => Some(value),
+    };
 
     if let (Some(a), Some(b)) = (team_a_id, team_b_id) {
         if a == b {
