@@ -270,8 +270,8 @@ pub struct AssignEventPlayerTeamInput {
 
 #[derive(Deserialize)]
 pub struct SetMatchupInput {
-    pub team_a_id: Option<Uuid>,
-    pub team_b_id: Option<Uuid>,
+    pub team_a_id: Option<Option<Uuid>>,
+    pub team_b_id: Option<Option<Uuid>>,
 }
 
 #[derive(Deserialize)]

@@ -12,4 +12,4 @@ pub use battlenet_handlers::{
 pub use handlers::{
     login, logout, me, refresh, register,
 };
-pub use service::{maybe_authenticated_user_id, require_authenticated_user_id};
+pub use service::{maybe_authenticated_user_id, require_authenticated_user_id, strict_maybe_authenticated_user_id};

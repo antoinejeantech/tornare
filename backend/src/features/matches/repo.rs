@@ -538,8 +538,8 @@ pub async fn set_match_status_in_tx(
 pub async fn set_matchup_in_tx(
     tx: &mut Transaction<'_, sqlx::Postgres>,
     match_id: Uuid,
-    team_a_id: Uuid,
-    team_b_id: Uuid,
+    team_a_id: Option<Uuid>,
+    team_b_id: Option<Uuid>,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
         "UPDATE event_matches
@@ -550,25 +550,6 @@ pub async fn set_matchup_in_tx(
     )
         .bind(team_a_id)
         .bind(team_b_id)
-        .bind(match_id)
-        .execute(&mut **tx)
-        .await
-        .map_err(internal_error)?;
-
-    Ok(())
-}
-
-pub async fn clear_matchup_in_tx(
-    tx: &mut Transaction<'_, sqlx::Postgres>,
-    match_id: Uuid,
-) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query(
-        "UPDATE event_matches
-         SET team_a_id = NULL,
-             team_b_id = NULL,
-             updated_at = NOW()
-         WHERE id = $1",
-    )
         .bind(match_id)
         .execute(&mut **tx)
         .await

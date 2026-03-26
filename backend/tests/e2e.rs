@@ -211,6 +211,21 @@ async fn user_can_register_login_create_and_read_event(pool: PgPool) {
         .to_string();
     assert_eq!(created_match["status"].as_str().unwrap(), "OPEN");
 
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/matches/{match_id}/matchup"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "team_a_id": team_a_id
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        res.status().as_u16(),
+        400,
+        "set matchup should reject omitted team fields"
+    );
+
     // 9. Set the matchup with the two teams.
     let res = client
         .post(format!("{base}/api/events/{event_id}/matches/{match_id}/matchup"))

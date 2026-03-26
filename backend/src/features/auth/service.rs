@@ -146,6 +146,28 @@ pub fn maybe_authenticated_user_id(state: &AppState, headers: &HeaderMap) -> Opt
     require_authenticated_user_id(state, headers).ok()
 }
 
+/// Like `maybe_authenticated_user_id` but returns `Err(401)` when an
+/// `Authorization: Bearer` header is present yet invalid or expired.
+/// Use this on endpoints that silently degrade to anonymous access so that
+/// the client's automatic token-refresh cycle is triggered correctly.
+pub fn strict_maybe_authenticated_user_id(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<Option<Uuid>, ApiError> {
+    let Some(auth_header) = headers
+        .get(AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+    else {
+        return Ok(None); // no header → anonymous
+    };
+
+    let token = auth_header
+        .strip_prefix("Bearer ")
+        .ok_or_else(|| unauthorized("Authorization header must use Bearer token"))?;
+
+    verify_access_token_str(state, token).map(Some)
+}
+
 pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<AuthUser, ApiError> {
     let Some(row) = repo::find_user_profile_by_id(&state.pool, user_id).await? else {
         return Err(unauthorized("User not found"));

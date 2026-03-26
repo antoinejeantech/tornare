@@ -92,6 +92,40 @@ function roundLabelFromMatches(round: number, cards: EventMatch[]): string {
   return knockoutLabel(cards.length)
 }
 
+function availableTeamsForMatch(matchId: string | number) {
+  const mid = String(matchId)
+  const matches = ctx.event?.matches ?? []
+  const excluded = new Set<string>()
+  const preserved = new Set<string>()
+  const currentMatch = matches.find((m) => String(m.id) === mid)
+  const currentSelection = ctx.matchupSelections[mid]
+
+  if (currentMatch?.team_a_id) preserved.add(String(currentMatch.team_a_id))
+  if (currentMatch?.team_b_id) preserved.add(String(currentMatch.team_b_id))
+  if (currentSelection?.teamAId) preserved.add(String(currentSelection.teamAId))
+  if (currentSelection?.teamBId) preserved.add(String(currentSelection.teamBId))
+
+  for (const m of matches) {
+    if (String(m.id) === mid) continue
+    if (!m.winner_team_id) {
+      // Active (unfinished) match — its assigned teams are busy
+      if (m.team_a_id) excluded.add(String(m.team_a_id))
+      if (m.team_b_id) excluded.add(String(m.team_b_id))
+    } else {
+      // Completed match — loser is eliminated; winner only belongs to its next match
+      const loserId = m.team_a_id === m.winner_team_id ? m.team_b_id : m.team_a_id
+      if (loserId) excluded.add(String(loserId))
+      const dest = m.next_match_id ? String(m.next_match_id) : null
+      if (dest !== mid) excluded.add(String(m.winner_team_id))
+    }
+  }
+
+  return (ctx.event?.teams ?? []).filter((t) => {
+    const teamId = String(t.id)
+    return preserved.has(teamId) || !excluded.has(teamId)
+  })
+}
+
 function displayTeamName(match: EventMatch, slot: 'A' | 'B'): string {
   if (slot === 'A') {
     return match.team_a_name || 'TBD'
@@ -603,7 +637,7 @@ watch(editingMatchups, () => {
                     @click.stop
                   >
                     <option value="">Choose team</option>
-                    <option v-for="team in ctx.event?.teams" :key="`t-a-${match.id}-${team.id}`" :value="String(team.id)">
+                    <option v-for="team in availableTeamsForMatch(match.id)" :key="`t-a-${match.id}-${team.id}`" :value="String(team.id)">
                       {{ team.name }}
                     </option>
                   </select>
@@ -635,7 +669,7 @@ watch(editingMatchups, () => {
                     @click.stop
                   >
                     <option value="">Choose team</option>
-                    <option v-for="team in ctx.event?.teams" :key="`t-b-${match.id}-${team.id}`" :value="String(team.id)">
+                    <option v-for="team in availableTeamsForMatch(match.id)" :key="`t-b-${match.id}-${team.id}`" :value="String(team.id)">
                       {{ team.name }}
                     </option>
                   </select>
