@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import type { AuthSession, AuthUser } from '../types'
-import { apiBase, apiCall, clearAccessToken, getAccessToken, setAccessToken, syncAccessTokenFromStorage } from '../lib/api'
+import { ApiHttpError, apiBase, apiCall, clearAccessToken, getAccessToken, setAccessToken, syncAccessTokenFromStorage } from '../lib/api'
 
 const REFRESH_TOKEN_STORAGE_KEY = 'tornare_refresh_token'
 let initializePromise: Promise<void> | null = null
@@ -160,9 +160,16 @@ export const useAuthStore = defineStore('auth', {
         if (this.accessToken) {
           try {
             await this.fetchMe()
-            this.syncTokensFromStorage()
-          } catch {
-            this.clearSession()
+          } catch (err) {
+            // Only clear session on definitive auth rejection (401/403).
+            // Transient failures (5xx, network errors on cold backend) must
+            // not delete the stored tokens — the access token is still valid
+            // and subsequent API calls will carry it correctly.
+            if (err instanceof ApiHttpError && (err.status === 401 || err.status === 403)) {
+              this.clearSession()
+            } else {
+              this.syncTokensFromStorage()
+            }
           }
         }
 

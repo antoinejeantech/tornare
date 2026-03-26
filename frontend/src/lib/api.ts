@@ -107,6 +107,13 @@ async function tryRefreshSession(): Promise<boolean> {
   return Boolean(body.access_token)
 }
 
+export class ApiHttpError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message)
+    this.name = 'ApiHttpError'
+  }
+}
+
 export interface ApiCallOptions extends Omit<RequestInit, 'headers'> {
   headers?: Record<string, string>
 }
@@ -153,7 +160,7 @@ export async function apiCall<T = unknown>(path: string, options: ApiCallOptions
     } catch {
       // no-op
     }
-    throw new Error(message)
+    throw new ApiHttpError(response.status, message)
   }
 
   return response.json() as Promise<T>
