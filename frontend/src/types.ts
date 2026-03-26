@@ -58,6 +58,7 @@ export interface EventMatch {
   status?: string
   isPlaceholder?: boolean
   next_match_id?: string | null
+  next_match_slot?: string | null
   players: EventPlayer[]
 }
 
