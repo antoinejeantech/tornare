@@ -96,6 +96,14 @@ function availableTeamsForMatch(matchId: string | number) {
   const mid = String(matchId)
   const matches = ctx.event?.matches ?? []
   const excluded = new Set<string>()
+  const preserved = new Set<string>()
+  const currentMatch = matches.find((m) => String(m.id) === mid)
+  const currentSelection = ctx.matchupSelections[mid]
+
+  if (currentMatch?.team_a_id) preserved.add(String(currentMatch.team_a_id))
+  if (currentMatch?.team_b_id) preserved.add(String(currentMatch.team_b_id))
+  if (currentSelection?.teamAId) preserved.add(String(currentSelection.teamAId))
+  if (currentSelection?.teamBId) preserved.add(String(currentSelection.teamBId))
 
   for (const m of matches) {
     if (String(m.id) === mid) continue
@@ -112,7 +120,10 @@ function availableTeamsForMatch(matchId: string | number) {
     }
   }
 
-  return (ctx.event?.teams ?? []).filter((t) => !excluded.has(String(t.id)))
+  return (ctx.event?.teams ?? []).filter((t) => {
+    const teamId = String(t.id)
+    return preserved.has(teamId) || !excluded.has(teamId)
+  })
 }
 
 function displayTeamName(match: EventMatch, slot: 'A' | 'B'): string {
