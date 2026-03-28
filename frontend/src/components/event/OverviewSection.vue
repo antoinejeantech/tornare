@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue'
 import { RouterLink } from 'vue-router'
-import { formatEventStartDate, getDateTimestamp } from '../../lib/dates'
+import { getDateTimestamp } from '../../lib/dates'
 import AppBadge from '../ui/AppBadge.vue'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
@@ -12,7 +12,6 @@ const ctx = inject<EventCtxType>('eventCtx')!
 const rosterCount = computed(() => ctx.event?.players.length || 0)
 const teamCount = computed(() => ctx.event?.teams.length || 0)
 const matchCount = computed(() => ctx.event?.matches.length || 0)
-const formattedStartDate = computed(() => formatEventStartDate(ctx.event?.start_date))
 const creatorProfileRoute = computed(() => {
   const creatorId = String(ctx.event?.creator_id || '').trim()
   if (!creatorId) {
@@ -97,14 +96,6 @@ const featuredPlayers = computed(() => {
 
   return [...ctx.event.players].slice(0, 3)
 })
-
-function matchupLabel(match: { team_a_name?: string | null; team_b_name?: string | null }): string {
-  if (!match.team_a_name || !match.team_b_name) {
-    return 'Matchup not set'
-  }
-
-  return `${match.team_a_name} vs ${match.team_b_name}`
-}
 
 function readinessLabel() {
   if (rosterCount.value === 0) {
