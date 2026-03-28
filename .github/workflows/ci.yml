@@ -18,8 +18,27 @@ env:
   DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
 
 jobs:
+  changes:
+    name: Detect Changed Paths
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
   backend:
     name: Cargo Check And Test
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || (needs.changes.outputs.backend == 'false' && needs.changes.outputs.frontend == 'false')
     runs-on: ubuntu-latest
 
     services:
@@ -55,6 +74,8 @@ jobs:
 
   frontend:
     name: Frontend Type Check
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || (needs.changes.outputs.backend == 'false' && needs.changes.outputs.frontend == 'false')
     runs-on: ubuntu-latest
 
     steps:
