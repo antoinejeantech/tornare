@@ -7,7 +7,7 @@ const ctx = inject<EventCtxType>('eventCtx')!
 const editingMatchups = ref<Record<string | number, boolean>>({})
 const bracketWrapEl = ref<HTMLElement | null>(null)
 const measuredCardHeight = ref(104)
-const bracketLinks = ref<Array<{ id: string; d: string; status: string }>>([])
+const bracketLinks = ref<Array<{ id: string; d: string; status: string; isPlayIn: boolean }>>([])
 let resizeObserver: ResizeObserver | null = null
 
 function nextPowerOfTwo(value: number): number {
@@ -331,7 +331,9 @@ async function refreshBracketLinks() {
   if (!container) { bracketLinks.value = []; return }
   const containerRect = container.getBoundingClientRect()
   const matches = Array.isArray(ctx.event?.matches) ? ctx.event.matches : []
-  const links: Array<{ id: string; d: string; status: string }> = []
+  // Round 1 is a play-in round only when higher rounds also exist.
+  const hasBracketRounds = matches.some(m => (m.round ?? 0) > 1)
+  const links: Array<{ id: string; d: string; status: string; isPlayIn: boolean }> = []
 
   for (const match of matches) {
     if (!match.next_match_id || match.isPlaceholder) continue
@@ -345,20 +347,37 @@ async function refreshBracketLinks() {
     const x1 = fromRect.right - containerRect.left
     const y1 = fromRect.top + fromRect.height / 2 - containerRect.top
     const x2 = toRect.left - containerRect.left
-    // Aim at slot A (top third) or slot B (bottom third) of the target card
-    const slotFraction = match.next_match_slot === 'A' ? 0.28
-                       : match.next_match_slot === 'B' ? 0.72
-                       : 0.5
-    const y2 = toRect.top + toRect.height * slotFraction - containerRect.top
 
-    // Right-angle path: horizontal → vertical → horizontal
-    const midX = (x1 + x2) / 2
-    const d = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`
+    // Target the vertical centre of the actual team-row slot in the destination card.
+    let y2: number
+    if (match.next_match_slot === 'A' || match.next_match_slot === 'B') {
+      const rowIndex = match.next_match_slot === 'A' ? 0 : 1
+      const row = toEl.querySelectorAll<HTMLElement>('.match-team-row')[rowIndex]
+      y2 = row
+        ? row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2 - containerRect.top
+        : toRect.top + toRect.height / 2 - containerRect.top
+    } else {
+      y2 = toRect.top + toRect.height / 2 - containerRect.top
+    }
+
+    const isPlayIn = hasBracketRounds && match.round === 1
+    let d: string
+    if (isPlayIn) {
+      // Bezier curve for play-in links: avoids crossing artefacts that occur
+      // when multiple play-in vertical segments share the same midX column.
+      const dx = Math.abs(x2 - x1) * 0.45
+      d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
+    } else {
+      // Right-angle path for bracket-internal links (QF → SF → F).
+      const midX = (x1 + x2) / 2
+      d = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2}`
+    }
+
     const status = match.winner_team_id ? 'completed'
                  : match.status === 'READY' ? 'ready'
                  : match.status === 'COMPLETED' ? 'completed'
                  : 'open'
-    links.push({ id: String(match.id), d, status })
+    links.push({ id: String(match.id), d, status, isPlayIn })
   }
 
   bracketLinks.value = links
@@ -632,7 +651,7 @@ watch(editingMatchups, () => {
           :key="link.id"
           :d="link.d"
           class="bracket-connector-path"
-          :class="`connector-${link.status}`"
+          :class="[`connector-${link.status}`, { 'connector-playin': link.isPlayIn }]"
         />
       </svg>
       </div>
@@ -968,8 +987,16 @@ watch(editingMatchups, () => {
 .bracket-connector-path {
   fill: none;
   stroke-width: 1.5;
+  /* Sharp corners for right-angle bracket paths */
   stroke-linecap: square;
   stroke-linejoin: miter;
+}
+
+/* Play-in links: smooth bezier curve + dashed stroke */
+.connector-playin {
+  stroke-dasharray: 5 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* Status-based colours */
@@ -986,12 +1013,6 @@ watch(editingMatchups, () => {
 .connector-completed {
   stroke: color-mix(in srgb, #1da56f 60%, var(--line) 40%);
   stroke-opacity: 0.85;
-}
-
-.connector-placeholder {
-  stroke: color-mix(in srgb, var(--line) 55%, transparent 45%);
-  stroke-opacity: 0.5;
-  stroke-dasharray: 4 3;
 }
 
 /* ── Stats bar ────────────────────────────────── */
