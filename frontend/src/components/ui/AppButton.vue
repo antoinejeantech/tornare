@@ -4,12 +4,17 @@ import { RouterLink } from 'vue-router'
 import type { RouteLocationRaw } from 'vue-router'
 
 const props = withDefaults(defineProps<{
-  to: RouteLocationRaw
+  to?: RouteLocationRaw
+  disabled?: boolean
+  type?: 'button' | 'submit' | 'reset'
   variant?: string
   fullWidth?: boolean
   withTopSpacing?: boolean
   size?: string
 }>(), {
+  to: undefined,
+  disabled: false,
+  type: 'button',
   variant: 'solid',
   fullWidth: true,
   withTopSpacing: true,
@@ -34,9 +39,21 @@ const sizeClass = computed(() => {
 </script>
 
 <template>
-  <RouterLink :to="to" :class="['event-action-btn', variantClass, widthClass, spacingClass, sizeClass]">
+  <RouterLink
+    v-if="to !== undefined"
+    :to="to"
+    :class="['event-action-btn', variantClass, widthClass, spacingClass, sizeClass]"
+  >
     <slot>Open event</slot>
   </RouterLink>
+  <button
+    v-else
+    :type="type"
+    :disabled="disabled"
+    :class="['event-action-btn', variantClass, widthClass, spacingClass, sizeClass]"
+  >
+    <slot>Open event</slot>
+  </button>
 </template>
 
 <style scoped>

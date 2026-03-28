@@ -8,7 +8,7 @@ import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
-import EventActionButton from '../components/ui/EventActionButton.vue'
+import AppButton from '../components/ui/AppButton.vue'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
 import type { Event } from '../types'
 
@@ -242,7 +242,7 @@ onMounted(async () => {
       </div>
       <div class="home-hero-actions">
         <ActionCtaButton to="/events">Open Event Hub</ActionCtaButton>
-        <EventActionButton
+        <AppButton
           to="/news"
           variant="muted"
           size="cta"
@@ -251,7 +251,7 @@ onMounted(async () => {
           class="home-hero-secondary-btn"
         >
           Latest Updates
-        </EventActionButton>
+        </AppButton>
       </div>
     </section>
 
@@ -324,12 +324,12 @@ onMounted(async () => {
               <strong class="home-countdown-value">{{ countdownLabel(event.start_date) }}</strong>
               <h3 class="home-countdown-title">{{ event.name }}</h3>
               <p class="muted">{{ formatEventStartDate(event.start_date) || 'No date set' }}</p>
-              <EventActionButton
+              <AppButton
                 :to="{ name: 'event', params: { id: event.id } }"
                 :variant="index === 0 ? 'solid' : 'muted'"
               >
                 Open event
-              </EventActionButton>
+              </AppButton>
           </article>
           <article v-if="countdownEvents.length === 0" class="home-countdown home-countdown-empty">
             <span class="home-countdown-label">Up Next</span>

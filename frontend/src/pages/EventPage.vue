@@ -21,6 +21,7 @@ import OverviewSection from '../components/event/OverviewSection.vue'
 import SignupRequestsSection from '../components/event/SignupRequestsSection.vue'
 import SettingsSection from '../components/event/SettingsSection.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
+import AppButton from '../components/ui/AppButton.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import type { Event } from '../types'
 
@@ -449,15 +450,15 @@ provide('eventCtx', proxyRefs({
               </div>
             </div>
             <div class="event-header-actions">
-              <button
+              <AppButton
                 v-if="hasEventAdminAccess"
-                class="btn-secondary"
                 :disabled="updatingFeaturedEvent"
-                type="button"
+                :full-width="false"
+                :with-top-spacing="false"
                 @click="setFeaturedEvent(!event.is_featured)"
               >
                 {{ updatingFeaturedEvent ? 'Updating...' : (event.is_featured ? 'Remove spotlight' : 'Set as spotlight') }}
-              </button>
+              </AppButton>
               <ActionCtaButton v-if="headerJoinRoute && !event.is_ended" :to="headerJoinRoute">
                 <span class="material-symbols-rounded" aria-hidden="true">how_to_reg</span>
                 Join event
