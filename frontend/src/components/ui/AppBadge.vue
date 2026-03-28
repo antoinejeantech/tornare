@@ -1,5 +1,5 @@
 <script lang="ts">
-export const VARIANTS = ['ok', 'warning', 'danger', 'info', 'neutral', 'accent', 'muted']
+export const VARIANTS = ['ok', 'warning', 'danger', 'info', 'neutral', 'accent', 'muted', 'chip']
 </script>
 
 <script setup lang="ts">
@@ -108,5 +108,11 @@ const styleObject = computed(() => ({
   background: var(--bg-1);
   color: var(--ink-muted);
   border-color: var(--line);
+}
+
+.app-badge.is-chip {
+  background: color-mix(in srgb, var(--card) 78%, var(--bg-1) 22%);
+  color: color-mix(in srgb, white 94%, var(--ink-1) 6%);
+  border-color: color-mix(in srgb, var(--line) 86%, var(--bg-1) 14%);
 }
 </style>
