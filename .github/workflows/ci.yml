@@ -12,6 +12,10 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: read
+
 env:
   CARGO_TERM_COLOR: always
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -29,6 +33,7 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           filters: |
             backend:
               - 'backend/**'
