@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRegisterSW } from 'virtual:pwa-register/vue'
+import { needRefresh, applyUpdate as doUpdate } from '@/lib/pwa'
 
-const { needRefresh, updateServiceWorker } = useRegisterSW()
 const updating = ref(false)
 
 async function applyUpdate() {
   updating.value = true
-  await updateServiceWorker(true)
+  try {
+    await doUpdate()
+  } finally {
+    updating.value = false
+  }
 }
 </script>
 

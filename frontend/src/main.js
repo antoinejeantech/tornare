@@ -1,6 +1,6 @@
+import './lib/pwa'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { registerSW } from 'virtual:pwa-register'
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import App from './App.vue'
@@ -65,5 +65,4 @@ router.afterEach((to) => {
 	document.title = typeof to.meta.title === 'string' ? to.meta.title : 'Tornare'
 })
 
-registerSW({ immediate: false })
 createApp(App).use(pinia).use(router).mount('#app')
