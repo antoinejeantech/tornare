@@ -3,6 +3,7 @@ import { RouterLink, RouterView } from 'vue-router'
 import MainNav from './components/MainNav.vue'
 import AlertHost from './components/AlertHost.vue'
 import ConfirmHost from './components/ConfirmHost.vue'
+import PwaUpdatePrompt from './components/PwaUpdatePrompt.vue'
 </script>
 
 <template>
@@ -11,6 +12,7 @@ import ConfirmHost from './components/ConfirmHost.vue'
     <RouterView />
     <AlertHost />
     <ConfirmHost />
+    <PwaUpdatePrompt />
     <footer class="app-footer">
       <div class="app-footer-inner">
         <span>© 2026 Tornare. All rights reserved.</span>
