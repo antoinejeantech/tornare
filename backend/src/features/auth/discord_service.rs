@@ -44,6 +44,7 @@ struct DiscordUserInfo {
     username: String,
     global_name: Option<String>,
     email: Option<String>,
+    avatar: Option<String>,
 }
 
 enum OAuthMode {
@@ -75,7 +76,7 @@ pub async fn handle_discord_redirect(
             bad_request("Invalid or expired OAuth state")
         })?;
 
-    let (sub, discord_username, global_name, email) =
+    let (sub, discord_username, global_name, email, avatar_url) =
         exchange_discord_code(state, code).await?;
 
     match mode {
@@ -89,6 +90,7 @@ pub async fn handle_discord_redirect(
                     "discord login matched existing sub mapping; issuing auth"
                 );
                 repo::ensure_discord_identity(&state.pool, existing_user_id, &sub, &discord_username).await?;
+                repo::update_user_avatar_url(&state.pool, existing_user_id, avatar_url.as_deref()).await?;
                 let user = service::get_auth_user_by_id(state, existing_user_id).await?;
                 let auth = service::issue_auth_response(state, user, None).await?;
                 return Ok(DiscordCallbackResult::LoggedIn(auth));
@@ -109,14 +111,14 @@ pub async fn handle_discord_redirect(
                 ));
             }
 
-            let user_id = create_discord_user(state, &sub, &discord_username, &global_name, &email).await?;
+            let user_id = create_discord_user(state, &sub, &discord_username, &global_name, &email, avatar_url.as_deref()).await?;
             let user = service::get_auth_user_by_id(state, user_id).await?;
             let auth = service::issue_auth_response(state, user, None).await?;
             Ok(DiscordCallbackResult::LoggedIn(auth))
         }
         OAuthMode::Connect(user_id) => {
             info!(%user_id, "discord oauth mode=connect");
-            handle_discord_connect(state, user_id, &sub, &discord_username).await?;
+            handle_discord_connect(state, user_id, &sub, &discord_username, avatar_url.as_deref()).await?;
             Ok(DiscordCallbackResult::Connected(user_id))
         }
     }
@@ -229,7 +231,7 @@ fn build_discord_http_client() -> Result<reqwest::Client, ApiError> {
 async fn exchange_discord_code(
     state: &AppState,
     code: &str,
-) -> Result<(String, String, Option<String>, Option<String>), ApiError> {
+) -> Result<(String, String, Option<String>, Option<String>, Option<String>), ApiError> {
     info!("discord token exchange started");
     let client = build_discord_http_client()?;
 
@@ -287,11 +289,17 @@ async fn exchange_discord_code(
 
     info!("discord userinfo resolved");
 
+    let avatar_url = userinfo.avatar.as_deref().map(|hash| {
+        let ext = if hash.starts_with("a_") { "gif" } else { "png" };
+        format!("https://cdn.discordapp.com/avatars/{}/{}.{}?size=256", userinfo.id, hash, ext)
+    });
+
     Ok((
         userinfo.id,
         userinfo.username,
         userinfo.global_name,
         userinfo.email,
+        avatar_url,
     ))
 }
 
@@ -301,6 +309,7 @@ async fn create_discord_user(
     discord_username: &str,
     global_name: &Option<String>,
     email: &str,
+    avatar_url: Option<&str>,
 ) -> Result<Uuid, ApiError> {
     let display_name = global_name
         .as_deref()
@@ -311,7 +320,7 @@ async fn create_discord_user(
     let username = resolve_unique_username(&state.pool, &base_username).await?;
 
     let user_id = Uuid::new_v4();
-    repo::insert_discord_user(&state.pool, user_id, email, &username, display_name).await?;
+    repo::insert_discord_user(&state.pool, user_id, email, &username, display_name, avatar_url).await?;
     repo::ensure_discord_identity(&state.pool, user_id, sub, discord_username).await?;
     repo::insert_default_role(&state.pool, user_id).await?;
     info!(%user_id, "discord login created new user");
@@ -323,6 +332,7 @@ async fn handle_discord_connect(
     user_id: Uuid,
     sub: &str,
     username: &str,
+    avatar_url: Option<&str>,
 ) -> Result<(), ApiError> {
     info!(%user_id, "handling discord connect");
     if let Some(existing_id) = repo::find_user_id_by_discord_sub(&state.pool, sub).await? {
@@ -333,10 +343,12 @@ async fn handle_discord_connect(
             ));
         }
         repo::ensure_discord_identity(&state.pool, user_id, sub, username).await?;
+        repo::update_user_avatar_url(&state.pool, user_id, avatar_url).await?;
         info!(%user_id, "discord connect re-linked existing identity");
         return Ok(());
     }
     repo::ensure_discord_identity(&state.pool, user_id, sub, username).await?;
+    repo::update_user_avatar_url(&state.pool, user_id, avatar_url).await?;
     info!(%user_id, "discord connect linked new identity");
     Ok(())
 }
