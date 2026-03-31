@@ -101,14 +101,32 @@ export const useAuthStore = defineStore('auth', {
       this.initialized = true
     },
     async connectBnetInit(): Promise<void> {
-      window.location.href = `${apiBase}/api/auth/battlenet/connect-init?token=${encodeURIComponent(this.accessToken)}`
+      const response = await fetch(`${apiBase}/api/auth/battlenet/connect-init`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string }
+        throw new Error(body?.error || 'Failed to initiate Battle.net connection')
+      }
+      const { redirect_url } = await response.json() as { redirect_url: string }
+      window.location.href = redirect_url
     },
     async disconnectBnet(): Promise<void> {
       await apiCall('/api/auth/battlenet/disconnect', { method: 'DELETE' })
       await this.fetchMe()
     },
     async connectDiscordInit(): Promise<void> {
-      window.location.href = `${apiBase}/api/auth/discord/connect-init?token=${encodeURIComponent(this.accessToken)}`
+      const response = await fetch(`${apiBase}/api/auth/discord/connect-init`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({})) as { error?: string }
+        throw new Error(body?.error || 'Failed to initiate Discord connection')
+      }
+      const { redirect_url } = await response.json() as { redirect_url: string }
+      window.location.href = redirect_url
     },
     async disconnectDiscord(): Promise<void> {
       await apiCall('/api/auth/discord/disconnect', { method: 'DELETE' })

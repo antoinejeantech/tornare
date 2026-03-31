@@ -30,7 +30,9 @@ pub fn build_app(state: AppState) -> Router {
     let cors = if allow_any || parsed_allowed_origins.is_empty() {
         CorsLayer::new().allow_origin(Any)
     } else {
-        CorsLayer::new().allow_origin(parsed_allowed_origins)
+        CorsLayer::new()
+            .allow_origin(parsed_allowed_origins)
+            .allow_credentials(true)
     }
         .allow_methods([
             Method::GET,
