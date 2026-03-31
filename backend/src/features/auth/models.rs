@@ -16,6 +16,7 @@ pub struct AuthUser {
     pub has_password: bool,
     pub has_discord_identity: bool,
     pub discord_username: Option<String>,
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Serialize)]

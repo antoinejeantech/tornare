@@ -191,6 +191,7 @@ pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<Auth
         has_password: row.has_password,
         has_discord_identity: row.has_discord_identity,
         discord_username: row.discord_username,
+        avatar_url: row.avatar_url,
     })
 }
 

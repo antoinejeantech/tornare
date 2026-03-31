@@ -127,6 +127,7 @@ export interface AuthUser {
   has_password: boolean
   has_discord_identity: boolean
   discord_username: string | null
+  avatar_url: string | null
 }
 
 export interface AuthSession {

@@ -41,6 +41,7 @@ pub async fn get_user_profile_public(
         has_password: row.has_password,
         has_discord_identity: row.has_discord_identity,
         discord_username: row.discord_username,
+        avatar_url: row.avatar_url,
     })
 }
 
@@ -139,6 +140,33 @@ pub async fn update_user_profile_for_user(
         repo::update_user_password_hash(&state.pool, target_user_id, &password_hash).await?;
     }
 
+    get_user_profile_public(state, target_user_id).await
+}
+
+pub async fn update_user_avatar(
+    state: &AppState,
+    authenticated_user_id: Uuid,
+    target_user_id: Uuid,
+    avatar_url: Option<&str>,
+) -> Result<AuthUser, ApiError> {
+    use crate::features::users::models::ALLOWED_PRESET_AVATARS;
+
+    if authenticated_user_id != target_user_id {
+        let Some(actor) = repo::find_user_profile_by_id(&state.pool, authenticated_user_id).await? else {
+            return Err(forbidden("You do not have permission to edit this profile"));
+        };
+        if !actor.is_active || !actor.role.eq_ignore_ascii_case("admin") {
+            return Err(forbidden("You can only edit your own profile unless you are an admin"));
+        }
+    }
+
+    if let Some(url) = avatar_url {
+        if !ALLOWED_PRESET_AVATARS.contains(&url) {
+            return Err(bad_request("Invalid avatar selection"));
+        }
+    }
+
+    repo::update_user_avatar_url(&state.pool, target_user_id, avatar_url).await?;
     get_user_profile_public(state, target_user_id).await
 }
 

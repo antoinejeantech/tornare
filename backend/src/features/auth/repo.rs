@@ -23,6 +23,7 @@ pub struct UserProfileRow {
     pub has_discord_identity: bool,
     pub discord_username: Option<String>,
     pub has_password: bool,
+    pub avatar_url: Option<String>,
 }
 
 /// Active session looked up by refresh-token hash.
@@ -172,7 +173,8 @@ pub async fn find_user_profile_by_id(
                      WHERE ai.user_id = u.id
                        AND ai.provider = 'discord'
                      LIMIT 1) AS discord_username,
-                    (u.password_hash IS NOT NULL) AS has_password
+                    (u.password_hash IS NOT NULL) AS has_password,
+                    u.avatar_url
                  FROM users u
                  LEFT JOIN user_game_profiles ugp
                      ON ugp.user_id = u.id
@@ -201,6 +203,7 @@ pub async fn find_user_profile_by_id(
         has_discord_identity: r.get("has_discord_identity"),
         discord_username: r.get("discord_username"),
         has_password: r.get("has_password"),
+        avatar_url: r.get("avatar_url"),
     }))
 }
 
@@ -459,17 +462,33 @@ pub async fn insert_discord_user(
     email: &str,
     username: &str,
     display_name: &str,
+    avatar_url: Option<&str>,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO users (id, email, username, display_name) VALUES ($1, $2, $3, $4)",
+        "INSERT INTO users (id, email, username, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5)",
     )
     .bind(user_id)
     .bind(email)
     .bind(username)
     .bind(display_name)
+    .bind(avatar_url)
     .execute(pool)
     .await
     .map_err(internal_error)?;
+    Ok(())
+}
+
+pub async fn update_user_avatar_url(
+    pool: &PgPool,
+    user_id: Uuid,
+    avatar_url: Option<&str>,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("UPDATE users SET avatar_url = $1 WHERE id = $2")
+        .bind(avatar_url)
+        .bind(user_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
     Ok(())
 }
 
