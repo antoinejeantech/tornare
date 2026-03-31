@@ -34,7 +34,7 @@ struct AccessClaims {
 pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<AuthResponse, ApiError> {
     validate_register_input(&payload)?;
 
-    let normalized_email = normalize_email(&payload.email);
+    let normalized_email = normalize_email(&payload.email)?;
     if repo::email_exists(&state.pool, &normalized_email).await? {
         return Err(bad_request("Email is already registered"));
     }
@@ -64,9 +64,9 @@ pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<A
 }
 
 pub async fn login_user(state: &AppState, payload: LoginInput) -> Result<AuthResponse, ApiError> {
-    let normalized_email = normalize_email(&payload.email);
+    let normalized_email = normalize_email(&payload.email)?;
 
-    if normalized_email.is_empty() || payload.password.is_empty() {
+    if payload.password.is_empty() {
         return Err(bad_request("Email and password are required"));
     }
 
@@ -195,10 +195,7 @@ pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<Auth
 }
 
 fn validate_register_input(payload: &RegisterInput) -> Result<(), ApiError> {
-    let email = normalize_email(&payload.email);
-    if email.is_empty() || !email.contains('@') {
-        return Err(bad_request("A valid email is required"));
-    }
+    normalize_email(&payload.email)?;
 
     if payload.password.len() < 8 {
         return Err(bad_request("Password must be at least 8 characters long"));

@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{
     app::state::AppState,
     features::auth::models::AuthResponse,
-    shared::errors::{bad_request, internal_error, ApiError},
+    shared::{errors::{ApiError, bad_request, internal_error}, validation::normalize_email},
 };
 
 use super::repo;
@@ -94,12 +94,13 @@ pub async fn handle_discord_redirect(
                 return Ok(DiscordCallbackResult::LoggedIn(auth));
             }
 
-            let email = email.ok_or_else(|| {
+            let raw_email = email.ok_or_else(|| {
                 warn!("discord login: no email returned by provider");
                 bad_request(
                     "Discord did not provide an email address. Make sure your Discord account has a verified email.",
                 )
             })?;
+            let email = normalize_email(&raw_email)?;
 
             // If an account with this email exists → ask them to log in and connect from profile
             if repo::find_user_login_by_email(&state.pool, &email).await?.is_some() {

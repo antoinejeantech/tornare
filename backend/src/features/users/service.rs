@@ -67,10 +67,7 @@ pub async fn update_user_profile_for_user(
 
     let username = normalize_username(&payload.username)?;
 
-    let email = normalize_email(&payload.email);
-    if email.is_empty() || !email.contains('@') {
-        return Err(bad_request("A valid email is required"));
-    }
+    let email = normalize_email(&payload.email)?;
 
     if repo::email_exists_for_other_user(&state.pool, target_user_id, &email).await? {
         return Err(bad_request("Email is already registered"));

@@ -127,10 +127,7 @@ pub async fn complete_battlenet_signup(
         return Err(bad_request("Missing pending signup token"));
     }
 
-    let email = normalize_email(email);
-    if email.is_empty() || !email.contains('@') {
-        return Err(bad_request("A valid email is required"));
-    }
+    let email = normalize_email(email)?;
 
     let claims = decode::<BnetPendingSignupClaims>(
         pending_token,
