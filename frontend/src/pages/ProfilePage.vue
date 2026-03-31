@@ -607,8 +607,6 @@ async function loadUserEvents() {
           :overwatch-summary-rows="overwatchSummaryRows"
           :overwatch-logo="overwatchLogo"
         >
-          <template #overwatch-bnet-action></template>
-
           <template v-if="canEdit" #overwatch-ranks>
             <template v-if="!editingRanks">
               <div class="rank-tiles-wrap">
