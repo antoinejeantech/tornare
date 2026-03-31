@@ -251,3 +251,121 @@ async fn admin_delete_of_nonexistent_user_returns_404(pool: PgPool) {
         "deleting a non-existent user must return 404"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Avatar picker
+// ---------------------------------------------------------------------------
+
+/// Updating to a valid preset path must succeed and return the new avatar_url.
+#[sqlx::test]
+async fn set_avatar_to_valid_preset_succeeds(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let user = register(&client, &base, "avatarok@test.local", "avatarok").await;
+    let user_id = user["user"]["id"].as_str().expect("must have id").to_string();
+    let token = user["access_token"].as_str().expect("must have token").to_string();
+
+    let res = client
+        .patch(format!("{base}/api/users/{user_id}/avatar"))
+        .bearer_auth(&token)
+        .json(&json!({ "avatar_url": "/avatars/tracer.webp" }))
+        .send()
+        .await
+        .expect("request must complete");
+    assert_eq!(res.status().as_u16(), 200, "valid preset must return 200");
+
+    let body: Value = res.json().await.expect("must return JSON");
+    assert_eq!(
+        body["avatar_url"].as_str(),
+        Some("/avatars/tracer.webp"),
+        "returned avatar_url must match the preset"
+    );
+}
+
+/// Submitting an arbitrary external URL must be rejected with 400.
+#[sqlx::test]
+async fn set_avatar_to_arbitrary_url_is_rejected(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let user = register(&client, &base, "avatarbad@test.local", "avatarbad").await;
+    let user_id = user["user"]["id"].as_str().expect("must have id").to_string();
+    let token = user["access_token"].as_str().expect("must have token").to_string();
+
+    let res = client
+        .patch(format!("{base}/api/users/{user_id}/avatar"))
+        .bearer_auth(&token)
+        .json(&json!({ "avatar_url": "https://evil.example/steal.png" }))
+        .send()
+        .await
+        .expect("request must complete");
+    assert_eq!(
+        res.status().as_u16(),
+        400,
+        "arbitrary URL must be rejected with 400"
+    );
+}
+
+/// Sending null must reset the avatar_url to null (back to initials fallback).
+#[sqlx::test]
+async fn set_avatar_to_null_resets_avatar(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let user = register(&client, &base, "avatarnull@test.local", "avatarnull").await;
+    let user_id = user["user"]["id"].as_str().expect("must have id").to_string();
+    let token = user["access_token"].as_str().expect("must have token").to_string();
+
+    // First set a preset.
+    client
+        .patch(format!("{base}/api/users/{user_id}/avatar"))
+        .bearer_auth(&token)
+        .json(&json!({ "avatar_url": "/avatars/mercy.webp" }))
+        .send()
+        .await
+        .expect("request must complete");
+
+    // Then reset to null.
+    let res = client
+        .patch(format!("{base}/api/users/{user_id}/avatar"))
+        .bearer_auth(&token)
+        .json(&json!({ "avatar_url": null }))
+        .send()
+        .await
+        .expect("request must complete");
+    assert_eq!(res.status().as_u16(), 200, "null reset must return 200");
+
+    let body: Value = res.json().await.expect("must return JSON");
+    assert!(
+        body["avatar_url"].is_null(),
+        "avatar_url must be null after reset; got: {}",
+        body["avatar_url"]
+    );
+}
+
+/// A user must not be able to change another user's avatar.
+#[sqlx::test]
+async fn user_cannot_set_another_users_avatar(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let alice = register(&client, &base, "alice_av@test.local", "alice_av").await;
+    let bob = register(&client, &base, "bob_av@test.local", "bob_av").await;
+
+    let bob_id = bob["user"]["id"].as_str().expect("must have id").to_string();
+    let alice_token = alice["access_token"].as_str().expect("must have token").to_string();
+
+    let res = client
+        .patch(format!("{base}/api/users/{bob_id}/avatar"))
+        .bearer_auth(&alice_token)
+        .json(&json!({ "avatar_url": "/avatars/genji.webp" }))
+        .send()
+        .await
+        .expect("request must complete");
+    assert_eq!(
+        res.status().as_u16(),
+        403,
+        "changing another user's avatar must return 403"
+    );
+}
