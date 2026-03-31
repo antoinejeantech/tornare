@@ -74,8 +74,8 @@ const themeMode = ref('dark')
 const THEME_STORAGE_KEY = 'tornare_theme'
 
 const loginRoute = computed(() => {
-  const redirect = route.name === 'auth' ? '/events' : route.fullPath
-  return { name: 'auth', query: { redirect } }
+  const redirect = (route.name === 'login' || route.name === 'register') ? '/events' : route.fullPath
+  return { name: 'login', query: { redirect } }
 })
 const authLabel = computed(() => authStore.user?.display_name || 'Account')
 const profileRoute = computed(() => {
@@ -238,10 +238,14 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </div>
-        <RouterLink v-if="!authStore.isAuthenticated" class="top-nav-link" :to="loginRoute" @click="closeMobileMenu">
-          <span class="material-symbols-rounded" aria-hidden="true">login</span>
-          <span>Login</span>
-        </RouterLink>
+        <div v-if="!authStore.isAuthenticated" class="top-nav-auth-cta desktop-only">
+          <RouterLink class="top-nav-link" :to="{ name: 'login', query: loginRoute.query }" @click="closeMobileMenu">Sign in</RouterLink>
+          <RouterLink class="top-nav-cta-btn" :to="{ name: 'register', query: loginRoute.query }" @click="closeMobileMenu">Get started</RouterLink>
+        </div>
+        <div v-if="!authStore.isAuthenticated" class="top-nav-auth-cta mobile-only">
+          <RouterLink class="top-nav-link" :to="{ name: 'login', query: loginRoute.query }" @click="closeMobileMenu">Sign in</RouterLink>
+          <RouterLink class="top-nav-cta-btn" :to="{ name: 'register', query: loginRoute.query }" @click="closeMobileMenu">Get started</RouterLink>
+        </div>
         <div v-else class="top-nav-user-controls desktop-only">
           <div class="top-nav-notification">
             <button
@@ -371,6 +375,36 @@ onBeforeUnmount(() => {
 
 .top-nav-mobile-toggle .material-symbols-rounded {
   font-size: 1.1rem;
+}
+
+.top-nav-auth-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.top-nav-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  padding: 0.38rem 0.9rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: var(--brand-1);
+  color: #1a1400;
+  font-weight: 680;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.top-nav-cta-btn:hover {
+  opacity: 0.88;
+}
+
+.top-nav-cta-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand-1) 50%, white 50%);
+  outline-offset: 1px;
 }
 
 .top-nav-link {

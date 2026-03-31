@@ -13,6 +13,7 @@ const pendingToken = ref('')
 const battletag = ref('')
 const email = ref('')
 const submitting = ref(false)
+const returnPath = ref('/login')
 
 function getQueryParam(value: unknown): string {
   if (typeof value === 'string') {
@@ -45,6 +46,12 @@ function clearSensitiveCallbackData(): void {
 }
 
 onMounted(async () => {
+  const stored = sessionStorage.getItem('oauth_return_path')
+  if (stored) {
+    returnPath.value = stored
+    sessionStorage.removeItem('oauth_return_path')
+  }
+
   const hashParams = new URLSearchParams(window.location.hash.slice(1))
 
   const oauthError = getQueryParam(route.query.error)
@@ -64,18 +71,18 @@ onMounted(async () => {
   if (oauthError) {
     error.value =
       oauthError === 'access_denied'
-        ? 'Battle.net sign-in was cancelled.'
+        ? 'Sign-in was cancelled.'
         : oauthError === 'oauth_not_configured'
-          ? 'Battle.net login is not yet configured.'
+          ? 'This sign-in provider is not yet configured.'
           : oauthError === 'rate_limited'
             ? 'Too many requests. Please wait a moment and try again.'
-            : 'Battle.net sign-in failed. Please try again.'
+            : 'Sign-in failed. Please try again.'
     return
   }
 
   if (needsEmailFlag === 'true') {
     if (!pendingTokenValue) {
-      error.value = 'Battle.net sign-in is missing continuation data. Please try again.'
+      error.value = 'Sign-in is missing continuation data. Please try again.'
       return
     }
     needsEmail.value = true
@@ -162,8 +169,12 @@ async function submitEmail(): Promise<void> {
         <p v-if="error" class="status status-error">{{ error }}</p>
       </template>
       <template v-else-if="error">
-        <p class="status status-error">{{ error }}</p>
-        <RouterLink to="/auth" class="btn-secondary">Back to sign in</RouterLink>
+        <div class="oauth-error">
+          <span class="material-symbols-rounded oauth-error-icon" aria-hidden="true">error</span>
+          <h2 class="oauth-error-title">Something went wrong</h2>
+          <p class="oauth-error-message">{{ error }}</p>
+          <RouterLink :to="returnPath" class="oauth-error-back">← Go back</RouterLink>
+        </div>
       </template>
       <template v-else>
         <p class="muted">Signing you in with Battle.net…</p>
@@ -185,6 +196,41 @@ async function submitEmail(): Promise<void> {
   display: grid;
   gap: 1.5rem;
   text-align: center;
+}
+
+.oauth-error {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.oauth-error-icon {
+  font-size: 2.8rem;
+  color: var(--status-error, #e05252);
+  font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 48;
+}
+
+.oauth-error-title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.oauth-error-message {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.95rem;
+}
+
+.oauth-error-back {
+  font-size: 0.9rem;
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+.oauth-error-back:hover {
+  color: var(--ink-1);
+  text-decoration: underline;
 }
 
 .email-form {
