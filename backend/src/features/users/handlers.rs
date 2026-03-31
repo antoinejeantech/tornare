@@ -9,7 +9,7 @@ use crate::{
     app::state::AppState,
     features::{
         auth::{models::AuthUser, require_authenticated_user_id},
-        users::models::{SearchUsersQuery, UpdateUserProfileInput, UserSearchResult},
+        users::models::{SearchUsersQuery, UpdateAvatarInput, UpdateUserProfileInput, UserSearchResult},
     },
     shared::{
         errors::ApiResult,
@@ -45,6 +45,23 @@ pub async fn update_user_profile(
     service::update_user_profile_for_user(&state, authenticated_user_id, user_id, payload)
         .await
         .map(Json)
+}
+
+pub async fn update_user_avatar(
+    Path(user_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(payload): Json<UpdateAvatarInput>,
+) -> ApiResult<AuthUser> {
+    let authenticated_user_id = require_authenticated_user_id(&state, &headers)?;
+    service::update_user_avatar(
+        &state,
+        authenticated_user_id,
+        user_id,
+        payload.avatar_url.as_deref(),
+    )
+    .await
+    .map(Json)
 }
 
 pub async fn delete_user_account(

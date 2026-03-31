@@ -28,6 +28,7 @@ const connectingDiscord = ref(false)
 const disconnectingDiscord = ref(false)
 const connectingOAuth = ref<'bnet' | 'discord' | null>(null)
 const deletingAccount = ref(false)
+const savingAvatar = ref(false)
 const error = ref('')
 const notice = ref('')
 const profileFormTouched = ref(false)
@@ -296,6 +297,29 @@ function goToEvents() {
   router.push({ name: 'events' })
 }
 
+async function handleUpdateAvatar(avatarUrl: string | null) {
+  if (savingAvatar.value || !profile.value) return
+  savingAvatar.value = true
+  try {
+    const updated = await apiCall<AuthUser>(`/api/users/${profileId.value}/avatar`, {
+      method: 'PATCH',
+      body: JSON.stringify({ avatar_url: avatarUrl }),
+    })
+    profile.value = updated
+    if (viewerId.value === profileId.value) {
+      authStore.user = updated
+    }
+  } catch (err) {
+    alertsStore.push({
+      type: 'error',
+      message: err instanceof Error ? err.message : 'Failed to update avatar',
+      duration: 5000,
+    })
+  } finally {
+    savingAvatar.value = false
+  }
+}
+
 async function connectBnetAccount() {
   if (connectingBnet.value) return
   connectingBnet.value = true
@@ -475,7 +499,9 @@ async function loadUserEvents() {
           :can-edit="canEdit"
           :editing-account="editingAccount"
           :profile-initial="profileInitial"
+          :saving-avatar="savingAvatar"
           @edit-account="startEdit('account')"
+          @update-avatar="handleUpdateAvatar"
         >
           <template v-if="isAdminViewer && profileId !== viewerId" #hero-actions>
             <button

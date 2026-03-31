@@ -3,7 +3,7 @@ use axum::{
         header::{AUTHORIZATION, CONTENT_TYPE},
         HeaderName, HeaderValue, Method, Request,
     },
-    routing::{delete, get, post, put},
+    routing::{delete, get, patch, post, put},
     Router,
 };
 use tower_http::cors::{Any, CorsLayer};
@@ -38,6 +38,7 @@ pub fn build_app(state: AppState) -> Router {
             Method::GET,
             Method::POST,
             Method::PUT,
+            Method::PATCH,
             Method::DELETE,
             Method::OPTIONS,
         ])
@@ -69,6 +70,10 @@ pub fn build_app(state: AppState) -> Router {
             get(users::get_user_profile)
                 .put(users::update_user_profile)
                 .delete(users::delete_user_account),
+        )
+        .route(
+            "/api/users/{user_id}/avatar",
+            patch(users::update_user_avatar),
         )
         .route(
             "/api/events",
