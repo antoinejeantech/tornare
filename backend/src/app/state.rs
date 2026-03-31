@@ -10,6 +10,9 @@ pub struct AppConfig {
     pub battlenet_client_id: String,
     pub battlenet_client_secret: String,
     pub battlenet_redirect_uri: String,
+    pub discord_client_id: String,
+    pub discord_client_secret: String,
+    pub discord_redirect_uri: String,
     pub frontend_url: String,
 }
 

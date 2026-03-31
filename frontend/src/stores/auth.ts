@@ -107,6 +107,13 @@ export const useAuthStore = defineStore('auth', {
       await apiCall('/api/auth/battlenet/disconnect', { method: 'DELETE' })
       await this.fetchMe()
     },
+    async connectDiscordInit(): Promise<void> {
+      window.location.href = `${apiBase}/api/auth/discord/connect-init?token=${encodeURIComponent(this.accessToken)}`
+    },
+    async disconnectDiscord(): Promise<void> {
+      await apiCall('/api/auth/discord/disconnect', { method: 'DELETE' })
+      await this.fetchMe()
+    },
     async refreshAccessToken(): Promise<AuthSession> {
       this.syncTokensFromStorage()
 

@@ -32,6 +32,10 @@ async fn main() {
     let battlenet_client_secret = env::var("BATTLENET_CLIENT_SECRET").unwrap_or_default();
     let battlenet_redirect_uri = env::var("BATTLENET_REDIRECT_URI")
         .unwrap_or_else(|_| "http://localhost:8000/api/auth/battlenet/callback".to_string());
+    let discord_client_id = env::var("DISCORD_CLIENT_ID").unwrap_or_default();
+    let discord_client_secret = env::var("DISCORD_CLIENT_SECRET").unwrap_or_default();
+    let discord_redirect_uri = env::var("DISCORD_REDIRECT_URI")
+        .unwrap_or_else(|_| "http://localhost:8000/api/auth/discord/callback".to_string());
     let frontend_url = env::var("FRONTEND_URL")
         .unwrap_or_else(|_| "http://localhost:5173".to_string());
 
@@ -66,6 +70,9 @@ async fn main() {
             battlenet_client_id,
             battlenet_client_secret,
             battlenet_redirect_uri,
+            discord_client_id,
+            discord_client_secret,
+            discord_redirect_uri,
             frontend_url,
         },
     };

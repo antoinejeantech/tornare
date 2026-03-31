@@ -125,6 +125,8 @@ export interface AuthUser {
   rank_support: OverwatchRank
   can_edit_battletag: boolean
   has_password: boolean
+  has_discord_identity: boolean
+  discord_username: string | null
 }
 
 export interface AuthSession {

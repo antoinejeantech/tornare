@@ -14,6 +14,8 @@ pub struct AuthUser {
     pub rank_support: String,
     pub can_edit_battletag: bool,
     pub has_password: bool,
+    pub has_discord_identity: bool,
+    pub discord_username: Option<String>,
 }
 
 #[derive(Serialize)]

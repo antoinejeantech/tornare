@@ -39,6 +39,8 @@ pub async fn get_user_profile_public(
         rank_support: row.rank_support,
         can_edit_battletag: !row.has_battlenet_identity,
         has_password: row.has_password,
+        has_discord_identity: row.has_discord_identity,
+        discord_username: row.discord_username,
     })
 }
 

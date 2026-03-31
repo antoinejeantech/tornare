@@ -54,6 +54,10 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/auth/battlenet/complete", post(auth::battlenet_complete_signup))
         .route("/api/auth/battlenet/connect-init", get(auth::battlenet_connect_init))
         .route("/api/auth/battlenet/disconnect", delete(auth::battlenet_disconnect))
+        .route("/api/auth/discord/authorize", get(auth::discord_authorize))
+        .route("/api/auth/discord/callback", get(auth::discord_callback))
+        .route("/api/auth/discord/connect-init", get(auth::discord_connect_init))
+        .route("/api/auth/discord/disconnect", delete(auth::discord_disconnect))
         .route(
             "/api/users",
             get(users::search_users),
