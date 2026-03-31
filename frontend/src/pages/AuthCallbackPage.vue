@@ -48,7 +48,7 @@ function clearSensitiveCallbackData(): void {
 onMounted(async () => {
   const stored = sessionStorage.getItem('oauth_return_path')
   if (stored) {
-    returnPath.value = stored
+    returnPath.value = sanitizeRedirectPath(stored)
     sessionStorage.removeItem('oauth_return_path')
   }
 
