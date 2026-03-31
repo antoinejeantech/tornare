@@ -1,9 +1,10 @@
-.PHONY: help bootstrap up backend frontend db-up db-logs dev-up shell run check test test-e2e node-shell node-install node-build status restart down
+.PHONY: help bootstrap up dev backend frontend db-up db-logs dev-up shell run check test test-e2e node-shell node-install node-build status restart down
 
 help:
 	@echo "Available targets:"
 	@echo "  make bootstrap   - Create local .env files if missing"
-	@echo "  make up          - Build and run backend + frontend"
+	@echo "  make up          - Build and run backend + frontend (production image)"
+	@echo "  make dev         - Start postgres + backend-dev (cargo-watch) + frontend"
 	@echo "  make db-up       - Start postgres only"
 	@echo "  make db-logs     - Tail postgres logs"
 	@echo "  make backend     - Build and run backend API"
@@ -27,6 +28,10 @@ bootstrap:
 
 up:
 	docker compose up --build backend frontend
+
+dev:
+	docker compose stop backend 2>/dev/null || true
+	docker compose up --force-recreate postgres backend-dev frontend
 
 db-up:
 	docker compose up -d postgres
