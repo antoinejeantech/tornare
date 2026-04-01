@@ -7,7 +7,7 @@ use crate::{
         permissions::{require_event_admin_access, require_event_owner_access},
     },
     shared::{
-        errors::{not_found, ApiError},
+        errors::{conflict, not_found, ApiError},
         models::MessageResponse,
     },
 };
@@ -116,15 +116,46 @@ pub async fn set_featured_event_for_user(
     Ok(event)
 }
 
-pub async fn set_event_ended_for_user(
+pub async fn publish_event_for_user(
     state: &AppState,
     user_id: Uuid,
     event_id: Uuid,
-    ended: bool,
 ) -> Result<Event, ApiError> {
     let is_owner = require_event_owner_access(state, event_id, user_id).await?;
 
-    repo::set_event_ended_state(&state.pool, event_id, ended).await?;
+    let event = repo::load_event(&state.pool, event_id).await?;
+    let new_status = event.status.publish().map_err(conflict)?;
+    repo::set_event_status(&state.pool, event_id, new_status).await?;
+
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(event.into_owner(is_owner))
+}
+
+pub async fn unpublish_event_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+) -> Result<Event, ApiError> {
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
+
+    let event = repo::load_event(&state.pool, event_id).await?;
+    let new_status = event.status.unpublish().map_err(conflict)?;
+    repo::set_event_status(&state.pool, event_id, new_status).await?;
+
+    let event = repo::load_event(&state.pool, event_id).await?;
+    Ok(event.into_owner(is_owner))
+}
+
+pub async fn end_event_for_user(
+    state: &AppState,
+    user_id: Uuid,
+    event_id: Uuid,
+) -> Result<Event, ApiError> {
+    let is_owner = require_event_owner_access(state, event_id, user_id).await?;
+
+    let event = repo::load_event(&state.pool, event_id).await?;
+    let new_status = event.status.end().map_err(conflict)?;
+    repo::set_event_status(&state.pool, event_id, new_status).await?;
 
     let event = repo::load_event(&state.pool, event_id).await?;
     Ok(event.into_owner(is_owner))

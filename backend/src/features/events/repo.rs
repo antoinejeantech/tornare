@@ -6,7 +6,7 @@ use crate::shared::errors::{internal_error, not_found};
 use crate::shared::numeric::i32_to_u8;
 
 use crate::features::events::models::{
-    Event, EventFormat, EventSignupRequest, EventTeam, EventType, LinkedUserInfo, Match, MatchStatus, Player,
+    Event, EventFormat, EventSignupRequest, EventStatus, EventTeam, EventType, LinkedUserInfo, Match, MatchStatus, Player,
     PlayerRank, PlayerRole, PublicEventSignupInfo, RolePreference, RolePreferenceInput, SignupStatus,
 };
 
@@ -91,7 +91,12 @@ pub struct ListVisibleEventsOptions {
     pub sort: EventListSort,
     pub limit: u32,
     pub offset: u32,
-    pub ended_only: bool,
+    /// None → show ACTIVE + ENDED (default public view).
+    /// Some(Draft/Active/Ended) → filter to that specific status.
+    pub status_filter: Option<EventStatus>,
+    /// When true, the None status_filter default is bypassed and all statuses
+    /// are shown (used for owner-scoped listings so drafts are visible).
+    pub include_drafts: bool,
 }
 
 pub struct ListVisibleEventsResult {
@@ -156,7 +161,6 @@ pub async fn featured_event_id(
          FROM events
                  WHERE is_featured = TRUE
                      AND deleted_at IS NULL
-                     AND is_ended = FALSE
          ORDER BY start_date IS NULL, start_date ASC, id DESC
          LIMIT 1",
     )
@@ -174,7 +178,7 @@ pub async fn featured_event_id(
          WHERE start_date IS NOT NULL
            AND deleted_at IS NULL
            AND start_date >= NOW()
-           AND is_ended = FALSE
+           AND status = 'ACTIVE'
          ORDER BY start_date ASC, id DESC
          LIMIT 1",
     )
@@ -190,7 +194,7 @@ pub async fn featured_event_id(
         "SELECT id
          FROM events
                  WHERE deleted_at IS NULL
-                     AND is_ended = FALSE
+                     AND status = 'ACTIVE'
          ORDER BY start_date IS NULL, start_date ASC, id DESC
          LIMIT 1",
     )
@@ -273,11 +277,15 @@ fn apply_event_list_filters(
 ) {
     query_builder.push(" AND e.deleted_at IS NULL");
 
-    if options.ended_only {
-        query_builder.push(" AND e.is_ended = TRUE");
-    } else {
-        query_builder.push(" AND e.is_ended = FALSE");
-    }
+    match options.status_filter {
+        Some(EventStatus::Draft)  => { query_builder.push(" AND e.status = 'DRAFT'"); }
+        Some(EventStatus::Active) => { query_builder.push(" AND e.status = 'ACTIVE'"); }
+        Some(EventStatus::Ended)  => { query_builder.push(" AND e.status = 'ENDED'"); }
+        // Default: hide drafts on the public view; show all when the listing is
+        // scoped to the owner themselves (so they can see their own drafts).
+        None if !options.include_drafts => { query_builder.push(" AND e.status IN ('ACTIVE', 'ENDED')"); }
+        None => {}
+    };
 
     if let Some(event_type) = options.event_type.as_ref() {
         query_builder.push(" AND e.event_type = ");
@@ -347,8 +355,8 @@ pub async fn insert_event(
     signup_token: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO events (id, name, description, start_date, event_type, format, public_signup_enabled, max_players, signup_token)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        "INSERT INTO events (id, name, description, start_date, event_type, format, public_signup_enabled, max_players, signup_token, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'DRAFT')",
     )
     .bind(event_id)
     .bind(name)
@@ -422,8 +430,7 @@ pub async fn delete_event_by_id(
     let result = sqlx::query(
         "UPDATE events
          SET deleted_at = NOW(),
-             is_featured = FALSE,
-             is_ended = TRUE
+             is_featured = FALSE
          WHERE id = $1 AND deleted_at IS NULL",
     )
         .bind(event_id)
@@ -1156,15 +1163,15 @@ pub async fn set_featured_event_state(
     Ok(())
 }
 
-pub async fn set_event_ended_state(
+pub async fn set_event_status(
     pool: &PgPool,
     event_id: Uuid,
-    ended: bool,
+    status: EventStatus,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "UPDATE events SET is_ended = $1, is_featured = CASE WHEN $1 THEN FALSE ELSE is_featured END WHERE id = $2 AND deleted_at IS NULL"
+        "UPDATE events SET status = $1 WHERE id = $2 AND deleted_at IS NULL"
     )
-        .bind(ended)
+        .bind(status.as_db_value())
         .bind(event_id)
         .execute(pool)
         .await
@@ -1429,7 +1436,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
             e.event_type,
             e.format,
             e.is_featured,
-            e.is_ended,
+            e.status,
             e.signup_token,
             e.public_signup_enabled,
             e.max_players,
@@ -1469,7 +1476,11 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         event_type,
         format,
         is_featured: row.get("is_featured"),
-        is_ended: row.get("is_ended"),
+        status: {
+            let s: String = row.get("status");
+            EventStatus::try_from(s.as_str())
+                .map_err(|_| internal_error(format!("invalid event status in DB: {s}")))?       
+        },
         is_owner: false,
         can_manage: false,
         creator_id: row.get("creator_id"),
@@ -1757,7 +1768,7 @@ pub struct ParticipatedEventRow {
     pub start_date: Option<OffsetDateTime>,
     pub event_type: EventType,
     pub format: EventFormat,
-    pub is_ended: bool,
+    pub status: EventStatus,
 }
 
 pub async fn list_participated_events(
@@ -1766,7 +1777,7 @@ pub async fn list_participated_events(
     limit: i64,
 ) -> Result<Vec<ParticipatedEventRow>, crate::shared::errors::ApiError> {
     let rows = sqlx::query(
-        "SELECT e.id, e.name, e.start_date, e.event_type, e.format, e.is_ended
+        "SELECT e.id, e.name, e.start_date, e.event_type, e.format, e.status
          FROM events e
          INNER JOIN event_players ep ON ep.event_id = e.id
          WHERE ep.user_id = $1
@@ -1795,7 +1806,11 @@ pub async fn list_participated_events(
             start_date: row.get("start_date"),
             event_type,
             format,
-            is_ended: row.get("is_ended"),
+            status: {
+                let s: String = row.get("status");
+                EventStatus::try_from(s.as_str())
+                    .map_err(|_| internal_error(format!("invalid event status in DB: {s}")))?
+            },
         });
     }
 

@@ -15,7 +15,7 @@ use crate::{
             CreateEventSignupRequestInput, CreateEventTeamInput, Event, EventSignupLinkResponse,
             EventSignupRequest, EventsKpiResponse, GenerateTourneyBracketInput, ListEventsQuery,
             Match, PaginatedEventsResponse, PublicEventSignupInfo, ReportMatchWinnerInput,
-            SetEventFeaturedInput, SetEventPublicSignupInput, SetEventEndedInput, SetMatchupInput, UpdateEventInput,
+            SetEventFeaturedInput, SetEventPublicSignupInput, SetMatchupInput, UpdateEventInput,
             UpdateEventPlayerInput, UpdateEventTeamInput, UpdateMatchStartDateInput,
         },
     },
@@ -333,14 +333,35 @@ pub async fn set_event_featured(
         .map(Json)
 }
 
-pub async fn set_event_ended(
+pub async fn publish_event(
     Path(event_id): Path<Uuid>,
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(payload): Json<SetEventEndedInput>,
 ) -> ApiResult<Event> {
     let user_id = require_authenticated_user_id(&state, &headers)?;
-    service::set_event_ended_for_user(&state, user_id, event_id, payload.ended)
+    service::publish_event_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
+pub async fn unpublish_event(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Event> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::unpublish_event_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
+pub async fn end_event(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Event> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::end_event_for_user(&state, user_id, event_id)
         .await
         .map(Json)
 }

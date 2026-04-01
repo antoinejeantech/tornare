@@ -236,7 +236,7 @@ pub async fn get_participated_events(
             }),
             event_type: r.event_type.as_db_value().to_string(),
             format: r.format.as_db_value().to_string(),
-            is_ended: r.is_ended,
+            status: r.status.as_db_value().to_string(),
         })
         .collect())
 }

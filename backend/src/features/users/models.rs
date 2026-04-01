@@ -86,5 +86,5 @@ pub struct ParticipatedEventSummary {
     pub start_date: Option<String>,
     pub event_type: String,
     pub format: String,
-    pub is_ended: bool,
+    pub status: String,
 }

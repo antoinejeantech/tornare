@@ -186,8 +186,16 @@ pub fn build_app(state: AppState) -> Router {
             put(events::set_event_featured),
         )
         .route(
-            "/api/events/{event_id}/ended",
-            put(events::set_event_ended),
+            "/api/events/{event_id}/publish",
+            post(events::publish_event),
+        )
+        .route(
+            "/api/events/{event_id}/unpublish",
+            post(events::unpublish_event),
+        )
+        .route(
+            "/api/events/{event_id}/end",
+            post(events::end_event),
         )
         .route(
             "/api/events/{event_id}/signup-requests",

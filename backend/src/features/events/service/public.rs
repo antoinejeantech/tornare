@@ -3,7 +3,7 @@ use uuid::Uuid;
 use crate::{
     app::state::AppState,
     features::{
-        events::models::{Event, EventsKpiResponse, ListEventsQuery, PaginatedEventsResponse},
+        events::models::{Event, EventStatus, EventsKpiResponse, ListEventsQuery, PaginatedEventsResponse},
         permissions::has_global_event_owner_access,
     },
     shared::errors::ApiError,
@@ -65,10 +65,7 @@ pub async fn list_events_public(
     };
 
     let owner_only_user_id = match query.owner.as_deref() {
-        Some("mine") => match viewer_user_id {
-            Some(user_id) if !has_global_manage_access => Some(user_id),
-            _ => None,
-        },
+        Some("mine") => viewer_user_id,
         Some(other) => Uuid::parse_str(other).ok(),
         _ => None,
     };
@@ -94,6 +91,20 @@ pub async fn list_events_public(
 
     let offset = (normalized_page.saturating_sub(1)).saturating_mul(normalized_per_page);
 
+    let status_filter = match query.status.as_deref() {
+        Some("active") => Some(EventStatus::Active),
+        Some("ended")  => Some(EventStatus::Ended),
+        Some("draft")  => Some(EventStatus::Draft),
+        _ => None, // default: show ACTIVE + ENDED
+    };
+
+    // Show drafts when the listing is scoped to a specific owner and either:
+    // - the viewer is looking at their own events, or
+    // - the viewer has global manage access (admin/moderator).
+    let include_drafts = owner_only_user_id.is_some()
+        && status_filter.is_none()
+        && (owner_only_user_id == viewer_user_id || has_global_manage_access);
+
     let options = repo::ListVisibleEventsOptions {
         search: normalized_search,
         event_type: normalized_type,
@@ -101,7 +112,8 @@ pub async fn list_events_public(
         sort,
         limit: normalized_per_page,
         offset,
-        ended_only: query.ended_only.unwrap_or(false),
+        status_filter,
+        include_drafts,
     };
 
     let listing = repo::list_visible_event_ids(&state.pool, options).await?;

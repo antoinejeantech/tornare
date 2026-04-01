@@ -346,11 +346,6 @@ pub struct SetEventFeaturedInput {
     pub featured: bool,
 }
 
-#[derive(Deserialize)]
-pub struct SetEventEndedInput {
-    pub ended: bool,
-}
-
 // ---------------------------------------------------------------------------
 // Query / response types
 // ---------------------------------------------------------------------------
@@ -365,7 +360,8 @@ pub struct ListEventsQuery {
     pub page: Option<u32>,
     pub per_page: Option<u32>,
     pub limit: Option<u32>,
-    pub ended_only: Option<bool>,
+    /// Filter by event status. None / "all" shows ACTIVE+ENDED; "active", "ended", "draft" filter to that status.
+    pub status: Option<String>,
 }
 
 #[derive(Serialize)]
