@@ -760,8 +760,8 @@ async function loadParticipatedEvents() {
                   </div>
                 </div>
                 <AppBadge
-                  :variant="event.is_ended ? 'muted' : 'ok'"
-                  :label="event.is_ended ? 'Ended' : 'Open'"
+                  :variant="event.status === 'ENDED' ? 'muted' : event.status === 'DRAFT' ? 'warning' : 'ok'"
+                  :label="event.status === 'ENDED' ? 'Ended' : event.status === 'DRAFT' ? 'Draft' : 'Active'"
                 />
               </RouterLink>
             </li>

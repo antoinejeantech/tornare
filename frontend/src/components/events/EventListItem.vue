@@ -43,36 +43,32 @@ const creatorProfileRoute = computed(() => {
 })
 
 const statusLabel = computed(() => {
-  if (props.event?.is_ended) {
-    return 'Ended'
-  }
+  const s = props.event?.status
+  if (s === 'ENDED') return 'Ended'
+  if (s === 'DRAFT') return 'Draft'
 
-  const maxPlayers = Number(props.event?.max_players) || 0
+  // ACTIVE — derive display from signup visibility and timing
+  const maxP = Number(props.event?.max_players) || 0
   const players = playerCount.value
   const startAt = getDateTimestamp(props.event?.start_date)
 
-  if (maxPlayers > 0 && players >= maxPlayers) {
-    return 'Full'
-  }
+  if (maxP > 0 && players >= maxP) return 'Full'
 
   if (startAt !== null) {
     const now = Date.now()
-    if (startAt <= now) {
-      return 'Ongoing'
-    }
-
-    if (startAt - now <= 6 * 60 * 60 * 1000) {
-      return 'Starting Soon'
-    }
+    if (startAt <= now) return 'Ongoing'
+    if (startAt - now <= 6 * 60 * 60 * 1000) return 'Starting Soon'
   }
 
-  return 'Open'
+  return props.event?.public_signup_enabled ? 'Open' : 'Private'
 })
 
 const statusVariant = computed(() => {
   if (statusLabel.value === 'Ended') return 'muted'
+  if (statusLabel.value === 'Draft') return 'warning'
   if (statusLabel.value === 'Full') return 'danger'
   if (statusLabel.value === 'Ongoing') return 'info'
+  if (statusLabel.value === 'Private') return 'muted'
   return 'ok'
 })
 

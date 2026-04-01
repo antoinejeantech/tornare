@@ -100,11 +100,14 @@ export const useEventStore = defineStore('event', {
         body: JSON.stringify({ featured }),
       })
     },
-    setEventEnded(eventId: string | number, ended: boolean): Promise<Event> {
-      return apiCall<Event>(`/api/events/${eventId}/ended`, {
-        method: 'PUT',
-        body: JSON.stringify({ ended }),
-      })
+    publishEvent(eventId: string | number): Promise<Event> {
+      return apiCall<Event>(`/api/events/${eventId}/publish`, { method: 'POST' })
+    },
+    unpublishEvent(eventId: string | number): Promise<Event> {
+      return apiCall<Event>(`/api/events/${eventId}/unpublish`, { method: 'POST' })
+    },
+    endEvent(eventId: string | number): Promise<Event> {
+      return apiCall<Event>(`/api/events/${eventId}/end`, { method: 'POST' })
     },
     listSignupRequests(eventId: string | number): Promise<SignupRequest[]> {
       return apiCall<SignupRequest[]>(`/api/events/${eventId}/signup-requests`)

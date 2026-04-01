@@ -129,10 +129,10 @@ const {
 
 const {
   signupToken, signupRequests, loadingSignupRequests, reviewingSignupRequests,
-  rotatingSignupLink, updatingSignupVisibility, updatingFeaturedEvent, endingEvent,
+  rotatingSignupLink, updatingSignupVisibility, updatingFeaturedEvent, updatingEventStatus,
   signupShareUrl, pendingSignupRequestCount,
   loadOwnerSignupData, clearSignupData, copySignupLink, rotateSignupLink, setSignupVisibility,
-  setFeaturedEvent, setEventEnded, acceptSignupRequest, declineSignupRequest,
+  setFeaturedEvent, publishEvent, unpublishEvent, endEvent, acceptSignupRequest, declineSignupRequest,
 } = signup
 
 const {
@@ -330,7 +330,7 @@ provide('eventCtx', proxyRefs({
   rotatingSignupLink,
   updatingSignupVisibility,
   updatingEvent,
-  endingEvent,
+  updatingEventStatus,
   signupShareUrl,
   signupToken,
   lastBalanceSummary,
@@ -368,7 +368,9 @@ provide('eventCtx', proxyRefs({
   setSignupVisibility,
   syncEventEditDraftFromEvent,
   saveEventEdit,
-  setEventEnded,
+  publishEvent,
+  unpublishEvent,
+  endEvent,
   acceptSignupRequest,
   declineSignupRequest,
   getRankIcon,
@@ -436,7 +438,8 @@ provide('eventCtx', proxyRefs({
               <div class="event-title-row">
                 <div class="event-title-name-row">
                   <h2>{{ event.name }}</h2>
-                  <AppBadge v-if="event.is_ended" variant="muted" label="Ended" />
+                  <AppBadge v-if="event.status === 'ENDED'" variant="muted" label="Ended" />
+                  <AppBadge v-else-if="event.status === 'DRAFT'" variant="warning" label="Draft" />
                 </div>
                 <div v-if="eventStartsInLabel || eventStartDateTimeLabel" class="event-starts-in muted">
                   <span v-if="eventStartsInLabel" class="event-start-meta">
@@ -461,7 +464,7 @@ provide('eventCtx', proxyRefs({
               >
                 {{ updatingFeaturedEvent ? 'Updating...' : (event.is_featured ? 'Remove spotlight' : 'Set as spotlight') }}
               </AppButton>
-              <ActionCtaButton v-if="headerJoinRoute && !event.is_ended" :to="headerJoinRoute">
+              <ActionCtaButton v-if="headerJoinRoute && event.status === 'ACTIVE'" :to="headerJoinRoute">
                 <span class="material-symbols-rounded" aria-hidden="true">how_to_reg</span>
                 Join event
               </ActionCtaButton>

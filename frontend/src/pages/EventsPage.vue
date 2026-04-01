@@ -34,7 +34,7 @@ const loadingEvents = ref(false)
 const creatingEvent = ref(false)
 const activeOwnerFilter = ref('all')
 const activeTypeFilter = ref('all')
-const showEndedEvents = ref(false)
+const pastEventsOnly = ref(false)
 const showEventsKpis = false
 const eventSearchQuery = ref('')
 const activeSort = ref('soonest')
@@ -107,7 +107,7 @@ const hasActiveFilters = computed(() => {
     activeTypeFilter.value !== 'all' ||
     normalizedSearchQuery.value.length > 0 ||
     activeSort.value !== 'soonest' ||
-    showEndedEvents.value
+    pastEventsOnly.value
   )
 })
 
@@ -132,7 +132,7 @@ function clearFilters() {
   activeTypeFilter.value = 'all'
   eventSearchQuery.value = ''
   activeSort.value = 'soonest'
-  showEndedEvents.value = false
+  pastEventsOnly.value = false
 }
 
 function resetCreateForm() {
@@ -186,8 +186,8 @@ async function loadEvents() {
     if (activeSort.value !== 'soonest') {
       params.set('sort', activeSort.value)
     }
-    if (showEndedEvents.value) {
-      params.set('ended_only', 'true')
+    if (pastEventsOnly.value) {
+      params.set('status', 'ended')
     }
     params.set('page', String(currentPage.value))
     params.set('per_page', String(pageSize.value))
@@ -307,7 +307,7 @@ onMounted(() => {
   if (q.owner)  activeOwnerFilter.value  = String(q.owner)
   if (q.type)   activeTypeFilter.value   = String(q.type)
   if (q.sort)   activeSort.value         = String(q.sort)
-  if (q.ended)  showEndedEvents.value    = q.ended === 'true'
+  if (q.ended)  pastEventsOnly.value = q.ended === 'true'
   if (q.search) eventSearchQuery.value   = String(q.search)
   if (q.page)   currentPage.value        = Math.max(1, Number(q.page) || 1)
   if (q.per_page) pageSize.value         = Number(q.per_page) || 12
@@ -321,14 +321,14 @@ function syncUrl() {
   if (activeOwnerFilter.value !== 'all')   query.owner    = activeOwnerFilter.value
   if (activeTypeFilter.value !== 'all')    query.type     = activeTypeFilter.value
   if (activeSort.value !== 'soonest')      query.sort     = activeSort.value
-  if (showEndedEvents.value)               query.ended    = 'true'
+  if (pastEventsOnly.value)               query.ended    = 'true'
   if (eventSearchQuery.value.trim())       query.search   = eventSearchQuery.value.trim()
   if (currentPage.value > 1)              query.page     = String(currentPage.value)
   if (pageSize.value !== 12)              query.per_page = String(pageSize.value)
   router.replace({ name: 'events', query })
 }
 
-watch([activeOwnerFilter, activeTypeFilter, activeSort, showEndedEvents], () => {
+watch([activeOwnerFilter, activeTypeFilter, activeSort, pastEventsOnly], () => {
   currentPage.value = 1
   syncUrl()
   loadEvents()
@@ -399,7 +399,7 @@ onBeforeUnmount(() => {
 
     <section class="events-header reveal-block reveal-2">
       <div class="events-toolbar-title-wrap">
-        <h2>{{ showEndedEvents ? 'PAST EVENTS' : 'UPCOMING EVENTS' }}</h2>
+        <h2>{{ pastEventsOnly ? 'PAST EVENTS' : 'EVENTS' }}</h2>
         <p class="muted">Browse public competitive lobbies and claim your spot on the ladder.</p>
       </div>
       <ActionCtaButton
@@ -485,14 +485,14 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="events-ended-toggle"
-          :class="{ active: showEndedEvents }"
+          :class="{ active: pastEventsOnly }"
           role="switch"
-          :aria-checked="showEndedEvents"
-          @click="showEndedEvents = !showEndedEvents"
+          :aria-checked="pastEventsOnly"
+          @click="pastEventsOnly = !pastEventsOnly"
         >
           <span class="events-ended-toggle-copy">
-            <span class="events-ended-toggle-label">Past events</span>
-            <span class="events-ended-toggle-state">{{ showEndedEvents ? 'On' : 'Off' }}</span>
+            <span class="events-ended-toggle-label">Past events only</span>
+            <span class="events-ended-toggle-state">{{ pastEventsOnly ? 'On' : 'Off' }}</span>
           </span>
           <span class="events-ended-toggle-switch" aria-hidden="true">
             <span class="events-ended-toggle-thumb" />

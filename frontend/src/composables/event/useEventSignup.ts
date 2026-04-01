@@ -12,7 +12,7 @@ export function useEventSignup({
   const rotatingSignupLink = ref(false)
   const updatingSignupVisibility = ref(false)
   const updatingFeaturedEvent = ref(false)
-  const endingEvent = ref(false)
+  const updatingEventStatus = ref(false)
 
   const signupShareUrl = computed(() => {
     if (!signupToken.value) return ''
@@ -149,29 +149,67 @@ export function useEventSignup({
     }
   }
 
-  async function setEventEnded(ended: boolean) {
-    if (!ensureOwnerAction() || !eventId.value || endingEvent.value) return
+  async function publishEvent() {
+    if (!ensureOwnerAction() || !eventId.value || updatingEventStatus.value) return
 
-    if (ended) {
-      const confirmed = await confirm.ask({
-        title: 'End this event?',
-        message: 'The event will be marked as ended and hidden from the public event listings. You can reopen it at any time from the settings.',
-        confirmText: 'End event',
-        tone: 'warning',
-      })
-      if (!confirmed) return
-    }
-
-    endingEvent.value = true
+    updatingEventStatus.value = true
     try {
-      const updatedEvent = await eventStore.setEventEnded(eventId.value, ended)
+      const updatedEvent = await eventStore.publishEvent(eventId.value)
       event.value = updatedEvent
       hydrateSelections()
-      setNotice(ended ? 'Event ended. It is now hidden from public listings.' : 'Event reopened and visible in listings again.')
+      setNotice('Event is now Active and visible in public listings.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update event status')
+      setError(err instanceof Error ? err.message : 'Failed to publish event')
     } finally {
-      endingEvent.value = false
+      updatingEventStatus.value = false
+    }
+  }
+
+  async function unpublishEvent() {
+    if (!ensureOwnerAction() || !eventId.value || updatingEventStatus.value) return
+
+    const confirmed = await confirm.ask({
+      title: 'Move event to Draft?',
+      message: 'The event will be hidden from all public listings. Only you can see it. You can publish it again at any time.',
+      confirmText: 'Set as Draft',
+      tone: 'warning',
+    })
+    if (!confirmed) return
+
+    updatingEventStatus.value = true
+    try {
+      const updatedEvent = await eventStore.unpublishEvent(eventId.value)
+      event.value = updatedEvent
+      hydrateSelections()
+      setNotice('Event set to Draft — hidden from public listings.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unpublish event')
+    } finally {
+      updatingEventStatus.value = false
+    }
+  }
+
+  async function endEvent() {
+    if (!ensureOwnerAction() || !eventId.value || updatingEventStatus.value) return
+
+    const confirmed = await confirm.ask({
+      title: 'End this event?',
+      message: 'The event will be marked as ended. It stays visible in public listings under Past Events.',
+      confirmText: 'End event',
+      tone: 'warning',
+    })
+    if (!confirmed) return
+
+    updatingEventStatus.value = true
+    try {
+      const updatedEvent = await eventStore.endEvent(eventId.value)
+      event.value = updatedEvent
+      hydrateSelections()
+      setNotice('Event marked as Ended. It appears in Past Events.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to end event')
+    } finally {
+      updatingEventStatus.value = false
     }
   }
 
@@ -207,9 +245,9 @@ export function useEventSignup({
 
   return {
     signupToken, signupRequests, loadingSignupRequests, reviewingSignupRequests,
-    rotatingSignupLink, updatingSignupVisibility, updatingFeaturedEvent, endingEvent,
+    rotatingSignupLink, updatingSignupVisibility, updatingFeaturedEvent, updatingEventStatus,
     signupShareUrl, pendingSignupRequestCount,
     clearSignupData, loadOwnerSignupData, copySignupLink, rotateSignupLink,
-    setSignupVisibility, setFeaturedEvent, setEventEnded, acceptSignupRequest, declineSignupRequest,
+    setSignupVisibility, setFeaturedEvent, publishEvent, unpublishEvent, endEvent, acceptSignupRequest, declineSignupRequest,
   }
 }

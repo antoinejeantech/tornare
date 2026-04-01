@@ -15,6 +15,7 @@ export type OverwatchRole = 'Tank' | 'DPS' | 'Support' | 'Flex'
 // ── Event domain ───────────────────────────────────────────────────────
 export type EventType = 'PUG' | 'TOURNEY'
 export type EventFormat = '5v5' | '6v6' | '1v1'
+export type EventStatus = 'DRAFT' | 'ACTIVE' | 'ENDED'
 
 export interface LinkedUserInfo {
   id: string
@@ -31,7 +32,7 @@ export interface ParticipatedEventSummary {
   start_date: string | null
   event_type: EventType
   format: EventFormat
-  is_ended: boolean
+  status: EventStatus
 }
 
 export interface RoleRank {
@@ -95,7 +96,7 @@ export interface Event {
   public_signup_enabled: boolean
   public_signup_token: string | null
   is_featured: boolean
-  is_ended: boolean
+  status: EventStatus
   creator_id?: number | string
   creator_name?: string
   players: EventPlayer[]

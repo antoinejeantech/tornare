@@ -46,36 +46,55 @@ const ctx = inject<EventCtxType>('eventCtx')!
       </p>
     </div>
 
-    <div class="event-ended-box" :class="ctx.event?.is_ended ? 'is-ended' : 'is-active'">
-      <div class="event-ended-header">
-        <p class="event-ended-kicker">Event status</p>
+    <div class="event-status-box" :class="`is-${(ctx.event?.status ?? 'ACTIVE').toLowerCase()}`">
+      <div class="event-status-header">
+        <p class="event-status-kicker">Event status</p>
         <AppBadge
-          :variant="ctx.event?.is_ended ? 'muted' : 'ok'"
-          :label="ctx.event?.is_ended ? 'Ended' : 'Active'"
+          :variant="ctx.event?.status === 'ENDED' ? 'muted' : ctx.event?.status === 'DRAFT' ? 'warning' : 'ok'"
+          :label="ctx.event?.status === 'ENDED' ? 'Ended' : ctx.event?.status === 'DRAFT' ? 'Draft' : 'Active'"
         />
       </div>
 
-      <p class="event-ended-copy">
-        {{ ctx.event?.is_ended
-          ? 'This event is ended and no longer visible in the public event listings.'
-          : 'This event is active and visible in the public event listings.' }}
+      <p class="event-status-copy">
+        <template v-if="ctx.event?.status === 'DRAFT'">This event is a draft and is not visible in public listings. Registrations are disabled.</template>
+        <template v-else-if="ctx.event?.status === 'ENDED'">This event has ended. It is visible in public listings under Past Events.</template>
+        <template v-else>This event is active and visible in public listings. Registrations are controlled separately.</template>
       </p>
 
-      <div class="event-ended-actions">
+      <div class="event-status-actions">
         <button
-          :class="ctx.event?.is_ended ? 'btn-primary' : 'btn-warning'"
-          :disabled="ctx.endingEvent"
+          v-if="ctx.event?.status !== 'DRAFT'"
+          class="btn-secondary"
+          :disabled="ctx.updatingEventStatus"
           type="button"
-          @click="ctx.setEventEnded(!ctx.event?.is_ended)"
+          @click="ctx.unpublishEvent()"
         >
-          {{ ctx.endingEvent ? 'Updating...' : (ctx.event?.is_ended ? 'Reopen event' : 'End event') }}
+          {{ ctx.updatingEventStatus ? 'Updating...' : 'Set as Draft' }}
+        </button>
+        <button
+          v-if="ctx.event?.status !== 'ACTIVE'"
+          class="btn-primary"
+          :disabled="ctx.updatingEventStatus"
+          type="button"
+          @click="ctx.publishEvent()"
+        >
+          {{ ctx.updatingEventStatus ? 'Updating...' : 'Set as Active' }}
+        </button>
+        <button
+          v-if="ctx.event?.status !== 'ENDED'"
+          class="btn-warning"
+          :disabled="ctx.updatingEventStatus"
+          type="button"
+          @click="ctx.endEvent()"
+        >
+          {{ ctx.updatingEventStatus ? 'Updating...' : 'End event' }}
         </button>
       </div>
 
-      <p class="muted event-ended-note">
-        {{ ctx.event?.is_ended
-          ? 'Reopening will make this event visible again in public listings. You can end it again at any time.'
-          : 'Ending the event hides it from public listings. The event page remains accessible by direct link. You can reopen it at any time.' }}
+      <p class="muted event-status-note">
+        <template v-if="ctx.event?.status === 'DRAFT'">Draft events are invisible to everyone except you. Set to Active when you are ready to go live.</template>
+        <template v-else-if="ctx.event?.status === 'ENDED'">Ended events remain visible in listings under Past Events. You can reopen them at any time.</template>
+        <template v-else>Active events are visible to everyone. End the event when it is over, or move it back to Draft to hide it.</template>
       </p>
     </div>
 
@@ -196,7 +215,7 @@ const ctx = inject<EventCtxType>('eventCtx')!
   gap: 0.45rem;
 }
 
-.event-ended-box {
+.event-status-box {
   border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-2) 28%);
   border-radius: var(--radius-lg);
   padding: 0.82rem;
@@ -206,24 +225,29 @@ const ctx = inject<EventCtxType>('eventCtx')!
   margin-top: 0.75rem;
 }
 
-.event-ended-box.is-ended {
+.event-status-box.is-ended {
   border-color: color-mix(in srgb, var(--line) 72%, #555 28%);
   background: color-mix(in srgb, var(--card) 56%, #1e1e1e 44%);
 }
 
-.event-ended-box.is-active {
+.event-status-box.is-active {
+  border-color: color-mix(in srgb, #4ca84c 22%, var(--line) 78%);
+  background: color-mix(in srgb, var(--card) 72%, #0e1f0e 28%);
+}
+
+.event-status-box.is-draft {
   border-color: color-mix(in srgb, #e09c2a 22%, var(--line) 78%);
   background: color-mix(in srgb, var(--card) 72%, #27200a 28%);
 }
 
-.event-ended-header {
+.event-status-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
 }
 
-.event-ended-kicker {
+.event-status-kicker {
   margin: 0;
   font-size: 0.78rem;
   text-transform: uppercase;
@@ -232,18 +256,19 @@ const ctx = inject<EventCtxType>('eventCtx')!
   color: color-mix(in srgb, var(--ink-2) 82%, var(--brand-1) 18%);
 }
 
-.event-ended-copy {
+.event-status-copy {
   margin: 0;
   font-size: 0.9rem;
   color: var(--ink-1);
 }
 
-.event-ended-actions {
+.event-status-actions {
   display: flex;
-  justify-content: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.event-ended-note {
+.event-status-note {
   margin: 0;
   font-size: 0.84rem;
   line-height: 1.35;
@@ -269,13 +294,13 @@ const ctx = inject<EventCtxType>('eventCtx')!
     width: 100%;
   }
 
-  .event-ended-header {
+  .event-status-header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .event-ended-actions,
-  .event-ended-actions button {
+  .event-status-actions,
+  .event-status-actions button {
     width: 100%;
   }
 }
