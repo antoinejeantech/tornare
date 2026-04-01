@@ -144,7 +144,7 @@ onUnmounted(() => {
       </div>
     </div>
     <div class="player-roles-row">
-      <div v-if="!player.team_id && player.roles?.length > 0" class="player-pref-roles">
+      <div v-if="!player.team_id && player.roles?.length > 1" class="player-pref-roles">
         <span
           v-for="(rp, i) in player.roles"
           :key="i"
@@ -152,14 +152,21 @@ onUnmounted(() => {
           :class="{ 'is-top': i === 0, 'is-interactive': clickable }"
           :role="clickable ? 'button' : undefined"
           :tabindex="clickable ? 0 : undefined"
-          :title="clickable ? `Add as ${rp.role} · ${rp.rank}` : `${rp.role} · ${rp.rank}`"
+          :title="clickable ? `Add as ${rp.role} · ${rp.rank}` : undefined"
           @click="emitSelectRole(rp, $event)"
           @keydown.enter.stop.prevent="clickable && emitSelectRole(rp, $event)"
           @keydown.space.stop.prevent="clickable && emitSelectRole(rp, $event)"
         >
           <span class="material-symbols-rounded pref-role-icon" aria-hidden="true">{{ getRoleIcon(rp.role) }}</span>
-          <template v-if="player.roles.length === 1">{{ rp.role }} · </template>{{ rp.rank }}
+          {{ rp.role }} · {{ rp.rank }}
         </span>
+      </div>
+      <div v-else class="player-meta-pills">
+        <span class="role-pill">
+          <span class="material-symbols-rounded role-inline-icon" aria-hidden="true">{{ getRoleIcon(player.role) }}</span>
+          <span>{{ player.role }}</span>
+        </span>
+        <span class="rank-pill" :class="rankTierClass(player.rank)">{{ player.rank }}</span>
       </div>
     </div>
   </article>
