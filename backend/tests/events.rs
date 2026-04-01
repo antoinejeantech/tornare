@@ -457,6 +457,119 @@ async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
     );
 }
 
+#[sqlx::test]
+async fn authenticated_public_signup_preserves_linked_user_and_reported_handles(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "owner-linked@test.local", "owner_linked").await;
+    let submitter = register(&client, &base, "submitter-linked@test.local", "submitter_linked").await;
+
+    let owner_token = owner["access_token"]
+        .as_str()
+        .expect("owner response must include access token")
+        .to_string();
+    let submitter_token = submitter["access_token"]
+        .as_str()
+        .expect("submitter response must include access token")
+        .to_string();
+    let submitter_id = submitter["user"]["id"]
+        .as_str()
+        .expect("submitter response must include user id")
+        .to_string();
+    let submitter_username = submitter["user"]["username"]
+        .as_str()
+        .expect("submitter response must include username")
+        .to_string();
+    let submitter_display_name = submitter["user"]["display_name"]
+        .as_str()
+        .expect("submitter response must include display_name")
+        .to_string();
+
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&owner_token)
+        .json(&json!({
+            "name": "Linked Signup PUG",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": true,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "create event should return 200");
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().expect("event id missing").to_string();
+
+    let res = client
+        .get(format!("{base}/api/events/{event_id}/signup-link"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    let link: Value = res.json().await.unwrap();
+    let signup_token = link["signup_token"].as_str().expect("signup_token missing").to_string();
+
+    let res = client
+        .post(format!("{base}/api/public/event-signups/{signup_token}/requests"))
+        .bearer_auth(&submitter_token)
+        .json(&json!({
+            "name": "Linked Carol",
+            "roles": [{"role": "Support", "rank": "Platinum"}],
+            "discord_username": "carol.discord",
+            "battletag": "Carol#1234"
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "signup request should be accepted");
+
+    let res = client
+        .get(format!("{base}/api/events/{event_id}/signup-requests"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    let requests: Value = res.json().await.unwrap();
+    let request = find_named_item(&requests, "Linked Carol");
+    let request_id = request["id"]
+        .as_str()
+        .expect("request id missing")
+        .to_string();
+
+    assert_eq!(request["reported_discord"].as_str(), Some("carol.discord"));
+    assert_eq!(request["reported_battletag"].as_str(), Some("Carol#1234"));
+    assert_eq!(request["linked_user"]["id"].as_str(), Some(submitter_id.as_str()));
+    assert_eq!(request["linked_user"]["username"].as_str(), Some(submitter_username.as_str()));
+    assert_eq!(
+        request["linked_user"]["display_name"].as_str(),
+        Some(submitter_display_name.as_str())
+    );
+    assert!(request["linked_user"]["discord_username"].is_null());
+    assert!(request["linked_user"]["battletag"].is_null());
+
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/signup-requests/{request_id}/accept"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "accept signup should return 200");
+    let accepted_event: Value = res.json().await.unwrap();
+    let player = find_named_item(&accepted_event["players"], "Linked Carol");
+
+    assert_eq!(player["linked_user"]["id"].as_str(), Some(submitter_id.as_str()));
+    assert_eq!(player["linked_user"]["username"].as_str(), Some(submitter_username.as_str()));
+    assert_eq!(player["reported_discord"].as_str(), Some("carol.discord"));
+    assert_eq!(player["reported_battletag"].as_str(), Some("Carol#1234"));
+    assert_eq!(player["role"].as_str(), Some("Support"));
+}
+
 // ---------------------------------------------------------------------------
 // Soft-delete and ended-state visibility
 // ---------------------------------------------------------------------------

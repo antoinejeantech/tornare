@@ -281,6 +281,18 @@ impl TryFrom<&str> for MatchStatus {
 // Domain aggregates
 // ---------------------------------------------------------------------------
 
+/// Minimal profile of the registered user linked to an event player or
+/// signup request. Only included when the caller has manage access.
+#[derive(Serialize, Clone)]
+pub struct LinkedUserInfo {
+    pub id: Uuid,
+    pub username: String,
+    pub display_name: String,
+    pub discord_username: Option<String>,
+    pub battletag: Option<String>,
+    pub avatar_url: Option<String>,
+}
+
 #[derive(Serialize, Clone)]
 pub struct Player {
     pub id: Uuid,
@@ -298,6 +310,12 @@ pub struct Player {
     /// For manually-added players these are owner-set; for accepted signup
     /// requests they are copied from the original application.
     pub roles: Vec<RolePreference>,
+    /// Linked registered user — always present in API responses when a user
+    /// is linked, visible to both owner and non-owner (id/name only harms nothing;
+    /// sensitive fields are null for non-owners via the service layer).
+    pub linked_user: Option<LinkedUserInfo>,
+    pub reported_discord: Option<String>,
+    pub reported_battletag: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -376,6 +394,15 @@ pub struct EventSignupRequest {
     pub name: String,
     pub roles: Vec<RolePreference>,
     pub status: SignupStatus,
+    /// Set when the request was submitted by a registered user.
+    pub linked_user: Option<LinkedUserInfo>,
+    /// Self-reported Discord username (from form input, unverified).
+    pub reported_discord: Option<String>,
+    /// Self-reported Battle.net battletag (from form input, unverified).
+    pub reported_battletag: Option<String>,
+    /// Internal: carried for accept-flow propagation, not serialised.
+    #[serde(skip)]
+    pub submitter_user_id: Option<Uuid>,
 }
 
 #[derive(Serialize)]

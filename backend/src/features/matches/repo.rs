@@ -679,6 +679,9 @@ async fn load_event_players_for_event(
             assigned_rank: None,
             // Players loaded via match queries don't need signup preferences.
             roles: vec![],
+            linked_user: None,
+            reported_discord: None,
+            reported_battletag: None,
         });
     }
 

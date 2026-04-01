@@ -9,7 +9,7 @@ use crate::{
     app::state::AppState,
     features::{
         auth::{models::AuthUser, require_authenticated_user_id},
-        users::models::{SearchUsersQuery, UpdateAvatarInput, UpdateUserProfileInput, UserSearchResult},
+        users::models::{ParticipatedEventSummary, SearchUsersQuery, UpdateAvatarInput, UpdateUserProfileInput, UserSearchResult},
     },
     shared::{
         errors::ApiResult,
@@ -72,4 +72,11 @@ pub async fn delete_user_account(
     let authenticated_user_id = require_authenticated_user_id(&state, &headers)?;
     service::delete_user_account(&state, authenticated_user_id, user_id).await?;
     Ok(Json(MessageResponse { message: "Account deleted".to_string() }))
+}
+
+pub async fn get_participated_events(
+    Path(user_id): Path<Uuid>,
+    State(state): State<AppState>,
+) -> ApiResult<Vec<ParticipatedEventSummary>> {
+    service::get_participated_events(&state, user_id).await.map(Json)
 }

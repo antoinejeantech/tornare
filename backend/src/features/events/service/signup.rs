@@ -3,6 +3,7 @@ use uuid::Uuid;
 use crate::{
     app::state::AppState,
     features::{
+        auth::service::maybe_authenticated_user_id,
         events::models::{
             CreateEventSignupRequestInput, Event, EventSignupLinkResponse,
             EventSignupRequest, PublicEventSignupInfo, SignupStatus,
@@ -14,6 +15,8 @@ use crate::{
         models::MessageResponse,
     },
 };
+
+use axum::http::HeaderMap;
 
 use super::{ensure_event_exists, ensure_event_has_capacity_for_new_player, repo};
 use super::validation::validate_signup_request_input;
@@ -100,8 +103,11 @@ pub async fn create_public_signup_request(
     state: &AppState,
     signup_token: &str,
     payload: CreateEventSignupRequestInput,
+    headers: &HeaderMap,
 ) -> Result<MessageResponse, ApiError> {
     validate_signup_request_input(&payload)?;
+
+    let submitter_user_id = maybe_authenticated_user_id(state, headers);
 
     let token = signup_token.trim();
     let Some(info) = repo::event_signup_info_by_token(&state.pool, token).await? else {
@@ -123,7 +129,10 @@ pub async fn create_public_signup_request(
         &state.pool,
         info.event_id,
         clean_name,
+        submitter_user_id,
         &payload.roles,
+        payload.discord_username.as_deref().map(str::trim).filter(|s| !s.is_empty()),
+        payload.battletag.as_deref().map(str::trim).filter(|s| !s.is_empty()),
     )
     .await?;
 
@@ -193,6 +202,7 @@ pub async fn accept_signup_request_for_user(
         primary.role.as_db_value(),
         primary.rank.as_db_value(),
         Some(request_id),
+        request.submitter_user_id,
         &role_pairs,
     )
     .await?;

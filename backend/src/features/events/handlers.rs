@@ -402,7 +402,7 @@ pub async fn create_public_signup_request(
     )
     .await?;
 
-    service::create_public_signup_request(&state, &signup_token, payload)
+    service::create_public_signup_request(&state, &signup_token, payload, &headers)
         .await
         .map(Json)
 }

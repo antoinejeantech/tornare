@@ -4,7 +4,8 @@ use crate::{
     app::state::AppState,
     features::{
         auth::models::AuthUser,
-        users::models::{UpdateUserProfileInput, UserSearchResult, OVERWATCH_RANKS},
+        events::repo as events_repo,
+        users::models::{ParticipatedEventSummary, UpdateUserProfileInput, UserSearchResult, OVERWATCH_RANKS},
     },
     shared::{
         crypto::hash_password,
@@ -215,5 +216,27 @@ pub async fn search_users(
     Ok(rows
         .into_iter()
         .map(|(id, username, display_name)| UserSearchResult { id, username, display_name })
+        .collect())
+}
+
+pub async fn get_participated_events(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<Vec<ParticipatedEventSummary>, ApiError> {
+    let rows = events_repo::list_participated_events(&state.pool, user_id, 10).await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| ParticipatedEventSummary {
+            id: r.id,
+            name: r.name,
+            start_date: r.start_date.map(|dt| {
+                dt.format(&time::format_description::well_known::Rfc3339)
+                    .unwrap_or_default()
+            }),
+            event_type: r.event_type.as_db_value().to_string(),
+            format: r.format.as_db_value().to_string(),
+            is_ended: r.is_ended,
+        })
         .collect())
 }

@@ -76,6 +76,10 @@ pub fn build_app(state: AppState) -> Router {
             patch(users::update_user_avatar),
         )
         .route(
+            "/api/users/{user_id}/participated-events",
+            get(users::get_participated_events),
+        )
+        .route(
             "/api/events",
             get(events::list_events).post(events::create_event),
         )

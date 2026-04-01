@@ -78,3 +78,13 @@ pub struct UserSearchResult {
     pub username: String,
     pub display_name: String,
 }
+
+#[derive(Serialize)]
+pub struct ParticipatedEventSummary {
+    pub id: Uuid,
+    pub name: String,
+    pub start_date: Option<String>,
+    pub event_type: String,
+    pub format: String,
+    pub is_ended: bool,
+}

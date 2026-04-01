@@ -252,6 +252,107 @@ async fn admin_delete_of_nonexistent_user_returns_404(pool: PgPool) {
     );
 }
 
+#[sqlx::test]
+async fn participated_events_lists_events_joined_via_signup_acceptance(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "owner-participated@test.local", "owner_participated").await;
+    let player = register(&client, &base, "player-participated@test.local", "player_participated").await;
+
+    let owner_token = owner["access_token"]
+        .as_str()
+        .expect("owner response must include access token")
+        .to_string();
+    let player_token = player["access_token"]
+        .as_str()
+        .expect("player response must include access token")
+        .to_string();
+    let player_id = player["user"]["id"]
+        .as_str()
+        .expect("player response must include user id")
+        .to_string();
+
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&owner_token)
+        .json(&json!({
+            "name": "Participation Test Event",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": true,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "create event should return 200");
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().expect("event id missing").to_string();
+
+    let res = client
+        .get(format!("{base}/api/events/{event_id}/signup-link"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    let link: Value = res.json().await.unwrap();
+    let signup_token = link["signup_token"].as_str().expect("signup_token missing").to_string();
+
+    let res = client
+        .post(format!("{base}/api/public/event-signups/{signup_token}/requests"))
+        .bearer_auth(&player_token)
+        .json(&json!({
+            "name": "Participant",
+            "roles": [{"role": "Tank", "rank": "Gold"}]
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "signup request should be accepted");
+
+    let res = client
+        .get(format!("{base}/api/events/{event_id}/signup-requests"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    let requests: Value = res.json().await.unwrap();
+    let request_id = requests
+        .as_array()
+        .expect("signup requests must be an array")
+        .first()
+        .and_then(|request| request["id"].as_str())
+        .expect("signup request id missing")
+        .to_string();
+
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/signup-requests/{request_id}/accept"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "accept signup should return 200");
+
+    let res = client
+        .get(format!("{base}/api/users/{player_id}/participated-events"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "participated events should return 200");
+    let participated: Value = res.json().await.unwrap();
+    let items = participated.as_array().expect("participated events must be an array");
+    assert_eq!(items.len(), 1, "expected exactly one participated event");
+    assert_eq!(items[0]["id"].as_str(), Some(event_id.as_str()));
+    assert_eq!(items[0]["name"].as_str(), Some("Participation Test Event"));
+    assert_eq!(items[0]["event_type"].as_str(), Some("PUG"));
+    assert_eq!(items[0]["format"].as_str(), Some("5v5"));
+    assert_eq!(items[0]["is_ended"].as_bool(), Some(false));
+}
+
 // ---------------------------------------------------------------------------
 // Avatar picker
 // ---------------------------------------------------------------------------
