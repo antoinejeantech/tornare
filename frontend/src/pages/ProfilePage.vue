@@ -3,7 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
-import battlenetLogo from '../assets/branding/bnet-logo.png'
+import BnetIcon from '../components/ui/BnetIcon.vue'
+import DiscordIcon from '../components/ui/DiscordIcon.vue'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { getRoleIcon } from '../lib/roles'
 import { useAuthStore } from '../stores/auth'
@@ -13,7 +14,9 @@ import ProfileHeroCard from '../components/profile/ProfileHeroCard.vue'
 import ProfileGamesCard from '../components/profile/ProfileGamesCard.vue'
 import EventListItem from '../components/events/EventListItem.vue'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
-import type { AuthUser, Event } from '../types'
+import AppBadge from '../components/ui/AppBadge.vue'
+import { formatDayMonthYear } from '../lib/dates'
+import type { AuthUser, Event, ParticipatedEventSummary } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -44,8 +47,10 @@ const editRankSupport = ref('Unranked')
 const editPassword = ref('')
 const editPasswordConfirm = ref('')
 
-const userEvents = ref<Event[]>([])
-const loadingUserEvents = ref(false)
+const createdEvents = ref<Event[]>([])
+const loadingCreatedEvents = ref(false)
+const participatedEvents = ref<ParticipatedEventSummary[]>([])
+const loadingParticipatedEvents = ref(false)
 
 const alertsStore = useAlertsStore()
 const confirm = useConfirm()
@@ -448,21 +453,36 @@ watch(
 
 onMounted(async () => {
   await loadProfile()
-  loadUserEvents()
+  loadCreatedEvents()
+  loadParticipatedEvents()
 })
 
-async function loadUserEvents() {
+async function loadCreatedEvents() {
   if (!profileId.value) return
-  loadingUserEvents.value = true
+  loadingCreatedEvents.value = true
   try {
     const res = await apiCall<{ items: Event[]; total: number }>(
       `/api/events?owner=${encodeURIComponent(profileId.value)}&per_page=5&sort=newest`
     )
-    userEvents.value = res?.items ?? []
+    createdEvents.value = res?.items ?? []
   } catch {
-    userEvents.value = []
+    createdEvents.value = []
   } finally {
-    loadingUserEvents.value = false
+    loadingCreatedEvents.value = false
+  }
+}
+
+async function loadParticipatedEvents() {
+  if (!profileId.value) return
+  loadingParticipatedEvents.value = true
+  try {
+    participatedEvents.value = await apiCall<ParticipatedEventSummary[]>(
+      `/api/users/${encodeURIComponent(profileId.value)}/participated-events`
+    )
+  } catch {
+    participatedEvents.value = []
+  } finally {
+    loadingParticipatedEvents.value = false
   }
 }
 </script>
@@ -557,7 +577,7 @@ async function loadUserEvents() {
           <!-- Battle.net -->
           <div class="connected-account-row">
             <div class="connected-account-info">
-              <img :src="battlenetLogo" class="connected-account-logo connected-account-logo-bnet" alt="" aria-hidden="true" />
+              <BnetIcon class="connected-account-logo connected-account-logo-bnet" />
               <div class="connected-account-label-wrap">
                 <span class="connected-account-label">Battle.net</span>
                 <span v-if="profile.battletag" class="connected-account-sublabel">{{ profile.battletag }}</span>
@@ -592,7 +612,7 @@ async function loadUserEvents() {
           <!-- Discord -->
           <div class="connected-account-row">
             <div class="connected-account-info">
-              <svg class="connected-account-logo connected-account-logo-discord" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+              <DiscordIcon class="connected-account-logo connected-account-logo-discord" />
               <div class="connected-account-label-wrap">
                 <span class="connected-account-label">Discord</span>
                 <span v-if="profile.discord_username" class="connected-account-sublabel">{{ profile.discord_username }}</span>
@@ -695,23 +715,59 @@ async function loadUserEvents() {
     </section>
 
     <section v-if="profile" class="profile-events-section">
-      <div class="profile-events-header">
-        <h2 class="profile-section-title">{{ profile.display_name }}'s last 5 events</h2>
-        <InlineArrowLink
-          :to="{ name: 'events', query: { owner: profileId } }"
-          label="See all"
-        />
+      <div class="profile-events-columns">
+        <!-- Events organized -->
+        <div class="profile-events-col">
+          <div class="profile-events-header">
+            <h2 class="profile-section-title">Events organized</h2>
+            <InlineArrowLink
+              :to="{ name: 'events', query: { owner: profileId } }"
+              label="See all"
+            />
+          </div>
+          <p v-if="loadingCreatedEvents" class="muted">Loading...</p>
+          <p v-else-if="createdEvents.length === 0" class="muted">No events yet.</p>
+          <ul v-else class="profile-events-list">
+            <EventListItem
+              v-for="event in createdEvents"
+              :key="event.id"
+              :event="event"
+              :compact="true"
+              :to="{ name: 'event', params: { id: event.id } }"
+            />
+          </ul>
+        </div>
+
+        <!-- Events played in -->
+        <div class="profile-events-col">
+          <div class="profile-events-header">
+            <h2 class="profile-section-title">Events played in</h2>
+          </div>
+          <p v-if="loadingParticipatedEvents" class="muted">Loading...</p>
+          <p v-else-if="participatedEvents.length === 0" class="muted">No events yet.</p>
+          <ul v-else class="profile-events-list">
+            <li v-for="event in participatedEvents" :key="event.id" class="participated-event-item">
+              <RouterLink :to="{ name: 'event', params: { id: event.id } }" class="participated-event-link">
+                <div class="participated-event-main">
+                  <span class="material-symbols-rounded participated-event-trophy" aria-hidden="true">trophy</span>
+                  <div class="participated-event-text">
+                    <span class="participated-event-name">{{ event.name }}</span>
+                    <span class="participated-event-meta">
+                      <span>{{ event.event_type }} ({{ event.format }})</span>
+                      <span v-if="event.start_date" aria-hidden="true"> · </span>
+                      <span v-if="event.start_date">{{ formatDayMonthYear(event.start_date) }}</span>
+                    </span>
+                  </div>
+                </div>
+                <AppBadge
+                  :variant="event.is_ended ? 'muted' : 'ok'"
+                  :label="event.is_ended ? 'Ended' : 'Open'"
+                />
+              </RouterLink>
+            </li>
+          </ul>
+        </div>
       </div>
-      <p v-if="loadingUserEvents" class="muted">Loading...</p>
-      <p v-else-if="userEvents.length === 0" class="muted">No events yet.</p>
-      <ul v-else class="profile-events-list">
-        <EventListItem
-          v-for="event in userEvents"
-          :key="event.id"
-          :event="event"
-          :to="{ name: 'event', params: { id: event.id } }"
-        />
-      </ul>
     </section>
 
     <section v-else class="card">
@@ -724,9 +780,25 @@ async function loadUserEvents() {
 
 <style scoped>
 .profile-events-section {
+  margin-top: 0.8rem;
+}
+
+.profile-events-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.6rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .profile-events-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.profile-events-col {
   display: grid;
   gap: 0.6rem;
-  margin-top: 0.8rem;
 }
 
 .profile-events-header {
@@ -751,6 +823,74 @@ async function loadUserEvents() {
   padding: 0;
   display: grid;
   gap: 0.4rem;
+}
+
+.participated-event-item {
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
+  background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
+  border-radius: var(--radius-md);
+}
+
+.participated-event-item:hover {
+  background: color-mix(in srgb, var(--card) 72%, var(--brand-2) 28%);
+  border-color: color-mix(in srgb, var(--line-strong) 42%, var(--brand-1) 28%);
+}
+
+.participated-event-link {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.72rem 0.88rem;
+  text-decoration: none;
+  color: inherit;
+  border-radius: inherit;
+}
+
+.participated-event-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.participated-event-trophy {
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
+  font-size: 1.35rem;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
+  border-radius: var(--radius-md);
+  padding: 0.4rem;
+  background: color-mix(in srgb, var(--bg-1) 66%, var(--card) 34%);
+  flex-shrink: 0;
+}
+
+.participated-event-text {
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.participated-event-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--ink-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.participated-event-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 0.1rem;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  line-height: 1.35;
 }
 
 .profile-shell {
@@ -1089,7 +1229,7 @@ async function loadUserEvents() {
 }
 
 .connected-account-logo-bnet {
-  border-radius: var(--radius-pill);
+  color: #148eff;
 }
 
 .connected-account-logo-discord {

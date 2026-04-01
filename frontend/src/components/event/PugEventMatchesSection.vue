@@ -2,6 +2,7 @@
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { getDateTimestamp, isoToDatetimeLocalValue } from '../../lib/dates'
 import { sortPlayersByRoleThenName } from '../../lib/roles'
+import MapPicker from '../ui/MapPicker.vue'
 import PlayerNameplate from '../player/PlayerNameplate.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventMatch } from '../../types'
@@ -132,12 +133,15 @@ const STATUS_LABELS: Record<string, string> = { done: 'Done', ready: 'Ready', op
 
 // ── Create match ──────────────────────────────────────────────────────────────
 function toggleCreateForm() {
+  if (!showCreateForm.value) {
+    ctx.initializeNewMatchDraft()
+  }
   showCreateForm.value = !showCreateForm.value
 }
 
 async function submitCreateMatch() {
-  await ctx.createMatch()
-  if (!ctx.creatingMatch && !ctx.newMatchTitle && !ctx.newMatchMap) {
+  const created = await ctx.createMatch()
+  if (created) {
     showCreateForm.value = false
   }
 }
@@ -250,7 +254,7 @@ async function saveStartDate() {
               </label>
               <label>
                 Map
-                <input v-model="ctx.newMatchMap" placeholder="King's Row" />
+                <MapPicker v-model="ctx.newMatchMap" />
               </label>
               <template v-if="(ctx.event?.teams?.length ?? 0) > 0">
                 <div class="pug-create-teams-row">

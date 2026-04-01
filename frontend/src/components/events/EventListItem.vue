@@ -9,6 +9,7 @@ import type { RouteLocationRaw } from 'vue-router'
 const props = defineProps<{
   event: Event
   to: RouteLocationRaw
+  compact?: boolean
 }>()
 
 const startDateDisplay = computed(() => {
@@ -78,7 +79,7 @@ const statusVariant = computed(() => {
 </script>
 
 <template>
-  <li class="event-list-item">
+  <li class="event-list-item" :class="{ 'is-compact': compact }">
     <RouterLink class="event-card-overlay" :to="to" aria-label="Open event" tabindex="-1" />
     <div class="event-list-main">
       <span class="event-list-title-wrap">
@@ -87,14 +88,14 @@ const statusVariant = computed(() => {
           <RouterLink class="event-list-title-link" :to="to">
             <span class="event-list-title">{{ event.name }}</span>
           </RouterLink>
-          <span class="muted event-list-meta-row">
+        <span class="muted event-list-meta-row" :class="{ 'meta-row-hidden-compact': compact }">
             by
             <RouterLink v-if="creatorProfileRoute" class="event-creator-link" :to="creatorProfileRoute">
               {{ event.creator_name || 'Unknown' }}
             </RouterLink>
             <span v-else>{{ event.creator_name || 'Unknown' }}</span>
           </span>
-          <span class="event-mobile-meta">
+          <span class="event-mobile-meta" :class="{ 'mobile-meta-always': compact }">
             <span>{{ event.event_type || 'PUG' }} ({{ eventFormat }})</span>
             <span aria-hidden="true"> · </span>
             <span>{{ playerCount }}/{{ maxPlayers || event.max_players }}</span>
@@ -105,17 +106,17 @@ const statusVariant = computed(() => {
       </span>
     </div>
 
-    <div class="event-format-col" aria-label="Event format">
+    <div class="event-format-col" :class="{ 'col-hidden-compact': compact }" aria-label="Event format">
       <span class="event-col-label muted">Format</span>
       <strong class="event-format-value">{{ event.event_type || 'PUG' }} ({{ eventFormat }})</strong>
     </div>
 
-    <div class="event-players-col" aria-label="Players">
+    <div class="event-players-col" :class="{ 'col-hidden-compact': compact }" aria-label="Players">
       <span class="material-symbols-rounded" aria-hidden="true">group</span>
       <strong>{{ playerCount }}/{{ maxPlayers || event.max_players }}</strong>
     </div>
 
-    <div class="event-date-col" aria-label="Date and time">
+    <div class="event-date-col" :class="{ 'col-hidden-compact': compact }" aria-label="Date and time">
       <span class="event-col-label muted">Date &amp; Time</span>
       <strong class="event-date-value">
         <span>{{ startDateDisplay }}</span>
@@ -124,7 +125,7 @@ const statusVariant = computed(() => {
       </strong>
     </div>
 
-    <div class="event-actions-col" aria-label="Status and actions">
+    <div class="event-actions-col" :class="{ 'actions-compact': compact }" aria-label="Status and actions">
       <AppBadge :variant="statusVariant" :label="statusLabel" />
     </div>
   </li>
@@ -138,7 +139,7 @@ const statusVariant = computed(() => {
   border-radius: var(--radius-md);
   padding: 1.02rem 0.95rem;
   display: grid;
-  grid-template-columns: minmax(0, 1.9fr) minmax(136px, 160px) minmax(96px, 112px) minmax(192px, 224px) 176px;
+  grid-template-columns: minmax(0, 1.9fr) minmax(136px, 160px) minmax(96px, 112px) minmax(192px, 224px) auto;
   align-items: center;
   gap: 0.85rem;
   cursor: pointer;
@@ -225,6 +226,10 @@ const statusVariant = computed(() => {
   text-transform: uppercase;
   letter-spacing: 0.02em;
   font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 .event-list-title-wrap {
@@ -379,5 +384,51 @@ const statusVariant = computed(() => {
     white-space: normal;
     overflow: visible;
   }
+}
+
+/* ── Compact (profile columns) ────────────────────────────── */
+.event-list-item.is-compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.5rem 0.75rem;
+  padding: 0.72rem 0.88rem;
+}
+
+.is-compact .event-list-main {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.is-compact .meta-row-hidden-compact {
+  display: none;
+}
+
+.is-compact .mobile-meta-always {
+  display: flex;
+}
+
+.is-compact .col-hidden-compact {
+  display: none;
+}
+
+.is-compact .actions-compact {
+  grid-column: 2;
+  grid-row: 1;
+  width: auto;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
+  align-self: center;
+  gap: 0.3rem;
+}
+
+.is-compact .actions-compact :deep(.app-badge) {
+  min-width: auto;
+}
+
+.is-compact .event-list-title {
+  white-space: normal;
+  overflow: visible;
 }
 </style>

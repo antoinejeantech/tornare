@@ -7,6 +7,8 @@ import { useEventStore } from '../stores/event'
 import { useAuthStore } from '../stores/auth'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
+import BnetIcon from '../components/ui/BnetIcon.vue'
+import DiscordIcon from '../components/ui/DiscordIcon.vue'
 import type { PublicSignupInfo } from '../types'
 
 const route = useRoute()
@@ -22,6 +24,8 @@ const signupInfo = ref<PublicSignupInfo | null>(null)
 
 const playerName = ref('')
 const playerRoles = ref<Array<{ role: string; rank: string }>>([{ role: '', rank: '' }])
+const playerDiscord = ref('')
+const playerBattletag = ref('')
 
 function addRole() {
   if (playerRoles.value.length < 3) {
@@ -119,6 +123,8 @@ async function submitRequest() {
     await eventStore.submitPublicSignupRequest(signupToken.value, {
       name: playerName.value.trim(),
       roles: playerRoles.value,
+      discord_username: playerDiscord.value.trim() || null,
+      battletag: playerBattletag.value.trim() || null,
     })
 
     const destinationEventId = signupInfo.value?.event_id
@@ -149,9 +155,15 @@ function prefillFromAuth() {
   if (!user) return
 
   if (!playerName.value) {
-    playerName.value = user.battletag
-      ? `${user.display_name} (${user.battletag})`
-      : user.display_name
+    playerName.value = user.display_name
+  }
+
+  // Only prefill manual fields when the account isn't already linked
+  if (!user.discord_username && !playerDiscord.value) {
+    // nothing to prefill
+  }
+  if (!user.battletag && !playerBattletag.value) {
+    // nothing to prefill
   }
 
   const entries: Array<{ role: string; rank: string }> = []
@@ -244,14 +256,53 @@ onMounted(async () => {
           <p><RouterLink to="/auth">Sign in</RouterLink> to automatically prefill your name and ranks.</p>
         </div>
 
+        <div v-else class="join-auth-banner">
+          <span class="material-symbols-rounded" aria-hidden="true">verified_user</span>
+          <p>Signing up as <strong>{{ authStore.user?.display_name }}</strong> (@{{ authStore.user?.username }}). Your request will be linked to your account.</p>
+        </div>
+
         <form class="join-form" @submit.prevent="submitRequest">
           <label class="join-field join-field-full">
-            YOUR DISPLAY NAME
+            <span class="join-field-label">YOUR DISPLAY NAME</span>
             <div class="join-input-leading-icon">
               <span class="material-symbols-rounded" aria-hidden="true">sports_esports</span>
-              <input v-model="playerName" placeholder="Your battletag or nickname" />
+              <input v-model="playerName" placeholder="Your display or nickname" />
             </div>
           </label>
+
+          <!-- Discord -->
+          <div class="join-field">
+            <span class="join-field-label">DISCORD <span class="join-field-optional">optional</span></span>
+            <div v-if="authStore.user?.discord_username" class="join-verified-chip">
+              <DiscordIcon class="join-verified-icon" />
+              <span class="join-verified-value">{{ authStore.user.discord_username }}</span>
+              <span class="join-verified-badge">
+                <span class="material-symbols-rounded" aria-hidden="true">verified</span>
+                Verified
+              </span>
+            </div>
+            <div v-else class="join-input-leading-icon">
+              <DiscordIcon class="join-platform-icon" />
+              <input v-model="playerDiscord" placeholder="Your Discord username" maxlength="100" />
+            </div>
+          </div>
+
+          <!-- Battle.net -->
+          <div class="join-field">
+            <span class="join-field-label">BATTLE.NET <span class="join-field-optional">optional</span></span>
+            <div v-if="authStore.user?.battletag" class="join-verified-chip">
+              <BnetIcon class="join-verified-icon join-verified-icon--bnet" />
+              <span class="join-verified-value">{{ authStore.user.battletag }}</span>
+              <span class="join-verified-badge join-verified-badge--bnet">
+                <span class="material-symbols-rounded" aria-hidden="true">verified</span>
+                Verified
+              </span>
+            </div>
+            <div v-else class="join-input-leading-icon">
+              <BnetIcon class="join-platform-icon join-platform-icon--bnet" />
+              <input v-model="playerBattletag" placeholder="YourName#1234" maxlength="100" />
+            </div>
+          </div>
 
           <div class="join-field-full join-roles-section">
             <span class="join-roles-label">ROLE PREFERENCES</span>
@@ -570,21 +621,46 @@ onMounted(async () => {
   text-underline-offset: 2px;
 }
 
+.join-auth-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem 0.9rem;
+  background: color-mix(in srgb, #5865f2 12%, transparent 88%);
+  border: 1px solid color-mix(in srgb, #5865f2 45%, var(--line) 55%);
+  border-radius: 8px;
+  color: color-mix(in srgb, #a5aaff 90%, white 10%);
+  font-size: 0.875rem;
+}
+
+.join-auth-banner .material-symbols-rounded {
+  flex-shrink: 0;
+  font-size: 1.15rem;
+  margin-top: 1px;
+  opacity: 0.9;
+}
+
+.join-auth-banner p {
+  margin: 0;
+}
+
 .join-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem;
 }
 
 .join-roles-section {
   display: grid;
   gap: 0;
+  margin-bottom: 0.75rem;
 }
 
 .join-roles-label {
   font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
 }
 
 .join-roles-list {
@@ -773,5 +849,96 @@ onMounted(async () => {
   border: 1px solid color-mix(in srgb, var(--primary-500) 38%, var(--line) 62%);
   border-radius: var(--radius-pill);
   padding: 0.06rem 0.38rem;
+}
+
+.join-field-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.join-field-optional {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-left: 0.3rem;
+}
+
+.join-platform-icon {
+  position: absolute;
+  left: 0.72rem;
+  width: 1rem;
+  height: 1rem;
+  fill: var(--ink-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.join-platform-icon--bnet {
+  fill: color-mix(in srgb, #148eff 70%, var(--ink-muted) 30%);
+}
+
+.join-verified-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.48rem 0.72rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, #5865f2 45%, var(--line) 55%);
+  background: color-mix(in srgb, #5865f2 8%, transparent 92%);
+  min-height: 2.6rem;
+}
+
+.join-verified-icon {
+  width: 1rem;
+  height: 1rem;
+  fill: color-mix(in srgb, #adb3ff 90%, white 10%);
+  flex-shrink: 0;
+}
+
+.join-verified-icon--bnet {
+  fill: color-mix(in srgb, #74bbff 88%, white 12%);
+}
+
+.join-verified-value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-1);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.join-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, #adb3ff 90%, white 10%);
+  background: color-mix(in srgb, #5865f2 18%, transparent 82%);
+  border: 1px solid color-mix(in srgb, #5865f2 45%, var(--line) 55%);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.38rem 0.1rem 0.26rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.join-verified-badge--bnet {
+  color: color-mix(in srgb, #74bbff 88%, white 12%);
+  background: color-mix(in srgb, #148eff 14%, transparent 86%);
+  border-color: color-mix(in srgb, #148eff 45%, var(--line) 55%);
+}
+
+.join-verified-badge .material-symbols-rounded {
+  font-size: 0.78rem;
+  line-height: 1;
+  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 24;
 }
 </style>

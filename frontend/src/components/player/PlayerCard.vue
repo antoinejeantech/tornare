@@ -1,12 +1,17 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { getRoleIcon } from '../../lib/roles'
+import DiscordIcon from '../ui/DiscordIcon.vue'
+import BnetIcon from '../ui/BnetIcon.vue'
 import type { EventPlayer, RoleRank } from '../../types'
 
 const props = withDefaults(defineProps<{
   player: EventPlayer
   clickable?: boolean
+  showSocials?: boolean
 }>(), {
   clickable: false,
+  showSocials: false,
 })
 
 const emit = defineEmits<{
@@ -54,6 +59,16 @@ function emitSelect() {
 
   emit('select', props.player)
 }
+
+const copied = ref<'discord' | 'bnet' | null>(null)
+let copyTimer: ReturnType<typeof setTimeout> | null = null
+
+function copy(text: string, field: 'discord' | 'bnet') {
+  navigator.clipboard.writeText(text)
+  if (copyTimer) clearTimeout(copyTimer)
+  copied.value = field
+  copyTimer = setTimeout(() => { copied.value = null }, 1500)
+}
 </script>
 
 <template>
@@ -66,34 +81,83 @@ function emitSelect() {
     @keydown.enter.prevent="emitSelect"
     @keydown.space.prevent="emitSelect"
   >
-    <div class="player-identity-row">
-      <span class="player-avatar" aria-hidden="true">{{ playerInitials(player.name) }}</span>
-      <div class="player-copy">
-        <strong class="player-name">{{ player.name }}</strong>
-        <div v-if="!player.team_id && player.roles?.length > 1" class="player-pref-roles">
-          <span
-            v-for="(rp, i) in player.roles"
-            :key="i"
-            class="pref-role-chip"
-            :class="{ 'is-top': i === 0, 'is-interactive': clickable }"
-            :role="clickable ? 'button' : undefined"
-            :tabindex="clickable ? 0 : undefined"
-            :title="clickable ? `Add as ${rp.role} · ${rp.rank}` : undefined"
-            @click="emitSelectRole(rp, $event)"
-            @keydown.enter.stop.prevent="clickable && emitSelectRole(rp, $event)"
-            @keydown.space.stop.prevent="clickable && emitSelectRole(rp, $event)"
-          >
-            <span class="material-symbols-rounded pref-role-icon" aria-hidden="true">{{ getRoleIcon(rp.role) }}</span>
-            {{ rp.role }} · {{ rp.rank }}
-          </span>
-        </div>
-        <div v-else class="player-meta-pills">
-          <span class="role-pill">
-            <span class="material-symbols-rounded role-inline-icon" aria-hidden="true">{{ getRoleIcon(player.role) }}</span>
-            <span>{{ player.role }}</span>
-          </span>
-          <span class="rank-pill" :class="rankTierClass(player.rank)">{{ player.rank }}</span>
-        </div>
+    <div class="player-top-row">
+      <span class="player-avatar" aria-hidden="true">
+        <img
+          v-if="player.linked_user?.avatar_url"
+          :src="player.linked_user.avatar_url"
+          :alt="player.name"
+          class="player-avatar-img"
+        />
+        <template v-else>{{ playerInitials(player.name) }}</template>
+      </span>
+      <strong class="player-name">{{ player.name }}</strong>
+      <div
+        v-if="showSocials && (player.linked_user || player.reported_discord || player.reported_battletag)"
+        class="player-social-cluster"
+      >
+        <RouterLink
+          v-if="player.linked_user"
+          class="social-icon-btn social-icon-btn--profile"
+          :to="`/profiles/${player.linked_user.id}`"
+          title="View profile"
+          @click.stop
+        >
+          <span class="material-symbols-rounded social-icon-sym">person</span>
+        </RouterLink>
+        <span
+          v-if="player.linked_user && (player.linked_user?.discord_username || player.reported_discord || player.linked_user?.battletag || player.reported_battletag)"
+          class="social-sep"
+          aria-hidden="true"
+        ></span>
+        <button
+          v-if="player.linked_user?.discord_username || player.reported_discord"
+          type="button"
+          class="social-icon-btn social-icon-btn--discord"
+          :class="{ 'is-verified': player.linked_user?.discord_username, 'is-copied': copied === 'discord' }"
+          :data-tip="copied === 'discord' ? 'Copied!' : (player.linked_user?.discord_username ?? player.reported_discord ?? '')"
+          @click.stop="copy(player.linked_user?.discord_username ?? player.reported_discord ?? '', 'discord')"
+        >
+          <DiscordIcon class="social-icon" />
+          <span v-if="player.linked_user?.discord_username" class="material-symbols-rounded social-verified-badge" aria-hidden="true">check_circle</span>
+        </button>
+        <button
+          v-if="player.linked_user?.battletag || player.reported_battletag"
+          type="button"
+          class="social-icon-btn social-icon-btn--bnet"
+          :class="{ 'is-verified': player.linked_user?.battletag, 'is-copied': copied === 'bnet' }"
+          :data-tip="copied === 'bnet' ? 'Copied!' : (player.linked_user?.battletag ?? player.reported_battletag ?? '')"
+          @click.stop="copy(player.linked_user?.battletag ?? player.reported_battletag ?? '', 'bnet')"
+        >
+          <BnetIcon class="social-icon" />
+          <span v-if="player.linked_user?.battletag" class="material-symbols-rounded social-verified-badge" aria-hidden="true">check_circle</span>
+        </button>
+      </div>
+    </div>
+    <div class="player-roles-row">
+      <div v-if="!player.team_id && player.roles?.length > 1" class="player-pref-roles">
+        <span
+          v-for="(rp, i) in player.roles"
+          :key="i"
+          class="pref-role-chip"
+          :class="{ 'is-top': i === 0, 'is-interactive': clickable }"
+          :role="clickable ? 'button' : undefined"
+          :tabindex="clickable ? 0 : undefined"
+          :title="clickable ? `Add as ${rp.role} · ${rp.rank}` : undefined"
+          @click="emitSelectRole(rp, $event)"
+          @keydown.enter.stop.prevent="clickable && emitSelectRole(rp, $event)"
+          @keydown.space.stop.prevent="clickable && emitSelectRole(rp, $event)"
+        >
+          <span class="material-symbols-rounded pref-role-icon" aria-hidden="true">{{ getRoleIcon(rp.role) }}</span>
+          {{ rp.role }} · {{ rp.rank }}
+        </span>
+      </div>
+      <div v-else class="player-meta-pills">
+        <span class="role-pill">
+          <span class="material-symbols-rounded role-inline-icon" aria-hidden="true">{{ getRoleIcon(player.role) }}</span>
+          <span>{{ player.role }}</span>
+        </span>
+        <span class="rank-pill" :class="rankTierClass(player.rank)">{{ player.rank }}</span>
       </div>
     </div>
   </article>
@@ -105,11 +169,10 @@ function emitSelect() {
   border: 1px solid var(--surface-card-border);
   background: var(--surface-card-bg);
   border-radius: var(--radius-md);
-  padding: 1.08rem 0.78rem;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: center;
-  gap: 0.65rem;
+  padding: 0.72rem 0.78rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .player-card.is-clickable {
@@ -125,48 +188,61 @@ function emitSelect() {
   outline-offset: 2px;
 }
 
-.player-identity-row {
-  width: 100%;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.6rem;
+.player-top-row {
+  display: flex;
   align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.player-roles-row {
+  display: flex;
+  min-width: 0;
+  height: 1.6rem;
+  align-items: center;
+  overflow: hidden;
 }
 
 .player-avatar {
-  width: 2.28rem;
-  height: 2.28rem;
+  width: 2.8rem;
+  height: 2.8rem;
   border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.76rem;
+  font-size: 0.88rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   color: color-mix(in srgb, white 92%, var(--ink-1) 8%);
   border: 1px solid color-mix(in srgb, var(--line-strong) 74%, var(--bg-0) 26%);
   background: color-mix(in srgb, var(--bg-1) 82%, var(--card) 18%);
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
-.player-copy {
-  min-width: 0;
-  display: grid;
-  gap: 0.28rem;
+.player-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .player-name {
-  font-size: 0.92rem;
+  font-size: 1.02rem;
   line-height: 1.15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
 }
 
 .player-meta-pills {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.35rem;
+  overflow: hidden;
 }
 
 .role-pill,
@@ -251,8 +327,9 @@ function emitSelect() {
 
 .player-pref-roles {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.26rem;
+  overflow: hidden;
 }
 
 .pref-role-chip {
@@ -268,6 +345,8 @@ function emitSelect() {
   background: transparent;
   color: color-mix(in srgb, var(--ink-2) 70%, transparent 30%);
   user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .pref-role-chip.is-top {
@@ -300,5 +379,138 @@ function emitSelect() {
 .pref-role-icon {
   font-size: 0.82rem;
   line-height: 1;
+}
+
+.linked-user-strip {
+  display: none;
+}
+
+.player-social-cluster {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.social-verified-badge {
+  position: absolute;
+  bottom: 0px;
+  right: -1px;
+  font-size: 0.5rem;
+  line-height: 1;
+  color: #4ade80;
+  pointer-events: none;
+  font-variation-settings: 'FILL' 1;
+}
+
+.social-sep {
+  width: 1px;
+  height: 0.75rem;
+  background: var(--line);
+  margin: 0 0.22rem;
+  flex-shrink: 0;
+}
+
+.social-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--ink-3);
+  transition: color 0.12s, background 0.12s;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+/* Custom tooltip via ::before (tag text) */
+.social-icon-btn::before {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.28rem 0.48rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-0, #111);
+  color: var(--ink-1);
+  border: 1px solid var(--line);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 10;
+}
+
+.social-icon-btn:hover::before {
+  opacity: 1;
+}
+
+.social-icon-btn.is-copied::before {
+  opacity: 1;
+  color: #86efac;
+}
+
+.social-icon-btn:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent 90%);
+}
+
+.social-icon-btn--discord:hover {
+  color: #adb3ff;
+}
+
+.social-icon-btn--bnet:hover {
+  color: #74bbff;
+}
+
+.social-icon-btn--discord.is-verified {
+  color: #adb3ff;
+}
+
+.social-icon-btn--bnet.is-verified {
+  color: #74bbff;
+}
+
+.social-icon-btn--profile {
+  color: var(--ink-3);
+  text-decoration: none;
+}
+
+.social-icon-btn--profile::before {
+  content: none;
+}
+
+.social-icon-btn--profile:hover {
+  color: var(--ink-1);
+  background: color-mix(in srgb, currentColor 10%, transparent 90%);
+}
+
+.social-icon-sym {
+  font-size: 1.15rem;
+  line-height: 1;
+  font-variation-settings: 'FILL' 1;
+}
+
+.social-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* BNet path has a 32×32 viewBox vs Discord's 24×24 — render it slightly
+   larger and boost opacity so it feels equally heavy at small sizes. */
+.social-icon-btn--bnet .social-icon {
+  width: 1.22rem;
+  height: 1.22rem;
+  opacity: 1;
 }
 </style>

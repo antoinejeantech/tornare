@@ -178,7 +178,7 @@ function sectionRoute(section: string) {
         </div>
         <ul v-if="featuredPlayers.length > 0" class="overview-player-list">
           <li v-for="player in featuredPlayers" :key="player.id">
-            <PlayerCard :player="player" :clickable="false" />
+            <PlayerCard :player="player" :clickable="false" :show-socials="false" />
           </li>
         </ul>
         <p v-else class="muted">No players yet.</p>

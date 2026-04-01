@@ -831,6 +831,7 @@ function formatTeamModified(team: EventTeam): string {
                 :class="{ 'is-disabled': Boolean(teamPickerBusyPlayerId) }"
                 :player="player"
                 :clickable="!teamPickerBusyPlayerId"
+                :show-socials="ctx.canManageEvent"
                 @select="assignUnassignedPlayerToPickedTeam(player.id)"
                 @selectRole="(p, rp) => assignUnassignedPlayerToPickedTeamWithRole(p.id, rp.role, rp.rank)"
               />

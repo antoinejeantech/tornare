@@ -16,6 +16,24 @@ export type OverwatchRole = 'Tank' | 'DPS' | 'Support' | 'Flex'
 export type EventType = 'PUG' | 'TOURNEY'
 export type EventFormat = '5v5' | '6v6' | '1v1'
 
+export interface LinkedUserInfo {
+  id: string
+  username: string
+  display_name: string
+  discord_username: string | null
+  battletag: string | null
+  avatar_url: string | null
+}
+
+export interface ParticipatedEventSummary {
+  id: string
+  name: string
+  start_date: string | null
+  event_type: EventType
+  format: EventFormat
+  is_ended: boolean
+}
+
 export interface RoleRank {
   role: OverwatchRole
   rank: OverwatchRank
@@ -39,6 +57,9 @@ export interface EventPlayer {
   assigned_role: OverwatchRole | null
   assigned_rank: OverwatchRank | null
   roles: RoleRank[]
+  linked_user?: LinkedUserInfo | null
+  reported_discord?: string | null
+  reported_battletag?: string | null
 }
 
 export interface EventMatch {
@@ -109,6 +130,9 @@ export interface SignupRequest {
   created_at?: string
   updated_at?: string
   roles?: Array<{ role: string; rank: string }>
+  linked_user?: LinkedUserInfo | null
+  reported_discord?: string | null
+  reported_battletag?: string | null
   [key: string]: unknown
 }
 

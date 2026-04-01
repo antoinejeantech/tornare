@@ -108,7 +108,8 @@ export interface EventCtxType {
   removePlayer: (player: EventPlayer) => Promise<void>
 
   // ── Match actions ──
-  createMatch: () => Promise<void>
+  initializeNewMatchDraft: () => void
+  createMatch: () => Promise<boolean>
   updateMatchStartDate: (matchId: string, startDate: string) => Promise<void>
   generateTourneyBracket: (mode?: string) => Promise<void>
   clearTourneyBracket: () => Promise<void>

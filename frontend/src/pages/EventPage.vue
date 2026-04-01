@@ -154,6 +154,7 @@ const {
 const {
   creatingMatch, clearingBracket, deletingMatchId, savingMatchups, reportingWinners, cancellingWinners,
   newMatchTitle, newMatchMap, newMatchTeamAId, newMatchTeamBId, newMatchStartDate, canCreateMatch,
+  initializeNewMatchDraft,
   saveMatchup, createMatch, updateMatchStartDate, generateTourneyBracket, clearTourneyBracket,
   reportMatchWinner, cancelMatchWinner, deleteMatch,
 } = matches
@@ -344,6 +345,7 @@ provide('eventCtx', proxyRefs({
   createTeam,
   autoCreateSoloTeams,
   autoBalanceTeams,
+  initializeNewMatchDraft,
   createMatch,
   updateMatchStartDate,
   generateTourneyBracket,

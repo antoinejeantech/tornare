@@ -5,36 +5,36 @@ import AppBadge from '../components/ui/AppBadge.vue'
 
 const placeholderNews = [
   {
-    id: 'placeholder-1',
-    title: 'Upcoming Feature Drop',
+    id: 'avatar-system',
+    title: 'Avatar System & Player Card Redesign',
+    date: 'April 2026',
+    category: 'Product',
+    summary: 'Player cards now display profile avatars pulled from linked user accounts. Social identity buttons (Discord, Battle.net) show verified badges for linked handles, giving organizers instant confidence in contact data.',
+    impact: 'Richer player identity'
+  },
+  {
+    id: 'social-identity',
+    title: 'Verified Social Identity Linking',
     date: 'March 2026',
     category: 'Product',
-    summary: 'Quality-of-life updates for event setup, roster handling, and faster match-room preparation.',
-    impact: 'Faster organizer workflow'
+    summary: 'OAuth linking for Discord and Battle.net is now live across all accounts. Verified usernames appear on player cards and are accessible to event managers, streamlining match communication before game night.',
+    impact: 'Trustworthy player data'
   },
   {
-    id: 'placeholder-2',
-    title: 'Community Spotlight',
-    date: 'March 2026',
-    category: 'Community',
-    summary: 'Tournament recap format and best-practice highlights from active Tornare communities.',
-    impact: 'Share repeatable playbooks'
+    id: 'legal-platform',
+    title: 'Privacy Policy & Terms of Service',
+    date: 'April 2026',
+    category: 'Platform',
+    summary: 'Tornare now ships a full Privacy Policy and Terms of Service covering data collection, user rights, third-party OAuth integrations, and an explicit Blizzard non-affiliation disclosure.',
+    impact: 'Transparent data practices'
   },
   {
-    id: 'placeholder-3',
-    title: 'Patch Notes Format',
+    id: 'migration-14',
+    title: 'DB Migration 0014: Player–User Linking',
     date: 'March 2026',
     category: 'Engineering',
-    summary: 'A transparent release template for backend/frontend changes, migrations, and known issues.',
-    impact: 'Clearer release communication'
-  },
-  {
-    id: 'placeholder-4',
-    title: 'Organizer Toolkit Preview',
-    date: 'March 2026',
-    category: 'Product',
-    summary: 'Preview of upcoming organizer-centric controls to streamline pre-match and check-in operations.',
-    impact: 'Less pre-game friction'
+    summary: 'A new database relation links EventPlayer rows directly to registered user accounts. This powers the verified badge system, exposes avatar URLs in event queries, and lays the foundation for cross-event player history.',
+    impact: 'Foundation for player history'
   }
 ]
 
@@ -52,14 +52,14 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 
     <section class="card news-hero reveal-block reveal-1">
       <p class="section-kicker">Release Intelligence</p>
-      <h2>Product updates, community recaps, and shipping notes in one feed.</h2>
+      <h2>Product updates, engineering notes, and platform milestones.</h2>
       <p class="muted">
-        This page is currently curated with structured placeholder content, ready to be replaced by real posts as launch cadence grows.
+        Follow feature drops, database migrations, and community announcements as Tornare ships toward a full public release.
       </p>
       <div class="news-meta-strip">
-        <span class="news-meta-pill">{{ placeholderNews.length }} total stories</span>
+        <span class="news-meta-pill">{{ placeholderNews.length }} recent stories</span>
         <span class="news-meta-pill">{{ productNewsCount }} product updates</span>
-        <span class="news-meta-pill">Updated March 2026</span>
+        <span class="news-meta-pill">Updated April 2026</span>
       </div>
       <div class="news-hero-actions">
         <RouterLink class="news-cta news-cta-link news-cta-link-primary" to="/events">Open Event Hub</RouterLink>
