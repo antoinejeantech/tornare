@@ -55,9 +55,14 @@ async fn main() {
 
     info!("connected to postgres");
 
-    init_schema(&pool)
-        .await
-        .expect("failed to initialize database schema");
+    let skip_migrations = env::var("SKIP_MIGRATIONS").map(|v| v == "1" || v.eq_ignore_ascii_case("true")).unwrap_or(false);
+    if skip_migrations {
+        info!("SKIP_MIGRATIONS is set — skipping database migrations");
+    } else {
+        init_schema(&pool)
+            .await
+            .expect("failed to initialize database schema");
+    }
 
     info!("database migrations applied");
 

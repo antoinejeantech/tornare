@@ -5,6 +5,7 @@ help:
 	@echo "  make bootstrap   - Create local .env files if missing"
 	@echo "  make up          - Build and run backend + frontend (production image)"
 	@echo "  make dev         - Start postgres + backend-dev (cargo-watch) + frontend"
+	@echo "  make dev-no-migrate - Same as dev but skips database migrations on start"
 	@echo "  make db-up       - Start postgres only"
 	@echo "  make db-logs     - Tail postgres logs"
 	@echo "  make backend     - Build and run backend API"
@@ -32,6 +33,10 @@ up:
 dev:
 	docker compose stop backend 2>/dev/null || true
 	docker compose up --force-recreate postgres backend-dev frontend
+
+dev-no-migrate:
+	docker compose stop backend 2>/dev/null || true
+	SKIP_MIGRATIONS=1 docker compose up --force-recreate postgres backend-dev frontend
 
 db-up:
 	docker compose up -d postgres

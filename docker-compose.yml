@@ -66,6 +66,7 @@ services:
       - ./backend/.env
     environment:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/tornare
+      - SKIP_MIGRATIONS=${SKIP_MIGRATIONS:-false}
     ports:
       - "8000:8000"
     command: sh -c "cargo install cargo-watch --locked 2>/dev/null; cargo watch -x run"
