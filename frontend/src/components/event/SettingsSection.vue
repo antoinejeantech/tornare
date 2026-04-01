@@ -65,7 +65,7 @@ const ctx = inject<EventCtxType>('eventCtx')!
 
       <div class="event-status-actions">
         <button
-          v-if="ctx.event?.status !== 'DRAFT'"
+          v-if="ctx.event?.status === 'ACTIVE'"
           class="btn-secondary"
           :disabled="ctx.updatingEventStatus"
           type="button"
@@ -74,7 +74,7 @@ const ctx = inject<EventCtxType>('eventCtx')!
           {{ ctx.updatingEventStatus ? 'Updating...' : 'Set as Draft' }}
         </button>
         <button
-          v-if="ctx.event?.status !== 'ACTIVE'"
+          v-if="ctx.event?.status === 'DRAFT'"
           class="btn-primary"
           :disabled="ctx.updatingEventStatus"
           type="button"
@@ -83,7 +83,7 @@ const ctx = inject<EventCtxType>('eventCtx')!
           {{ ctx.updatingEventStatus ? 'Updating...' : 'Set as Active' }}
         </button>
         <button
-          v-if="ctx.event?.status !== 'ENDED'"
+          v-if="ctx.event?.status === 'ACTIVE'"
           class="btn-warning"
           :disabled="ctx.updatingEventStatus"
           type="button"
@@ -95,7 +95,7 @@ const ctx = inject<EventCtxType>('eventCtx')!
 
       <p class="muted event-status-note">
         <template v-if="ctx.event?.status === 'DRAFT'">Draft events are invisible to everyone except you. Set to Active when you are ready to go live.</template>
-        <template v-else-if="ctx.event?.status === 'ENDED'">Ended events remain visible in listings under Past Events. You can reopen them at any time.</template>
+        <template v-else-if="ctx.event?.status === 'ENDED'">Ended events remain visible in listings under Past Events. This status is permanent.</template>
         <template v-else>Active events are visible to everyone. End the event when it is over, or move it back to Draft to hide it.</template>
       </p>
     </div>
