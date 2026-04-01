@@ -350,7 +350,7 @@ async fn participated_events_lists_events_joined_via_signup_acceptance(pool: PgP
     assert_eq!(items[0]["name"].as_str(), Some("Participation Test Event"));
     assert_eq!(items[0]["event_type"].as_str(), Some("PUG"));
     assert_eq!(items[0]["format"].as_str(), Some("5v5"));
-    assert_eq!(items[0]["is_ended"].as_bool(), Some(false));
+    assert_eq!(items[0]["status"].as_str(), Some("DRAFT"));
 }
 
 // ---------------------------------------------------------------------------
