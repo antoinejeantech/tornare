@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { averagePlayersElo } from '../../lib/elo'
 import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
+import AppModal from '../ui/AppModal.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventPlayer, EventTeam, RoleRank } from '../../types'
 
@@ -12,9 +13,6 @@ const ctx = inject<EventCtxType>('eventCtx')!
 const assignmentSearchByTeam = reactive<Record<string, string>>({})
 const teamPickerTeamId = ref<string>('')
 const teamPickerBusyPlayerId = ref<string>('')
-const teamPickerDialogRef = ref<HTMLElement | null>(null)
-const teamPickerCloseButtonRef = ref<HTMLElement | null>(null)
-let previouslyFocusedElement: Element | null = null
 
 const isTeamPickerOpen = computed(() => Boolean(teamPickerTeamId.value))
 
@@ -280,16 +278,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
-
-  if (typeof document !== 'undefined') {
-    document.body.style.overflow = ''
-  }
-
-  if (typeof window !== 'undefined') {
-    window.removeEventListener('keydown', onTeamPickerKeydown)
-  }
-
-  restoreTeamPickerFocus()
 })
 
 function openTeamPicker(teamId: string | number) {
@@ -330,117 +318,6 @@ async function assignUnassignedPlayerToPickedTeamWithRole(playerId: string | num
     teamPickerBusyPlayerId.value = ''
   }
 }
-
-function teamPickerFocusableElements(): HTMLElement[] {
-  if (!teamPickerDialogRef.value) {
-    return []
-  }
-
-  const selectors = [
-    'button:not([disabled])',
-    '[href]',
-    'input:not([disabled])',
-    'select:not([disabled])',
-    'textarea:not([disabled])',
-    '[tabindex]:not([tabindex="-1"])',
-  ]
-
-  return Array.from(teamPickerDialogRef.value.querySelectorAll<HTMLElement>(selectors.join(', '))).filter((el) => {
-    return el.getAttribute('aria-hidden') !== 'true'
-  })
-}
-
-function focusInitialTeamPickerElement() {
-  nextTick(() => {
-    if (teamPickerCloseButtonRef.value) {
-      teamPickerCloseButtonRef.value.focus()
-      return
-    }
-
-    if (teamPickerDialogRef.value) {
-      teamPickerDialogRef.value.focus()
-    }
-  })
-}
-
-function restoreTeamPickerFocus() {
-  if (previouslyFocusedElement) {
-    (previouslyFocusedElement as HTMLElement).focus()
-  }
-
-  previouslyFocusedElement = null
-}
-
-function onTeamPickerKeydown(event: KeyboardEvent) {
-  if (!isTeamPickerOpen.value) {
-    return
-  }
-
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    closeTeamPicker()
-    return
-  }
-
-  if (event.key !== 'Tab') {
-    return
-  }
-
-  const focusableElements = teamPickerFocusableElements()
-  if (focusableElements.length === 0) {
-    event.preventDefault()
-    if (teamPickerDialogRef.value) {
-      teamPickerDialogRef.value.focus()
-    }
-    return
-  }
-
-  const first = focusableElements[0]
-  const last = focusableElements[focusableElements.length - 1]
-  const active = document.activeElement
-
-  if (!teamPickerDialogRef.value?.contains(active)) {
-    event.preventDefault()
-    first.focus()
-    return
-  }
-
-  if (event.shiftKey && active === first) {
-    event.preventDefault()
-    last.focus()
-    return
-  }
-
-  if (!event.shiftKey && active === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
-
-watch(isTeamPickerOpen, (open) => {
-  if (typeof document === 'undefined') {
-    return
-  }
-
-  document.body.style.overflow = open ? 'hidden' : ''
-
-  if (typeof window !== 'undefined') {
-    if (open) {
-      const active = document.activeElement
-      if (active instanceof HTMLElement) {
-        previouslyFocusedElement = active
-      } else {
-        previouslyFocusedElement = null
-      }
-
-      window.addEventListener('keydown', onTeamPickerKeydown)
-      focusInitialTeamPickerElement()
-    } else {
-      window.removeEventListener('keydown', onTeamPickerKeydown)
-      restoreTeamPickerFocus()
-    }
-  }
-})
 
 function filteredPlayersAssignableToTeam(teamId: string | number): EventPlayer[] {
   const players = playersAssignableToTeam(teamId)
@@ -801,46 +678,32 @@ function formatTeamModified(team: EventTeam): string {
       </div>
     </div>
 
-    <Teleport to="body">
-      <div v-if="teamPickerTeamId" class="team-picker-backdrop" @click.self="closeTeamPicker">
-      <section
-        ref="teamPickerDialogRef"
-        class="team-picker-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Assign unassigned player"
-        tabindex="-1"
-      >
-        <div class="team-picker-header">
-          <h4>Add unassigned player to: {{ teamPickerTarget?.name || 'this team' }}</h4>
-          <button ref="teamPickerCloseButtonRef" class="btn-secondary icon-btn" title="Close picker" @click="closeTeamPicker">
-            <span class="material-symbols-rounded" aria-hidden="true">close</span>
-            <span class="sr-only">Close picker</span>
-          </button>
-        </div>
+    <AppModal
+      :open="isTeamPickerOpen"
+      :title="`Add unassigned player to: ${teamPickerTarget?.name || 'this team'}`"
+      max-width="min(42rem, 100%)"
+      @update:open="!$event && closeTeamPicker()"
+    >
+      <p v-if="unassignedPlayers.length === 0" class="muted">All players are already assigned.</p>
 
-        <p v-if="unassignedPlayers.length === 0" class="muted">All players are already assigned.</p>
+      <template v-else>
+        <p class="team-picker-hint muted">Click a player card to assign with their preferred role, or click a role badge to assign as that role.</p>
 
-        <template v-else>
-          <p class="team-picker-hint muted">Click a player card to assign with their preferred role, or click a role badge to assign as that role.</p>
-
-          <ul class="team-picker-list">
-            <li v-for="player in unassignedPlayers" :key="`picker-player-${player.id}`">
-              <PlayerCard
-                class="team-picker-item"
-                :class="{ 'is-disabled': Boolean(teamPickerBusyPlayerId) }"
-                :player="player"
-                :clickable="!teamPickerBusyPlayerId"
-                :show-socials="ctx.canManageEvent"
-                @select="assignUnassignedPlayerToPickedTeam(player.id)"
-                @selectRole="(p, rp) => assignUnassignedPlayerToPickedTeamWithRole(p.id, rp.role, rp.rank)"
-              />
-            </li>
-          </ul>
-        </template>
-      </section>
-    </div>
-    </Teleport>
+        <ul class="team-picker-list">
+          <li v-for="player in unassignedPlayers" :key="`picker-player-${player.id}`">
+            <PlayerCard
+              class="team-picker-item"
+              :class="{ 'is-disabled': Boolean(teamPickerBusyPlayerId) }"
+              :player="player"
+              :clickable="!teamPickerBusyPlayerId"
+              :show-socials="ctx.canManageEvent"
+              @select="assignUnassignedPlayerToPickedTeam(player.id)"
+              @selectRole="(p, rp) => assignUnassignedPlayerToPickedTeamWithRole(p.id, rp.role, rp.rank)"
+            />
+          </li>
+        </ul>
+      </template>
+    </AppModal>
 
   </section>
 </template>
@@ -1330,40 +1193,6 @@ function formatTeamModified(team: EventTeam): string {
 
 .team-player-empty {
   font-size: 0.9rem;
-}
-
-.team-picker-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 70;
-  background: rgba(7, 12, 22, 0.64);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.team-picker-modal {
-  width: min(42rem, calc(100vw - 2rem));
-  max-height: min(80vh, 54rem);
-  overflow: auto;
-  border: 1px solid color-mix(in srgb, var(--line-strong) 72%, var(--brand-1) 28%);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--card) 95%, #101a2c 5%);
-  padding: 0.82rem;
-  display: grid;
-  gap: 0.55rem;
-}
-
-.team-picker-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-}
-
-.team-picker-header h4 {
-  margin: 0;
 }
 
 .team-picker-subtitle {

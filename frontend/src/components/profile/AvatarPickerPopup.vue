@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import AppModal from '../ui/AppModal.vue'
 
 const props = defineProps<{
   currentAvatarUrl: string | null
@@ -44,21 +44,10 @@ const PRESET_AVATARS = [
 function pick(key: string | null) {
   emit('pick', key)
 }
-
-function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') emit('close')
-}
-
-onMounted(() => document.addEventListener('keydown', onKeydown))
-onUnmounted(() => document.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <Teleport to="body">
-  <div class="avatar-picker-backdrop" @click.self="emit('close')">
-    <div class="avatar-picker-popup" role="dialog" aria-label="Choose profile picture">
-      <p class="avatar-picker-title">Choose profile picture</p>
-
+  <AppModal :open="true" title="Choose profile picture" max-width="min(92vw, 520px)" @update:open="!$event && emit('close')">
       <p v-if="hasDiscord" class="avatar-picker-discord-note">
         <span class="material-symbols-rounded" aria-hidden="true">info</span>
         Your Discord avatar syncs automatically each time you log in with Discord.
@@ -93,57 +82,16 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown))
           <span class="material-symbols-rounded" aria-hidden="true">person</span>
         </button>
       </div>
-    </div>
-  </div>
-  </Teleport>
+  </AppModal>
 </template>
 
 <style scoped>
-.avatar-picker-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avatar-picker-popup {
-  position: relative;
-  z-index: 201;
-  background: var(--surface-2, #1a1d23);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md, 10px);
-  padding: 1.4rem 1.6rem;
-  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.64);
-  width: min(92vw, 520px);
-  max-height: min(82dvh, 560px);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.avatar-picker-title {
-  margin: 0 0 0.9rem;
-  font-size: 1rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--ink-muted);
-  flex-shrink: 0;
-}
-
 .avatar-picker-grid {
   display: grid;
   grid-template-columns: repeat(5, 82px);
   grid-auto-rows: 82px;
   gap: 0.5rem;
   justify-content: center;
-  overflow-y: auto;
-  overflow-x: hidden;
-  flex: 1;
-  min-height: 0;
   padding: 0.1rem 0.5rem 0.1rem 0.1rem;
 }
 
