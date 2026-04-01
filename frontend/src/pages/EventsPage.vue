@@ -3,14 +3,13 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
-import { normalizeDatetimeLocalInput } from '../lib/dates'
-import { formatOptionsForType } from '../lib/event-format'
 import { useDebounce } from '../composables/useDebounce'
 import { useRequestSequence } from '../composables/useRequestSequence'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
+import CreateEventModal from '../components/events/CreateEventModal.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
-import type { Event, EventFormat } from '../types'
+import type { Event } from '../types'
 
 interface PaginatedEventsResponse {
   items: Event[]
@@ -31,7 +30,6 @@ const kpis = ref({
 })
 const error = ref('')
 const loadingEvents = ref(false)
-const creatingEvent = ref(false)
 const activeOwnerFilter = ref('all')
 const activeTypeFilter = ref('all')
 const pastEventsOnly = ref(false)
@@ -48,44 +46,7 @@ const pageSizeOptions = [12, 24, 48]
 const currentPage = ref(1)
 const totalEventsAvailable = ref(0)
 
-const newEventName = ref('')
-const newEventDescription = ref('')
-const newEventStartDate = ref('')
-const newEventType = ref('PUG')
-const newEventFormat = ref<EventFormat>('5v5')
-const newEventSignupVisibility = ref('private')
-const newEventMaxPlayers = ref(10)
-
-const availableFormatOptions = computed(() => {
-  return formatOptionsForType(newEventType.value)
-})
-
-const isSelectedFormatValid = computed(() => {
-  return availableFormatOptions.value.includes(newEventFormat.value)
-})
-
-const canCreateEvent = computed(() => {
-  if (!authStore.isAuthenticated) {
-    return false
-  }
-
-  return (
-    newEventName.value.trim().length > 0 &&
-    newEventDescription.value.trim().length <= 5000 &&
-    Number.isInteger(Number(newEventMaxPlayers.value)) &&
-    Number(newEventMaxPlayers.value) >= 2 &&
-    Number(newEventMaxPlayers.value) <= 99 &&
-    isSelectedFormatValid.value
-  )
-})
-
 const normalizedSearchQuery = computed(() => eventSearchQuery.value.trim().toLowerCase())
-
-watch(newEventType, () => {
-  if (!isSelectedFormatValid.value) {
-    newEventFormat.value = availableFormatOptions.value[0]
-  }
-})
 
 const sortedEvents = computed(() => events.value)
 
@@ -135,16 +96,6 @@ function clearFilters() {
   pastEventsOnly.value = false
 }
 
-function resetCreateForm() {
-  newEventName.value = ''
-  newEventDescription.value = ''
-  newEventStartDate.value = ''
-  newEventType.value = 'PUG'
-  newEventFormat.value = '5v5'
-  newEventSignupVisibility.value = 'private'
-  newEventMaxPlayers.value = 10
-}
-
 function openCreateModal() {
   if (!authStore.isAuthenticated) {
     setError('Sign in to create an event')
@@ -153,14 +104,6 @@ function openCreateModal() {
 
   clearError()
   showCreateModal.value = true
-}
-
-function closeCreateModal() {
-  if (creatingEvent.value) {
-    return
-  }
-
-  showCreateModal.value = false
 }
 
 async function loadEvents() {
@@ -256,50 +199,8 @@ function goToNextPage() {
   }
 }
 
-function handleGlobalKeyDown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && showCreateModal.value) {
-    closeCreateModal()
-  }
-}
-
-async function createEvent() {
-  if (!canCreateEvent.value || creatingEvent.value) {
-    return
-  }
-
-  let normalizedStartDate = null
-  try {
-    normalizedStartDate = normalizeDatetimeLocalInput(newEventStartDate.value, 'event start date')
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'Invalid event start date')
-    return
-  }
-
-  creatingEvent.value = true
-  try {
-    clearError()
-
-    const created = await apiCall<Event>('/api/events', {
-      method: 'POST',
-      body: JSON.stringify({
-        name: newEventName.value.trim(),
-        description: newEventDescription.value.trim(),
-        start_date: normalizedStartDate,
-        event_type: newEventType.value,
-        format: newEventFormat.value,
-        public_signup_enabled: newEventSignupVisibility.value === 'public',
-        max_players: Number(newEventMaxPlayers.value)
-      })
-    })
-
-    resetCreateForm()
-    showCreateModal.value = false
-    router.push({ name: 'event', params: { id: created.id } })
-  } catch (err) {
-    setError(err instanceof Error ? err.message : 'Failed to create event')
-  } finally {
-    creatingEvent.value = false
-  }
+function onEventCreated(event: Event) {
+  router.push({ name: 'event', params: { id: event.id } })
 }
 
 onMounted(() => {
@@ -313,7 +214,6 @@ onMounted(() => {
   if (q.per_page) pageSize.value         = Number(q.per_page) || 12
   loadFeaturedEvent()
   loadEvents()
-  window.addEventListener('keydown', handleGlobalKeyDown)
 })
 
 function syncUrl() {
@@ -357,7 +257,6 @@ onBeforeUnmount(() => {
   if (eventsRequestController) {
     eventsRequestController.abort()
   }
-  window.removeEventListener('keydown', handleGlobalKeyDown)
 })
 </script>
 
@@ -578,74 +477,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <div
-      v-if="showCreateModal"
-      class="events-modal-backdrop"
-      role="presentation"
-      @click.self="closeCreateModal"
-    >
-      <section
-        class="events-modal card"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-event-modal-title"
-      >
-        <header class="events-modal-header">
-          <h2 id="create-event-modal-title">Create event</h2>
-          <button class="btn-secondary" type="button" :disabled="creatingEvent" @click="closeCreateModal">
-            Close
-          </button>
-        </header>
-        <form class="grid-form" @submit.prevent="createEvent">
-          <label>
-            Event name
-            <input v-model="newEventName" placeholder="Friday Night PUG" />
-          </label>
-          <label>
-            Description
-            <textarea v-model="newEventDescription" rows="4" placeholder="Rules, cashprize, check-in info..." />
-          </label>
-          <label>
-            Start date
-            <input v-model="newEventStartDate" type="datetime-local" />
-          </label>
-          <label>
-            Event type
-            <select v-model="newEventType">
-              <option value="PUG">PUG</option>
-              <option value="TOURNEY">TOURNEY</option>
-            </select>
-          </label>
-          <label>
-            Format
-            <select v-model="newEventFormat">
-              <option v-for="format in availableFormatOptions" :key="`new-event-format-${format}`" :value="format">
-                {{ format }}
-              </option>
-            </select>
-          </label>
-          <label>
-            Signup visibility
-            <select v-model="newEventSignupVisibility">
-              <option value="private">Private (link only)</option>
-              <option value="public">Public (visible join link)</option>
-            </select>
-          </label>
-          <label>
-            Max players
-            <input v-model.number="newEventMaxPlayers" min="2" max="99" type="number" />
-          </label>
-          <div class="events-modal-actions">
-            <ActionCtaButton type="submit" :disabled="!canCreateEvent || creatingEvent">
-              {{ creatingEvent ? 'Creating...' : 'Create event' }}
-            </ActionCtaButton>
-            <button type="button" class="btn-secondary" :disabled="creatingEvent" @click="closeCreateModal">
-              Cancel
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+    <CreateEventModal v-model:open="showCreateModal" @created="onEventCreated" />
   </main>
 </template>
 
@@ -1163,41 +995,6 @@ onBeforeUnmount(() => {
   }
 }
 
-.events-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(7, 14, 30, 0.5);
-  backdrop-filter: blur(3px);
-  z-index: 70;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-}
-
-.events-modal {
-  width: min(760px, 100%);
-  max-height: calc(100vh - 2rem);
-  overflow: auto;
-}
-
-.events-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  margin-bottom: 0.75rem;
-}
-
-.events-modal-header h2 {
-  margin: 0;
-}
-
-.events-modal-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
 @media (max-width: 840px) {
   .events-header {
     flex-wrap: wrap;
@@ -1208,10 +1005,6 @@ onBeforeUnmount(() => {
   }
 
   .events-empty-actions {
-    flex-wrap: wrap;
-  }
-
-  .events-modal-actions {
     flex-wrap: wrap;
   }
 }
