@@ -123,6 +123,7 @@ const matches = useEventMatches({ ...sharedCtx, isTourneyEvent, matchupSelection
 // ── Destructure composable returns ─────────────────────────────────────
 const {
   editEventName, editEventDescription, editEventStartDate, editEventFormat, editEventMaxPlayers,
+  editEventRequireDiscord, editEventRequireBattletag,
   updatingEvent, deletingEvent, canSaveEventMeta,
   syncEventEditDraftFromEvent, saveEventEdit, deleteEvent,
 } = settings
@@ -340,6 +341,8 @@ provide('eventCtx', proxyRefs({
   editEventStartDate,
   editEventFormat,
   editEventMaxPlayers,
+  editEventRequireDiscord,
+  editEventRequireBattletag,
   canSaveEventMeta,
   openSection,
   createTeam,

@@ -11,6 +11,8 @@ export function useEventSettings({
   const editEventStartDate = ref('')
   const editEventFormat = ref('5v5')
   const editEventMaxPlayers = ref(10)
+  const editEventRequireDiscord = ref(false)
+  const editEventRequireBattletag = ref(false)
   const updatingEvent = ref(false)
   const deletingEvent = ref(false)
 
@@ -29,6 +31,8 @@ export function useEventSettings({
     editEventStartDate.value = event.value.start_date ? isoToDatetimeLocalValue(event.value.start_date) : ''
     editEventFormat.value = event.value.format || '5v5'
     editEventMaxPlayers.value = Number(event.value.max_players)
+    editEventRequireDiscord.value = Boolean(event.value.require_discord)
+    editEventRequireBattletag.value = Boolean(event.value.require_battletag)
   }
 
   async function saveEventEdit() {
@@ -52,6 +56,8 @@ export function useEventSettings({
         event_type: payloadType,
         format: editEventFormat.value,
         max_players: editEventMaxPlayers.value,
+        require_discord: editEventRequireDiscord.value,
+        require_battletag: editEventRequireBattletag.value,
       })
       event.value = updatedEvent
       syncEventEditDraftFromEvent()
@@ -88,6 +94,7 @@ export function useEventSettings({
 
   return {
     editEventName, editEventDescription, editEventStartDate, editEventFormat, editEventMaxPlayers,
+    editEventRequireDiscord, editEventRequireBattletag,
     updatingEvent, deletingEvent, canSaveEventMeta,
     syncEventEditDraftFromEvent, saveEventEdit, deleteEvent,
   }

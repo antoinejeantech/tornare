@@ -95,6 +95,8 @@ export interface Event {
   can_manage: boolean
   public_signup_enabled: boolean
   public_signup_token: string | null
+  require_discord: boolean
+  require_battletag: boolean
   is_featured: boolean
   status: EventStatus
   creator_id?: number | string
@@ -115,12 +117,16 @@ export interface SignupLink {
 }
 
 export interface PublicSignupInfo {
+  event_id?: string | number
   event_name: string
   public_signup_enabled: boolean
   current_players: number
   max_players: number
   current_signup_requests: number
   start_date?: string | null
+  already_joined: boolean
+  require_discord: boolean
+  require_battletag: boolean
   [key: string]: unknown
 }
 

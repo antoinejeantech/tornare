@@ -75,14 +75,30 @@ const formattedStartDate = computed(() => {
   return formatEventStartDate(signupInfo.value.start_date) || 'TBA'
 })
 
+const discordSatisfied = computed(() => {
+  if (!signupInfo.value?.require_discord) return true
+  // A verified linked account satisfies the requirement even without manual input
+  if (authStore.user?.discord_username) return true
+  return playerDiscord.value.trim().length > 0
+})
+
+const battletagSatisfied = computed(() => {
+  if (!signupInfo.value?.require_battletag) return true
+  if (authStore.user?.battletag) return true
+  return playerBattletag.value.trim().length > 0
+})
+
 const canSubmit = computed(() => {
   return (
     signupToken.value.length > 0 &&
     playerName.value.trim().length > 0 &&
     playerRoles.value.length > 0 &&
     playerRoles.value.every(rp => rp.role.trim().length > 0 && rp.rank.trim().length > 0) &&
+    discordSatisfied.value &&
+    battletagSatisfied.value &&
     !submitting.value &&
-    !signupRequestsFull.value
+    !signupRequestsFull.value &&
+    !signupInfo.value?.already_joined
   )
 })
 
@@ -244,17 +260,26 @@ onMounted(async () => {
 
         <p v-if="signupRequestsFull" class="status status-blocked">Signup is currently unavailable because this event reached the request limit.</p>
 
-        <div v-if="!authStore.isAuthenticated" class="join-auth-hint">
-          <span class="material-symbols-rounded" aria-hidden="true">account_circle</span>
-          <p><RouterLink to="/auth">Sign in</RouterLink> to automatically prefill your name and ranks.</p>
+        <div v-if="signupInfo.already_joined" class="join-already-joined">
+          <span class="material-symbols-rounded join-already-joined-icon" aria-hidden="true">how_to_reg</span>
+          <div>
+            <p class="join-already-joined-title">You're already in this event</p>
+            <p class="join-already-joined-text">Your account is registered as a player. You cannot submit another request.</p>
+          </div>
         </div>
 
-        <div v-else class="join-auth-banner">
-          <span class="material-symbols-rounded" aria-hidden="true">verified_user</span>
-          <p>Signing up as <strong>{{ authStore.user?.display_name }}</strong> (@{{ authStore.user?.username }}). Your request will be linked to your account.</p>
-        </div>
+        <template v-else>
+          <div v-if="!authStore.isAuthenticated" class="join-auth-hint">
+            <span class="material-symbols-rounded" aria-hidden="true">account_circle</span>
+            <p><RouterLink to="/auth">Sign in</RouterLink> to automatically prefill your name and ranks.</p>
+          </div>
 
-        <form class="join-form" @submit.prevent="submitRequest">
+          <div v-else class="join-auth-banner">
+            <span class="material-symbols-rounded" aria-hidden="true">verified_user</span>
+            <p>Signing up as <strong>{{ authStore.user?.display_name }}</strong> (@{{ authStore.user?.username }}). Your request will be linked to your account.</p>
+          </div>
+
+          <form class="join-form" @submit.prevent="submitRequest">
           <label class="join-field join-field-full">
             <span class="join-field-label">YOUR DISPLAY NAME</span>
             <div class="join-input-leading-icon">
@@ -265,7 +290,7 @@ onMounted(async () => {
 
           <!-- Discord -->
           <div class="join-field">
-            <span class="join-field-label">DISCORD <span class="join-field-optional">optional</span></span>
+            <span class="join-field-label">DISCORD <span :class="signupInfo.require_discord ? 'join-field-required' : 'join-field-optional'">{{ signupInfo.require_discord ? 'required' : 'optional' }}</span></span>
             <div v-if="authStore.user?.discord_username" class="join-verified-chip">
               <DiscordIcon class="join-verified-icon" />
               <span class="join-verified-value">{{ authStore.user.discord_username }}</span>
@@ -282,7 +307,7 @@ onMounted(async () => {
 
           <!-- Battle.net -->
           <div class="join-field">
-            <span class="join-field-label">BATTLE.NET <span class="join-field-optional">optional</span></span>
+            <span class="join-field-label">BATTLE.NET <span :class="signupInfo.require_battletag ? 'join-field-required' : 'join-field-optional'">{{ signupInfo.require_battletag ? 'required' : 'optional' }}</span></span>
             <div v-if="authStore.user?.battletag" class="join-verified-chip">
               <BnetIcon class="join-verified-icon join-verified-icon--bnet" />
               <span class="join-verified-value">{{ authStore.user.battletag }}</span>
@@ -353,6 +378,7 @@ onMounted(async () => {
             <p class="join-actions-note">By requesting to join, you agree to our Tournament Fair Play Guidelines.</p>
           </div>
         </form>
+        </template>
       </template>
 
       <template v-else>
@@ -585,6 +611,35 @@ onMounted(async () => {
   width: calc(100% + (var(--join-card-pad) * 2));
   margin: 1.05rem 0 1.05rem calc(var(--join-card-pad) * -1);
   background: color-mix(in srgb, var(--line) 72%, transparent);
+}
+
+.join-already-joined {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: color-mix(in srgb, var(--success, #22c55e) 10%, transparent 90%);
+  border: 1px solid color-mix(in srgb, var(--success, #22c55e) 38%, var(--line) 62%);
+  border-radius: 8px;
+}
+
+.join-already-joined-icon {
+  flex-shrink: 0;
+  font-size: 1.4rem;
+  color: var(--success, #22c55e);
+  margin-top: 0.05rem;
+}
+
+.join-already-joined-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--success, #22c55e);
+}
+
+.join-already-joined-text {
+  font-size: 0.825rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
 }
 
 .join-auth-hint {
@@ -856,6 +911,15 @@ onMounted(async () => {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-muted);
+  margin-left: 0.3rem;
+}
+
+.join-field-required {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--error, #e36b55) 80%, var(--ink-2) 20%);
   margin-left: 0.3rem;
 }
 

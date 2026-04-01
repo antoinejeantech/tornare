@@ -3,6 +3,8 @@ import { inject } from 'vue'
 import { formatOptionsForType } from '../../lib/event-format'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
+import DiscordIcon from '../ui/DiscordIcon.vue'
+import BnetIcon from '../ui/BnetIcon.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 
 const ctx = inject<EventCtxType>('eventCtx')!
@@ -128,6 +130,40 @@ const ctx = inject<EventCtxType>('eventCtx')!
         <input v-model.number="ctx.editEventMaxPlayers" type="number" min="2" max="99" step="1" />
       </label>
 
+      <fieldset class="event-handle-requirements">
+        <legend class="event-handle-requirements-legend">Signup requirements</legend>
+
+        <label class="event-toggle-row">
+          <span class="event-toggle-row-label"><DiscordIcon class="event-toggle-row-icon" />Require Discord username</span>
+          <span class="event-toggle-row-hint">Submissions without a Discord handle will be rejected</span>
+          <button
+            type="button"
+            role="switch"
+            class="event-toggle-switch"
+            :aria-checked="ctx.editEventRequireDiscord ? 'true' : 'false'"
+            :class="{ 'is-on': ctx.editEventRequireDiscord }"
+            @click="ctx.editEventRequireDiscord = !ctx.editEventRequireDiscord"
+          >
+            <span class="event-toggle-switch-thumb" />
+          </button>
+        </label>
+
+        <label class="event-toggle-row">
+          <span class="event-toggle-row-label"><BnetIcon class="event-toggle-row-icon" />Require Battle.net tag</span>
+          <span class="event-toggle-row-hint">Submissions without a Battle.net tag will be rejected</span>
+          <button
+            type="button"
+            role="switch"
+            class="event-toggle-switch"
+            :aria-checked="ctx.editEventRequireBattletag ? 'true' : 'false'"
+            :class="{ 'is-on': ctx.editEventRequireBattletag }"
+            @click="ctx.editEventRequireBattletag = !ctx.editEventRequireBattletag"
+          >
+            <span class="event-toggle-switch-thumb" />
+          </button>
+        </label>
+      </fieldset>
+
       <div class="event-settings-actions">
         <button class="btn-primary" :disabled="ctx.updatingEvent || !ctx.canSaveEventMeta" type="submit">
           {{ ctx.updatingEvent ? 'Saving...' : 'Save event settings' }}
@@ -154,6 +190,111 @@ const ctx = inject<EventCtxType>('eventCtx')!
 .event-edit-form label {
   display: grid;
   gap: 0.24rem;
+}
+
+.event-handle-requirements {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 0.7rem 0.82rem;
+  display: grid;
+  gap: 0;
+  background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
+}
+
+.event-handle-requirements-legend {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--ink-2) 82%, var(--brand-1) 18%);
+  padding: 0 0.2rem;
+  margin-bottom: 0.55rem;
+}
+
+.event-toggle-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0.08rem 0.75rem;
+  padding: 0.52rem 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+}
+
+.event-toggle-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.event-toggle-row:first-of-type {
+  padding-top: 0;
+}
+
+.event-toggle-row-label {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink-1);
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.event-toggle-row-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: var(--ink-2);
+  opacity: 0.75;
+}
+
+.event-toggle-row-hint {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  line-height: 1.4;
+}
+
+.event-toggle-switch {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  width: 2.4rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  background: var(--line);
+  border: none;
+  padding: 0;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.18s;
+  align-self: center;
+}
+
+.event-toggle-switch.is-on {
+  background: var(--primary-500, #6366f1);
+}
+
+.event-toggle-switch-thumb {
+  position: absolute;
+  top: 0.14rem;
+  left: 0.14rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: transform 0.18s;
+  display: block;
+  pointer-events: none;
+}
+
+.event-toggle-switch.is-on .event-toggle-switch-thumb {
+  transform: translateX(1.1rem);
 }
 
 .event-settings-section {
