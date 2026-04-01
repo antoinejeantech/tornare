@@ -93,7 +93,7 @@ pub async fn handle_battlenet_redirect(
                     %existing_user_id,
                     "battlenet login matched existing sub mapping; issuing auth"
                 );
-                repo::ensure_bnet_identity(&state.pool, existing_user_id, &sub).await?;
+                repo::ensure_bnet_identity(&state.pool, existing_user_id, &sub, &battletag).await?;
                 repo::upsert_bnet_game_profile(&state.pool, existing_user_id, &sub, &battletag).await?;
                 let user = service::get_auth_user_by_id(state, existing_user_id).await?;
                 let auth = service::issue_auth_response(state, user, None).await?;
@@ -328,7 +328,7 @@ async fn upsert_or_create_bnet_user(
     let user_id = match repo::find_user_id_by_bnet_sub(&state.pool, sub).await? {
         Some(id) => {
             info!(%id, "battlenet login matched existing identity");
-            repo::ensure_bnet_identity(&state.pool, id, sub).await?;
+            repo::ensure_bnet_identity(&state.pool, id, sub, battletag).await?;
             repo::upsert_bnet_game_profile(&state.pool, id, sub, battletag).await?;
             id
         }
@@ -343,7 +343,7 @@ async fn upsert_or_create_bnet_user(
             let username = resolve_unique_username(&state.pool, &base_username).await?;
             let avatar_url = crate::features::users::models::random_preset_avatar();
             repo::insert_bnet_user(&state.pool, new_id, email, &username, &display_name, avatar_url).await?;
-            repo::ensure_bnet_identity(&state.pool, new_id, sub).await?;
+            repo::ensure_bnet_identity(&state.pool, new_id, sub, battletag).await?;
             repo::insert_default_role(&state.pool, new_id).await?;
             repo::upsert_bnet_game_profile(&state.pool, new_id, sub, battletag).await?;
             info!(%new_id, "battlenet login created new user");
@@ -370,13 +370,13 @@ async fn handle_bnet_connect(
                 "This Battle.net account is already linked to another profile",
             ));
         }
-        repo::ensure_bnet_identity(&state.pool, user_id, sub).await?;
+        repo::ensure_bnet_identity(&state.pool, user_id, sub, battletag).await?;
         info!(%user_id, "battlenet connect re-linked existing identity");
         repo::upsert_bnet_game_profile(&state.pool, user_id, sub, battletag).await?;
         return Ok(());
     }
 
-    repo::ensure_bnet_identity(&state.pool, user_id, sub).await?;
+    repo::ensure_bnet_identity(&state.pool, user_id, sub, battletag).await?;
     repo::upsert_bnet_game_profile(&state.pool, user_id, sub, battletag).await?;
     info!(%user_id, "battlenet connect linked new identity");
     Ok(())

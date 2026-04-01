@@ -361,15 +361,18 @@ pub async fn ensure_bnet_identity(
     pool: &PgPool,
     user_id: Uuid,
     sub: &str,
+    battletag: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO auth_identities (id, user_id, provider, provider_user_id)
-         VALUES ($1, $2, 'battlenet', $3)
-         ON CONFLICT (provider, provider_user_id) DO NOTHING",
+        "INSERT INTO auth_identities (id, user_id, provider, provider_user_id, provider_username)
+         VALUES ($1, $2, 'battlenet', $3, $4)
+         ON CONFLICT (provider, provider_user_id)
+         DO UPDATE SET provider_username = EXCLUDED.provider_username",
     )
     .bind(Uuid::new_v4())
     .bind(user_id)
     .bind(sub)
+    .bind(battletag)
     .execute(pool)
     .await
     .map_err(internal_error)?;

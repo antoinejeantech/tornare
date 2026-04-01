@@ -11,6 +11,21 @@ use crate::{
 
 use super::repo;
 
+/// Zero out contact handles and linked-account details on every player when
+/// the viewer does not have manage access. Keeps id/username/display_name for
+/// player-card display while keeping PII off the public read path.
+fn strip_player_sensitive_fields(event: &mut Event) {
+    for player in &mut event.players {
+        if let Some(linked) = player.linked_user.as_mut() {
+            linked.discord_username = None;
+            linked.battletag = None;
+            linked.avatar_url = None;
+        }
+        player.reported_discord = None;
+        player.reported_battletag = None;
+    }
+}
+
 async fn apply_event_access(
     state: &AppState,
     event: &mut Event,
@@ -95,6 +110,9 @@ pub async fn list_events_public(
     for event_id in listing.event_ids {
         let mut event = repo::load_event(&state.pool, event_id).await?;
         apply_event_access(state, &mut event, viewer_user_id, has_global_manage_access).await?;
+        if !event.can_manage {
+            strip_player_sensitive_fields(&mut event);
+        }
         events.push(event);
     }
 
@@ -117,6 +135,9 @@ pub async fn get_event_public(
         None => false,
     };
     apply_event_access(state, &mut event, viewer_user_id, has_global_manage_access).await?;
+    if !event.can_manage {
+        strip_player_sensitive_fields(&mut event);
+    }
     Ok(event)
 }
 
@@ -134,6 +155,9 @@ pub async fn get_featured_event_public(
         None => false,
     };
     apply_event_access(state, &mut event, viewer_user_id, has_global_manage_access).await?;
+    if !event.can_manage {
+        strip_player_sensitive_fields(&mut event);
+    }
 
     Ok(Some(event))
 }
