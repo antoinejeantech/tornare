@@ -1,4 +1,4 @@
-.PHONY: help bootstrap up dev backend frontend db-up db-logs dev-up shell run check test test-e2e node-shell node-install node-build status restart down
+.PHONY: help bootstrap up dev dev-no-migrate backend frontend db-up db-logs dev-up shell run check test test-e2e node-shell node-install node-build status restart down
 
 help:
 	@echo "Available targets:"

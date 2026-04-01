@@ -1933,6 +1933,7 @@ pub async fn list_participated_events(
          INNER JOIN event_players ep ON ep.event_id = e.id
          WHERE ep.user_id = $1
            AND e.deleted_at IS NULL
+           AND e.status != 'DRAFT'
          GROUP BY e.id
          ORDER BY e.start_date IS NULL, e.start_date DESC, e.id DESC
          LIMIT $2",
