@@ -125,6 +125,7 @@ onUnmounted(() => {
           class="social-icon-btn social-icon-btn--discord"
           :class="{ 'is-verified': player.linked_user?.discord_username, 'is-copied': copied === 'discord' }"
           :data-tip="copied === 'discord' ? 'Copied!' : (player.linked_user?.discord_username ?? player.reported_discord ?? '')"
+          :aria-label="`Copy ${player.linked_user?.discord_username ? 'verified' : 'reported'} Discord username: ${player.linked_user?.discord_username ?? player.reported_discord ?? ''}`"
           @click.stop="copy(player.linked_user?.discord_username ?? player.reported_discord ?? '', 'discord')"
         >
           <DiscordIcon class="social-icon" />
@@ -136,6 +137,7 @@ onUnmounted(() => {
           class="social-icon-btn social-icon-btn--bnet"
           :class="{ 'is-verified': player.linked_user?.battletag, 'is-copied': copied === 'bnet' }"
           :data-tip="copied === 'bnet' ? 'Copied!' : (player.linked_user?.battletag ?? player.reported_battletag ?? '')"
+          :aria-label="`Copy ${player.linked_user?.battletag ? 'verified' : 'reported'} Battle.net battletag: ${player.linked_user?.battletag ?? player.reported_battletag ?? ''}`"
           @click.stop="copy(player.linked_user?.battletag ?? player.reported_battletag ?? '', 'bnet')"
         >
           <BnetIcon class="social-icon" />

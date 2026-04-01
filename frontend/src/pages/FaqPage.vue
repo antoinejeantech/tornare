@@ -65,7 +65,7 @@ const sections = [
       {
         id: 'ev-4',
         q: 'What are the different event statuses?',
-        a: 'Draft — not visible to the public. Open — signup is live, registration link is active. In Progress — the event is running, signups are closed. Ended — event is archived and locked for editing.'
+        a: 'Draft — being set up; not visible to the public, signups not accepted. Active — live and visible; players can submit signup requests if Public Registration is enabled. Ended — event is over; still visible in Past Events but locked for new signups.'
       },
       {
         id: 'ev-5',

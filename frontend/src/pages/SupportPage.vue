@@ -33,7 +33,7 @@ const topics = [
   {
     icon: 'event',
     title: 'Event Setup',
-    tip: 'Make sure the event status is set to "Open" before sharing the signup link. Check the Settings tab if players report they cannot join.'
+    tip: 'Make sure the event is published (status ACTIVE) and "Public Registration" is enabled in the Settings tab before sharing the signup link. Players cannot submit requests while the event is a Draft or after it has Ended.'
   },
   {
     icon: 'group_add',

@@ -58,8 +58,13 @@ defineProps<{
   gap: 0;
   padding: 2rem 2rem;
 }
+</style>
 
-:slotted(.legal-intro) {
+<!-- These rules target descendants inside slotted content.
+     :slotted() only matches the slot root element, not its children,
+     so the heading/paragraph/list styles must live in a non-scoped block. -->
+<style>
+.legal-intro {
   font-size: 0.97rem;
   line-height: 1.7;
   color: var(--ink-2);
@@ -68,17 +73,17 @@ defineProps<{
   border-bottom: 1px solid var(--line);
 }
 
-:slotted(.legal-section) {
+.legal-section {
   padding: 1.5rem 0;
   border-bottom: 1px solid var(--line);
 }
 
-:slotted(.legal-section:last-child) {
+.legal-section:last-child {
   border-bottom: none;
   padding-bottom: 0;
 }
 
-:slotted(.legal-section h2) {
+.legal-section h2 {
   font-family: var(--font-heading);
   font-size: 1.05rem;
   font-weight: 800;
@@ -88,43 +93,43 @@ defineProps<{
   margin: 0 0 0.9rem;
 }
 
-:slotted(.legal-section h3) {
+.legal-section h3 {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--ink-1);
   margin: 1.1rem 0 0.35rem;
 }
 
-:slotted(.legal-section p) {
+.legal-section p {
   font-size: 0.92rem;
   line-height: 1.7;
   color: var(--ink-2);
   margin: 0 0 0.65rem;
 }
 
-:slotted(.legal-section p:last-child) {
+.legal-section p:last-child {
   margin-bottom: 0;
 }
 
-:slotted(.legal-section ul) {
+.legal-section ul {
   margin: 0.4rem 0 0.65rem 1.1rem;
   padding: 0;
   display: grid;
   gap: 0.45rem;
 }
 
-:slotted(.legal-section li) {
+.legal-section li {
   font-size: 0.92rem;
   line-height: 1.65;
   color: var(--ink-2);
 }
 
-:slotted(.legal-link) {
+.legal-link {
   color: var(--brand-1);
   text-decoration: none;
 }
 
-:slotted(.legal-link:hover) {
+.legal-link:hover {
   text-decoration: underline;
 }
 </style>
