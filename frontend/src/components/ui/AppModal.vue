@@ -148,10 +148,12 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   padding: 1rem;
+  overflow: hidden;
 }
 
 .app-modal {
   max-height: calc(100vh - 2rem);
+  max-width: 100%;
   overflow: auto;
   outline: none;
 }
