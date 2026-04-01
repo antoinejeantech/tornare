@@ -159,13 +159,6 @@ function prefillFromAuth() {
   }
 
   // Only prefill manual fields when the account isn't already linked
-  if (!user.discord_username && !playerDiscord.value) {
-    // nothing to prefill
-  }
-  if (!user.battletag && !playerBattletag.value) {
-    // nothing to prefill
-  }
-
   const entries: Array<{ role: string; rank: string }> = []
   if (user.rank_tank && user.rank_tank !== 'Unranked') entries.push({ role: 'Tank', rank: user.rank_tank })
   if (user.rank_dps && user.rank_dps !== 'Unranked') entries.push({ role: 'DPS', rank: user.rank_dps })

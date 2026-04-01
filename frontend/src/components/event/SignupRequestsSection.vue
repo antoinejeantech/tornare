@@ -4,6 +4,7 @@ import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
 import { getRoleIcon } from '../../lib/roles'
 import DiscordIcon from '../ui/DiscordIcon.vue'
+import BnetIcon from '../ui/BnetIcon.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 import type { SignupRequest } from '../../types'
 
@@ -124,14 +125,14 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
                   {{ request.reported_discord }}
                 </span>
                 <span v-if="request.linked_user?.battletag" class="req-account-chip req-account-chip--bnet req-account-chip--verified">
-                  <svg class="req-account-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.008 0C5.377 0 0 5.373 0 12c0 6.625 5.377 12 12.008 12C18.629 24 24 18.625 24 12 24 5.373 18.629 0 12.008 0zm.99 4.5c.305.002.607.025.906.069a6.564 6.564 0 0 1 4.04 2.376 6.544 6.544 0 0 1 1.33 3.91c0 .797-.143 1.584-.424 2.325l-.007.016c-.08.21-.18.438-.3.665l-.012.02a5.24 5.24 0 0 1-.572.84c-.02.022-.038.046-.057.068l-.055.06a5.233 5.233 0 0 1-3.86 1.685 5.24 5.24 0 0 1-3.244-1.122l-3.48 3.48a.878.878 0 0 1-1.24 0 .877.877 0 0 1 0-1.239l3.48-3.48a5.233 5.233 0 0 1-1.122-3.245 5.243 5.243 0 0 1 5.242-5.235l.012-.001.002-.001zm0 1.755a3.48 3.48 0 0 0-3.48 3.48 3.48 3.48 0 0 0 3.48 3.48 3.48 3.48 0 0 0 3.48-3.48 3.48 3.48 0 0 0-3.48-3.48z"/></svg>
+                  <BnetIcon class="req-account-icon" />
                   {{ request.linked_user.battletag }}
                   <span class="req-account-verified" aria-label="Verified connected account">
                     <span class="material-symbols-rounded" aria-hidden="true">verified</span>
                   </span>
                 </span>
                 <span v-else-if="request.reported_battletag" class="req-account-chip req-account-chip--bnet">
-                  <svg class="req-account-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.008 0C5.377 0 0 5.373 0 12c0 6.625 5.377 12 12.008 12C18.629 24 24 18.625 24 12 24 5.373 18.629 0 12.008 0zm.99 4.5c.305.002.607.025.906.069a6.564 6.564 0 0 1 4.04 2.376 6.544 6.544 0 0 1 1.33 3.91c0 .797-.143 1.584-.424 2.325l-.007.016c-.08.21-.18.438-.3.665l-.012.02a5.24 5.24 0 0 1-.572.84c-.02.022-.038.046-.057.068l-.055.06a5.233 5.233 0 0 1-3.86 1.685 5.24 5.24 0 0 1-3.244-1.122l-3.48 3.48a.878.878 0 0 1-1.24 0 .877.877 0 0 1 0-1.239l3.48-3.48a5.233 5.233 0 0 1-1.122-3.245 5.243 5.243 0 0 1 5.242-5.235l.012-.001.002-.001zm0 1.755a3.48 3.48 0 0 0-3.48 3.48 3.48 3.48 0 0 0 3.48 3.48 3.48 3.48 0 0 0 3.48-3.48 3.48 3.48 0 0 0-3.48-3.48z"/></svg>
+                  <BnetIcon class="req-account-icon" />
                   {{ request.reported_battletag }}
                 </span>
               </div>
@@ -196,14 +197,14 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
                   {{ request.reported_discord }}
                 </span>
                 <span v-if="request.linked_user?.battletag" class="req-account-chip req-account-chip--bnet req-account-chip--verified">
-                  <svg class="req-account-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.008 0C5.377 0 0 5.373 0 12c0 6.625 5.377 12 12.008 12C18.629 24 24 18.625 24 12 24 5.373 18.629 0 12.008 0zm.99 4.5c.305.002.607.025.906.069a6.564 6.564 0 0 1 4.04 2.376 6.544 6.544 0 0 1 1.33 3.91c0 .797-.143 1.584-.424 2.325l-.007.016c-.08.21-.18.438-.3.665l-.012.02a5.24 5.24 0 0 1-.572.84c-.02.022-.038.046-.057.068l-.055.06a5.233 5.233 0 0 1-3.86 1.685 5.24 5.24 0 0 1-3.244-1.122l-3.48 3.48a.878.878 0 0 1-1.24 0 .877.877 0 0 1 0-1.239l3.48-3.48a5.233 5.233 0 0 1-1.122-3.245 5.243 5.243 0 0 1 5.242-5.235l.012-.001.002-.001zm0 1.755a3.48 3.48 0 0 0-3.48 3.48 3.48 3.48 0 0 0 3.48 3.48 3.48 3.48 0 0 0 3.48-3.48 3.48 3.48 0 0 0-3.48-3.48z"/></svg>
+                  <BnetIcon class="req-account-icon" />
                   {{ request.linked_user.battletag }}
                   <span class="req-account-verified" aria-label="Verified connected account">
                     <span class="material-symbols-rounded" aria-hidden="true">verified</span>
                   </span>
                 </span>
                 <span v-else-if="request.reported_battletag" class="req-account-chip req-account-chip--bnet">
-                  <svg class="req-account-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.008 0C5.377 0 0 5.373 0 12c0 6.625 5.377 12 12.008 12C18.629 24 24 18.625 24 12 24 5.373 18.629 0 12.008 0zm.99 4.5c.305.002.607.025.906.069a6.564 6.564 0 0 1 4.04 2.376 6.544 6.544 0 0 1 1.33 3.91c0 .797-.143 1.584-.424 2.325l-.007.016c-.08.21-.18.438-.3.665l-.012.02a5.24 5.24 0 0 1-.572.84c-.02.022-.038.046-.057.068l-.055.06a5.233 5.233 0 0 1-3.86 1.685 5.24 5.24 0 0 1-3.244-1.122l-3.48 3.48a.878.878 0 0 1-1.24 0 .877.877 0 0 1 0-1.239l3.48-3.48a5.233 5.233 0 0 1-1.122-3.245 5.243 5.243 0 0 1 5.242-5.235l.012-.001.002-.001zm0 1.755a3.48 3.48 0 0 0-3.48 3.48 3.48 3.48 0 0 0 3.48 3.48 3.48 3.48 0 0 0 3.48-3.48 3.48 3.48 0 0 0-3.48-3.48z"/></svg>
+                  <BnetIcon class="req-account-icon" />
                   {{ request.reported_battletag }}
                 </span>
               </div>

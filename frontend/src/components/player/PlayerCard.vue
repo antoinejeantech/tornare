@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { getRoleIcon } from '../../lib/roles'
 import DiscordIcon from '../ui/DiscordIcon.vue'
 import BnetIcon from '../ui/BnetIcon.vue'
@@ -63,12 +63,21 @@ function emitSelect() {
 const copied = ref<'discord' | 'bnet' | null>(null)
 let copyTimer: ReturnType<typeof setTimeout> | null = null
 
-function copy(text: string, field: 'discord' | 'bnet') {
-  navigator.clipboard.writeText(text)
-  if (copyTimer) clearTimeout(copyTimer)
-  copied.value = field
-  copyTimer = setTimeout(() => { copied.value = null }, 1500)
+async function copy(text: string, field: 'discord' | 'bnet') {
+  if (!navigator.clipboard) return
+  try {
+    await navigator.clipboard.writeText(text)
+    if (copyTimer) clearTimeout(copyTimer)
+    copied.value = field
+    copyTimer = setTimeout(() => { copied.value = null }, 1500)
+  } catch {
+    // silently ignore permission denied / insecure-context errors
+  }
 }
+
+onUnmounted(() => {
+  if (copyTimer) clearTimeout(copyTimer)
+})
 </script>
 
 <template>
