@@ -6,7 +6,7 @@ use crate::{
         auth::service::maybe_authenticated_user_id,
         events::models::{
             CreateEventSignupRequestInput, Event, EventSignupLinkResponse,
-            EventSignupRequest, PublicEventSignupInfo, SignupStatus,
+            EventSignupRequest, EventStatus, PublicEventSignupInfo, SignupStatus,
         },
         permissions::require_event_owner_access,
     },
@@ -114,6 +114,10 @@ pub async fn create_public_signup_request(
         return Err(not_found("Signup link not found"));
     };
 
+    if info.status != EventStatus::Active {
+        return Err(bad_request("Signups are not open for this event"));
+    }
+
     if info.current_signup_requests >= MAX_SIGNUP_REQUESTS_PER_EVENT {
         return Err(bad_request("Signup request limit reached for this event"));
     }
@@ -125,14 +129,41 @@ pub async fn create_public_signup_request(
         ));
     }
 
+    if let Some(uid) = submitter_user_id {
+        if repo::has_pending_signup_request_with_user_id(&state.pool, info.event_id, uid).await? {
+            return Err(bad_request(
+                "You already have a pending signup request for this event",
+            ));
+        }
+    }
+
+    let clean_discord = payload.discord_username.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let clean_battletag = payload.battletag.as_deref().map(str::trim).filter(|s| !s.is_empty());
+
+    if let Some(discord) = clean_discord {
+        if repo::has_pending_signup_request_with_discord(&state.pool, info.event_id, discord).await? {
+            return Err(bad_request(
+                "A signup request with this Discord username is already pending",
+            ));
+        }
+    }
+
+    if let Some(battletag) = clean_battletag {
+        if repo::has_pending_signup_request_with_battletag(&state.pool, info.event_id, battletag).await? {
+            return Err(bad_request(
+                "A signup request with this Battle.net tag is already pending",
+            ));
+        }
+    }
+
     repo::create_signup_request(
         &state.pool,
         info.event_id,
         clean_name,
         submitter_user_id,
         &payload.roles,
-        payload.discord_username.as_deref().map(str::trim).filter(|s| !s.is_empty()),
-        payload.battletag.as_deref().map(str::trim).filter(|s| !s.is_empty()),
+        clean_discord,
+        clean_battletag,
     )
     .await?;
 

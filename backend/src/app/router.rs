@@ -19,7 +19,8 @@ use crate::{
 pub fn build_app(state: AppState) -> Router {
     let request_id_header = HeaderName::from_static("x-request-id");
 
-    let allow_any = state.config.cors_allowed_origins.iter().any(|origin| origin == "*");
+    let allow_any = state.config.cors_allowed_origins.iter().any(|origin| origin == "*")
+        || state.config.cors_allowed_origins.is_empty();
     let parsed_allowed_origins: Vec<HeaderValue> = state
         .config
         .cors_allowed_origins
@@ -27,19 +28,21 @@ pub fn build_app(state: AppState) -> Router {
         .filter_map(|origin| origin.parse::<HeaderValue>().ok())
         .collect();
 
-    // Wildcard CORS is incompatible with the OAuth connect-init cookie flow.
+    // Wildcard/empty CORS is incompatible with the OAuth connect-init cookie flow.
     // The connect-init endpoints respond with Set-Cookie (nonce) and the
     // frontend calls them with credentials:'include'. Browsers reject
     // credentialed responses when the server returns Access-Control-Allow-Origin: *,
     // silently dropping the nonce cookie and breaking the callback verification.
-    // OAuth providers are considered "configured" when any redirect URI is set.
+    // An empty origins list also falls back to allow_origin(Any), which has the
+    // same effect. OAuth providers are considered "configured" when any redirect
+    // URI is set.
     let oauth_configured = !state.config.battlenet_redirect_uri.trim().is_empty()
         || !state.config.discord_redirect_uri.trim().is_empty();
     if allow_any && oauth_configured {
         panic!(
-            "CORS wildcard ('*') is incompatible with the OAuth cookie-nonce flow. \
-             Set CORS_ALLOWED_ORIGINS to the explicit frontend origin (e.g. \
-             'http://localhost:5173') instead of '*'."
+            "CORS wildcard ('*') or empty CORS_ALLOWED_ORIGINS is incompatible with the OAuth \
+             cookie-nonce flow. Set CORS_ALLOWED_ORIGINS to the explicit frontend origin (e.g. \
+             'http://localhost:5173') instead of '*' or leaving it blank."
         );
     }
 

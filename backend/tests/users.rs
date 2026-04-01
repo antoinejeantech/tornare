@@ -291,6 +291,15 @@ async fn participated_events_lists_events_joined_via_signup_acceptance(pool: PgP
     let event: Value = res.json().await.unwrap();
     let event_id = event["id"].as_str().expect("event id missing").to_string();
 
+    // Publish so that public signups are accepted.
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/publish"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "publish event should return 200");
+
     let res = client
         .get(format!("{base}/api/events/{event_id}/signup-link"))
         .bearer_auth(&owner_token)
@@ -350,7 +359,7 @@ async fn participated_events_lists_events_joined_via_signup_acceptance(pool: PgP
     assert_eq!(items[0]["name"].as_str(), Some("Participation Test Event"));
     assert_eq!(items[0]["event_type"].as_str(), Some("PUG"));
     assert_eq!(items[0]["format"].as_str(), Some("5v5"));
-    assert_eq!(items[0]["status"].as_str(), Some("DRAFT"));
+    assert_eq!(items[0]["status"].as_str(), Some("ACTIVE"));
 }
 
 // ---------------------------------------------------------------------------

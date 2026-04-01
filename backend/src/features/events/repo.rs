@@ -1053,6 +1053,8 @@ pub async fn event_signup_info_by_token(
                 e.event_type,
                 e.format,
                 e.max_players,
+                e.status,
+                e.public_signup_enabled,
                 (
                     SELECT COUNT(*)
                     FROM event_players ep
@@ -1095,6 +1097,11 @@ pub async fn event_signup_info_by_token(
     let max_players = u8::try_from(row.get::<i32, _>("max_players"))
         .map_err(|_| internal_error("invalid max_players in DB"))?;
 
+    let status_db: String = row.get("status");
+    let status = EventStatus::try_from(status_db.as_str())
+        .map_err(|_| internal_error(format!("invalid event status in DB: {status_db}")))?;
+    let public_signup_enabled: bool = row.get("public_signup_enabled");
+
     Ok(Some(PublicEventSignupInfo {
         event_id: row.get("id"),
         event_name: row.get("name"),
@@ -1105,6 +1112,8 @@ pub async fn event_signup_info_by_token(
         max_players,
         current_players,
         current_signup_requests,
+        status,
+        public_signup_enabled,
     }))
 }
 
@@ -1241,6 +1250,72 @@ pub async fn has_pending_signup_request_with_name(
     )
     .bind(event_id)
     .bind(name)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.is_some())
+}
+
+pub async fn has_pending_signup_request_with_user_id(
+    pool: &PgPool,
+    event_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT id
+             FROM event_signup_requests
+             WHERE event_id = $1
+               AND status = 'pending'
+               AND user_id = $2
+             LIMIT 1",
+    )
+    .bind(event_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.is_some())
+}
+
+pub async fn has_pending_signup_request_with_battletag(
+    pool: &PgPool,
+    event_id: Uuid,
+    battletag: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT id
+             FROM event_signup_requests
+             WHERE event_id = $1
+               AND status = 'pending'
+               AND LOWER(reported_battletag) = LOWER($2)
+             LIMIT 1",
+    )
+    .bind(event_id)
+    .bind(battletag)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.is_some())
+}
+
+pub async fn has_pending_signup_request_with_discord(
+    pool: &PgPool,
+    event_id: Uuid,
+    discord: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT id
+             FROM event_signup_requests
+             WHERE event_id = $1
+               AND status = 'pending'
+               AND LOWER(reported_discord) = LOWER($2)
+             LIMIT 1",
+    )
+    .bind(event_id)
+    .bind(discord)
     .fetch_optional(pool)
     .await
     .map_err(internal_error)?;

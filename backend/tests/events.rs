@@ -401,6 +401,16 @@ async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
     let event: Value = res.json().await.unwrap();
     let event_id = event["id"].as_str().expect("event id missing").to_string();
 
+    // Event must be ACTIVE and have public_signup_enabled before submissions are
+    // accepted. Publish first.
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/publish"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "publish event should return 200");
+
     let res = client
         .get(format!("{base}/api/events/{event_id}/signup-link"))
         .bearer_auth(&token)
@@ -512,6 +522,15 @@ async fn authenticated_public_signup_preserves_linked_user_and_reported_handles(
     assert_eq!(res.status().as_u16(), 200, "create event should return 200");
     let event: Value = res.json().await.unwrap();
     let event_id = event["id"].as_str().expect("event id missing").to_string();
+
+    // Publish so that public signups are accepted.
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/publish"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "publish event should return 200");
 
     let res = client
         .get(format!("{base}/api/events/{event_id}/signup-link"))

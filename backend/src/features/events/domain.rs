@@ -273,7 +273,7 @@ impl EventStatus {
         match self {
             EventStatus::Draft => Ok(EventStatus::Active),
             EventStatus::Active => Err("Event is already active"),
-            EventStatus::Ended => Err("A ended event cannot be re-published"),
+            EventStatus::Ended => Err("An ended event cannot be re-published"),
         }
     }
 
@@ -282,7 +282,7 @@ impl EventStatus {
         match self {
             EventStatus::Active => Ok(EventStatus::Draft),
             EventStatus::Draft => Err("Event is already a draft"),
-            EventStatus::Ended => Err("A ended event cannot be moved back to draft"),
+            EventStatus::Ended => Err("An ended event cannot be moved back to draft"),
         }
     }
 
@@ -484,6 +484,8 @@ pub struct PublicEventSignupInfo {
     pub max_players: u8,
     pub current_players: usize,
     pub current_signup_requests: usize,
+    pub status: EventStatus,
+    pub public_signup_enabled: bool,
 }
 
 // ---------------------------------------------------------------------------
