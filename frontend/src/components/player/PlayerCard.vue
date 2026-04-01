@@ -160,7 +160,7 @@ onUnmounted(() => {
           @keydown.space.stop.prevent="clickable && emitSelectRole(rp, $event)"
         >
           <span class="material-symbols-rounded pref-role-icon" aria-hidden="true">{{ getRoleIcon(rp.role) }}</span>
-          {{ rp.role }} · {{ rp.rank }}
+          {{ rp.rank }}
         </span>
       </div>
       <div v-else class="player-meta-pills">
@@ -184,6 +184,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  overflow-x: clip;
 }
 
 .player-card.is-clickable {
@@ -249,10 +250,11 @@ onUnmounted(() => {
 }
 
 .player-meta-pills {
-  display: inline-flex;
+  display: flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.35rem;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -337,9 +339,10 @@ onUnmounted(() => {
 }
 
 .player-pref-roles {
-  display: inline-flex;
+  display: flex;
   flex-wrap: nowrap;
   gap: 0.26rem;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -446,6 +449,9 @@ onUnmounted(() => {
   bottom: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
+  max-width: min(14rem, 80vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.68rem;
   font-weight: 600;
