@@ -341,7 +341,8 @@ async fn upsert_or_create_bnet_user(
             let new_id = Uuid::new_v4();
             let (base_username, display_name) = username_from_battletag(battletag);
             let username = resolve_unique_username(&state.pool, &base_username).await?;
-            repo::insert_bnet_user(&state.pool, new_id, email, &username, &display_name).await?;
+            let avatar_url = crate::features::users::models::random_preset_avatar();
+            repo::insert_bnet_user(&state.pool, new_id, email, &username, &display_name, avatar_url).await?;
             repo::ensure_bnet_identity(&state.pool, new_id, sub).await?;
             repo::insert_default_role(&state.pool, new_id).await?;
             repo::upsert_bnet_game_profile(&state.pool, new_id, sub, battletag).await?;

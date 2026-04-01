@@ -81,13 +81,15 @@ pub async fn insert_user(
     password_hash: &str,
     username: &str,
     display_name: &str,
+    avatar_url: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("INSERT INTO users (id, email, password_hash, username, display_name) VALUES ($1, $2, $3, $4, $5)")
+    sqlx::query("INSERT INTO users (id, email, password_hash, username, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)")
         .bind(user_id)
         .bind(email)
         .bind(password_hash)
         .bind(username)
         .bind(display_name)
+        .bind(avatar_url)
         .execute(pool)
         .await
         .map_err(internal_error)?;
@@ -339,14 +341,16 @@ pub async fn insert_bnet_user(
     email: &str,
     username: &str,
     display_name: &str,
+    avatar_url: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO users (id, email, username, display_name) VALUES ($1, $2, $3, $4)",
+        "INSERT INTO users (id, email, username, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5)",
     )
     .bind(user_id)
     .bind(email)
     .bind(username)
     .bind(display_name)
+    .bind(avatar_url)
     .execute(pool)
     .await
     .map_err(internal_error)?;

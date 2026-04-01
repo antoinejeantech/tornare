@@ -319,8 +319,12 @@ async fn create_discord_user(
     let base_username = slugify_discord_username(discord_username);
     let username = resolve_unique_username(&state.pool, &base_username).await?;
 
+    let resolved_avatar = avatar_url
+        .map(|u| u.to_owned())
+        .unwrap_or_else(|| crate::features::users::models::random_preset_avatar().to_owned());
+
     let user_id = Uuid::new_v4();
-    repo::insert_discord_user(&state.pool, user_id, email, &username, display_name, avatar_url).await?;
+    repo::insert_discord_user(&state.pool, user_id, email, &username, display_name, Some(resolved_avatar.as_str())).await?;
     repo::ensure_discord_identity(&state.pool, user_id, sub, discord_username).await?;
     repo::insert_default_role(&state.pool, user_id).await?;
     info!(%user_id, "discord login created new user");

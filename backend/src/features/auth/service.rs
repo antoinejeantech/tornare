@@ -46,6 +46,7 @@ pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<A
 
     let password_hash = hash_password(&payload.password)?;
     let user_id = Uuid::new_v4();
+    let avatar_url = crate::features::users::models::random_preset_avatar();
 
     repo::insert_user(
         &state.pool,
@@ -54,6 +55,7 @@ pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<A
         &password_hash,
         &normalized_username,
         payload.display_name.trim(),
+        avatar_url,
     )
     .await?;
     repo::insert_local_identity(&state.pool, user_id, &normalized_email).await?;

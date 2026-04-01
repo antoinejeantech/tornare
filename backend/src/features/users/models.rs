@@ -13,6 +13,12 @@ pub const OVERWATCH_RANKS: [&str; 9] = [
     "Champion",
 ];
 
+pub fn random_preset_avatar() -> &'static str {
+    use rand::Rng;
+    let idx = rand::rng().random_range(0..ALLOWED_PRESET_AVATARS.len());
+    ALLOWED_PRESET_AVATARS[idx]
+}
+
 pub const ALLOWED_PRESET_AVATARS: &[&str] = &[
     "/avatars/ana.webp",
     "/avatars/ashe.webp",
