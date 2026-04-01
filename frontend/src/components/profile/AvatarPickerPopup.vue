@@ -96,11 +96,6 @@ function pick(key: string | null) {
 }
 
 @media (max-width: 480px) {
-  .avatar-picker-popup {
-    width: min(96vw, 520px);
-    padding: 1.1rem 1rem;
-  }
-
   .avatar-picker-grid {
     grid-template-columns: repeat(4, 72px);
     grid-auto-rows: 72px;

@@ -156,7 +156,7 @@ const canSavePlayerEdit = computed(() => {
 
 <template>
   <section>
-    <EventSectionHeader icon="groups" title="Roster Management">
+    <EventSectionHeader icon="groups" title="Roster">
       <div class="header-right">
         <p class="section-total muted">
           <span class="section-total-value">{{ padRosterCount(ctx.event?.players?.length || 0) }}/{{ padRosterCount(ctx.event?.max_players || 0) }}</span>
@@ -171,7 +171,7 @@ const canSavePlayerEdit = computed(() => {
           @click="openAddPlayerModal"
         >
           <span class="material-symbols-rounded" aria-hidden="true">add</span>
-          Add player
+          <span class="cta-add-player-label">Add player</span>
         </ActionCtaButton>
       </div>
     </EventSectionHeader>
@@ -380,6 +380,7 @@ const canSavePlayerEdit = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  flex-shrink: 0;
 }
 
 .cta-add-player {
@@ -580,7 +581,8 @@ const canSavePlayerEdit = computed(() => {
   .roster-list {
     grid-template-columns: 1fr;
     max-height: 56vh;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding-right: 0.15rem;
   }
 
@@ -597,6 +599,15 @@ const canSavePlayerEdit = computed(() => {
   .player-modal-actions .btn-secondary,
   .player-modal-actions .btn-primary {
     width: 100%;
+  }
+
+  /* On mobile, hide the text label so only the + icon shows */
+  .cta-add-player-label {
+    display: none;
+  }
+
+  .cta-add-player {
+    padding: 0.42rem 0.62rem;
   }
 }
 </style>

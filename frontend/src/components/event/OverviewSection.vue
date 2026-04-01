@@ -259,6 +259,7 @@ function sectionRoute(section: string) {
   background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
   display: grid;
   gap: 0.3rem;
+  overflow-x: clip;
 }
 
 .overview-hero-head {
@@ -304,6 +305,7 @@ a.overview-creator-chip:hover {
   background: color-mix(in srgb, var(--card) 76%, var(--bg-1) 24%);
   padding: 0.66rem 1rem 0.64rem;
   margin-left: auto;
+  flex-shrink: 0;
 }
 
 .overview-readiness-copy {
@@ -406,6 +408,8 @@ a.overview-creator-chip:hover {
   flex-direction: column;
   gap: 0.55rem;
   box-shadow: none;
+  min-width: 0;
+  overflow-x: clip;
 }
 
 .overview-card-meta {
@@ -463,6 +467,7 @@ a.overview-creator-chip:hover {
   padding: 0;
   display: grid;
   gap: 0.45rem;
+  min-width: 0;
 }
 
 .overview-team-row {
@@ -628,7 +633,7 @@ a.overview-creator-chip:hover {
 
 @media (max-width: 620px) {
   .overview-kpis {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>
