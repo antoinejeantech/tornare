@@ -402,8 +402,10 @@ pub async fn decline_event_signup_request(
 pub async fn get_public_signup_info(
     Path(signup_token): Path<String>,
     State(state): State<AppState>,
+    headers: HeaderMap,
 ) -> ApiResult<PublicEventSignupInfo> {
-    service::get_public_signup_info(&state, &signup_token)
+    let viewer_user_id = maybe_authenticated_user_id(&state, &headers);
+    service::get_public_signup_info(&state, &signup_token, viewer_user_id)
         .await
         .map(Json)
 }

@@ -35,6 +35,10 @@ pub struct CreateEventInput {
     #[serde(default)]
     pub public_signup_enabled: bool,
     pub max_players: u8,
+    #[serde(default)]
+    pub require_discord: bool,
+    #[serde(default)]
+    pub require_battletag: bool,
 }
 
 impl CreateEventInput {
@@ -58,6 +62,10 @@ pub struct UpdateEventInput {
     pub event_type: EventType,
     pub format: EventFormat,
     pub max_players: u8,
+    #[serde(default)]
+    pub require_discord: bool,
+    #[serde(default)]
+    pub require_battletag: bool,
 }
 
 impl UpdateEventInput {

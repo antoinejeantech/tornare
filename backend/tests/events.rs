@@ -425,6 +425,7 @@ async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
         .post(format!("{base}/api/public/event-signups/{signup_token}/requests"))
         .json(&json!({
             "name": "Carol",
+            "discord_username": "carol#1234",
             "roles": [{"role": "Support", "rank": "Platinum"}]
         }))
         .send()
@@ -432,17 +433,18 @@ async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
         .unwrap();
     assert_eq!(res.status().as_u16(), 200, "signup request should be accepted");
 
-    // Duplicate name while pending must be rejected.
+    // Duplicate discord handle while pending must be rejected.
     let res = client
         .post(format!("{base}/api/public/event-signups/{signup_token}/requests"))
         .json(&json!({
-            "name": "Carol",
-            "roles": [{"role": "Support", "rank": "Platinum"}]
+            "name": "Carol2",
+            "discord_username": "carol#1234",
+            "roles": [{"role": "Tank", "rank": "Gold"}]
         }))
         .send()
         .await
         .unwrap();
-    assert_eq!(res.status().as_u16(), 400, "duplicate pending signup must return 400");
+    assert_eq!(res.status().as_u16(), 400, "duplicate discord handle must return 400");
 
     let res = client
         .get(format!("{base}/api/events/{event_id}/signup-requests"))

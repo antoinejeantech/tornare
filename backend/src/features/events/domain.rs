@@ -437,6 +437,8 @@ pub struct Event {
     pub creator_name: Option<String>,
     pub public_signup_enabled: bool,
     pub public_signup_token: Option<String>,
+    pub require_discord: bool,
+    pub require_battletag: bool,
     pub max_players: u8,
     pub players: Vec<Player>,
     pub teams: Vec<EventTeam>,
@@ -486,6 +488,9 @@ pub struct PublicEventSignupInfo {
     pub current_signup_requests: usize,
     pub status: EventStatus,
     pub public_signup_enabled: bool,
+    pub require_discord: bool,
+    pub require_battletag: bool,
+    pub already_joined: bool,
 }
 
 // ---------------------------------------------------------------------------
