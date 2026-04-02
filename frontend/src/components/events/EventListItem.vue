@@ -67,8 +67,8 @@ const statusKey = computed(() => {
 
 const statusLabel = computed(() => {
   const map: Record<string, string> = {
-    ended: t('eventList.statusEnded'),
-    draft: t('eventList.statusDraft'),
+    ended: t('common.statusEnded'),
+    draft: t('common.statusDraft'),
     full: t('eventList.statusFull'),
     ongoing: t('eventList.statusOngoing'),
     startingSoon: t('eventList.statusStartingSoon'),
@@ -104,14 +104,14 @@ const statusVariant = computed(() => {
             <span class="event-list-title">{{ event.name }}</span>
           </RouterLink>
         <span class="muted event-list-meta-row" :class="{ 'meta-row-hidden-compact': compact }">
-            {{ t('eventList.by') }}
+            {{ t('common.by') }}
             <RouterLink v-if="creatorProfileRoute" class="event-creator-link" :to="creatorProfileRoute">
-              {{ event.creator_name || t('eventList.unknown') }}
+              {{ event.creator_name || t('common.unknown') }}
             </RouterLink>
-            <span v-else>{{ event.creator_name || t('eventList.unknown') }}</span>
+            <span v-else>{{ event.creator_name || t('common.unknown') }}</span>
           </span>
           <span class="event-mobile-meta" :class="{ 'mobile-meta-always': compact }">
-            <span>{{ event.event_type || 'PUG' }} ({{ eventFormat }})</span>
+            <span>{{ (event.event_type || 'PUG') === 'TOURNEY' ? t('events.typeTourney') : t('events.typePug') }} ({{ eventFormat }})</span>
             <span aria-hidden="true"> · </span>
             <span>{{ playerCount }}/{{ maxPlayers || event.max_players }}</span>
             <span aria-hidden="true"> · </span>
@@ -123,7 +123,7 @@ const statusVariant = computed(() => {
 
     <div class="event-format-col" :class="{ 'col-hidden-compact': compact }" :aria-label="t('eventList.formatLabel')">
       <span class="event-col-label muted">{{ t('eventList.formatLabel') }}</span>
-      <strong class="event-format-value">{{ event.event_type || 'PUG' }} ({{ eventFormat }})</strong>
+      <strong class="event-format-value">{{ (event.event_type || 'PUG') === 'TOURNEY' ? t('events.typeTourney') : t('events.typePug') }} ({{ eventFormat }})</strong>
     </div>
 
     <div class="event-players-col" :class="{ 'col-hidden-compact': compact }" aria-label="Players">

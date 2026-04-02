@@ -1,4 +1,11 @@
 {
+  "common": {
+    "statusDraft": "Draft",
+    "statusEnded": "Ended",
+    "statusActive": "Active",
+    "by": "by",
+    "unknown": "Unknown"
+  },
   "nav": {
     "home": "Home",
     "events": "Events",
@@ -71,13 +78,9 @@
     "bannerCta": "LEARN MORE"
   },
   "eventList": {
-    "by": "by",
-    "unknown": "Unknown",
     "openEvent": "Open event",
     "formatLabel": "Format",
     "dateTimeLabel": "Date & Time",
-    "statusEnded": "Ended",
-    "statusDraft": "Draft",
     "statusFull": "Full",
     "statusOngoing": "Ongoing",
     "statusStartingSoon": "Starting Soon",
@@ -186,8 +189,6 @@
     "sectionRequests": "Requests",
     "sectionSettings": "Settings",
     "pendingBadge": "{count} pending signup requests",
-    "statusEnded": "Ended",
-    "statusDraft": "Draft",
     "updatingFeatured": "Updating...",
     "removeSpotlight": "Remove spotlight",
     "setSpotlight": "Set as spotlight",
@@ -286,9 +287,6 @@
     "eventsPlayed": "Events played in",
     "eventsLoadingParticipated": "Loading...",
     "noEventsParticipated": "No events yet.",
-    "statusEnded": "Ended",
-    "statusDraft": "Draft",
-    "statusActive": "Active",
     "confirmDisconnectBnet": "Disconnect Battle.net",
     "confirmDisconnectBnetMsg": "Are you sure you want to disconnect your Battle.net account?",
     "confirmDisconnectDiscord": "Disconnect Discord",
@@ -418,7 +416,7 @@
     "emptyState": "Add players before creating matchups."
   },
   "teams": {
-    "sectionTitle": "Team Management",
+    "sectionTitle": "Teams",
     "quickSetup": "Quick setup",
     "teamNameLabel": "Team name",
     "teamNamePlaceholder": "e.g. Team Alpha, Phoenix Squad...",
@@ -592,9 +590,6 @@
     "switchToPrivateHint": "Switching to private hides the public Join button and rotates the signup token. Existing shared links stop working.",
     "switchToPublicHint": "Switch to public to show the Join button to everyone.",
     "statusKicker": "Event status",
-    "statusEnded": "Ended",
-    "statusDraft": "Draft",
-    "statusActive": "Active",
     "draftDesc": "This event is a draft and is not visible in public listings. Registrations are disabled.",
     "endedDesc": "This event has ended. It is visible in public listings under Past Events.",
     "activeDesc": "This event is active and visible in public listings. Registrations are controlled separately.",

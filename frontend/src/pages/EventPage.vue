@@ -472,8 +472,8 @@ provide('eventCtx', proxyRefs({
               <div class="event-title-row">
                 <div class="event-title-name-row">
                   <h2>{{ event.name }}</h2>
-                  <AppBadge v-if="event.status === 'ENDED'" variant="muted" :label="t('eventPage.statusEnded')" />
-                  <AppBadge v-else-if="event.status === 'DRAFT'" variant="warning" :label="t('eventPage.statusDraft')" />
+                  <AppBadge v-if="event.status === 'ENDED'" variant="muted" :label="t('common.statusEnded')" />
+                  <AppBadge v-else-if="event.status === 'DRAFT'" variant="warning" :label="t('common.statusDraft')" />
                 </div>
                 <div v-if="eventStartsInLabel || eventStartDateTimeLabel" class="event-starts-in muted">
                   <span v-if="eventStartsInLabel" class="event-start-meta event-starts-in-countdown">

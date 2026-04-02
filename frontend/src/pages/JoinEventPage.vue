@@ -214,7 +214,7 @@ onMounted(async () => {
           <div class="join-event-meta-row">
             <span class="join-event-meta-item">
               <span class="material-symbols-rounded" aria-hidden="true">trophy</span>
-              <span>{{ signupInfo.event_type }}</span>
+              <span>{{ signupInfo.event_type === 'TOURNEY' ? t('events.typeTourney') : t('events.typePug') }}</span>
             </span>
             <span class="material-symbols-rounded join-event-meta-dot" aria-hidden="true">fiber_manual_record</span>
             <span class="join-event-meta-item join-event-meta-item-format">

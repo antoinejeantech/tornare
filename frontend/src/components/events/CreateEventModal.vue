@@ -130,8 +130,8 @@ async function submit() {
           <label>
             {{ t('createEvent.eventType') }}
             <select v-model="newEventType">
-              <option value="PUG">PUG</option>
-              <option value="TOURNEY">TOURNEY</option>
+              <option value="PUG">{{ t('events.typePug') }}</option>
+              <option value="TOURNEY">{{ t('events.typeTourney') }}</option>
             </select>
           </label>
           <label>

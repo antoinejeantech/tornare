@@ -55,7 +55,7 @@ const { t } = useI18n()
         <p class="event-status-kicker">{{ t('settings.statusKicker') }}</p>
         <AppBadge
           :variant="ctx.event?.status === 'ENDED' ? 'muted' : ctx.event?.status === 'DRAFT' ? 'warning' : 'ok'"
-          :label="ctx.event?.status === 'ENDED' ? t('settings.statusEnded') : ctx.event?.status === 'DRAFT' ? t('settings.statusDraft') : t('settings.statusActive')"
+          :label="ctx.event?.status === 'ENDED' ? t('common.statusEnded') : ctx.event?.status === 'DRAFT' ? t('common.statusDraft') : t('common.statusActive')"
         />
       </div>
 

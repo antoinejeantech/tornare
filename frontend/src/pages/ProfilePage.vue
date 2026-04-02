@@ -755,7 +755,7 @@ async function loadParticipatedEvents() {
                   <div class="participated-event-text">
                     <span class="participated-event-name">{{ event.name }}</span>
                     <span class="participated-event-meta">
-                      <span>{{ event.event_type }} ({{ event.format }})</span>
+                      <span>{{ event.event_type === 'TOURNEY' ? t('events.typeTourney') : t('events.typePug') }} ({{ event.format }})</span>
                       <span v-if="event.start_date" aria-hidden="true"> · </span>
                       <span v-if="event.start_date">{{ formatDayMonthYear(event.start_date) }}</span>
                     </span>
@@ -763,7 +763,7 @@ async function loadParticipatedEvents() {
                 </div>
                 <AppBadge
                   :variant="event.status === 'ENDED' ? 'muted' : event.status === 'DRAFT' ? 'warning' : 'ok'"
-                  :label="event.status === 'ENDED' ? t('profile.statusEnded') : event.status === 'DRAFT' ? t('profile.statusDraft') : t('profile.statusActive')"
+                  :label="event.status === 'ENDED' ? t('common.statusEnded') : event.status === 'DRAFT' ? t('common.statusDraft') : t('common.statusActive')"
                 />
               </RouterLink>
             </li>

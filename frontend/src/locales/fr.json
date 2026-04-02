@@ -1,4 +1,11 @@
 {
+  "common": {
+    "statusDraft": "Brouillon",
+    "statusEnded": "Terminé",
+    "statusActive": "Actif",
+    "by": "par",
+    "unknown": "Inconnu"
+  },
   "nav": {
     "home": "Accueil",
     "events": "Événements",
@@ -71,13 +78,9 @@
     "bannerCta": "EN SAVOIR PLUS"
   },
   "eventList": {
-    "by": "par",
-    "unknown": "Inconnu",
     "openEvent": "Ouvrir l'événement",
     "formatLabel": "Format",
     "dateTimeLabel": "Date et heure",
-    "statusEnded": "Terminé",
-    "statusDraft": "Brouillon",
     "statusFull": "Complet",
     "statusOngoing": "En cours",
     "statusStartingSoon": "Démarre bientôt",
@@ -186,8 +189,6 @@
     "sectionRequests": "Demandes",
     "sectionSettings": "Paramètres",
     "pendingBadge": "{count} demandes d'inscription en attente",
-    "statusEnded": "Terminé",
-    "statusDraft": "Brouillon",
     "updatingFeatured": "Mise à jour...",
     "removeSpotlight": "Retirer de la une",
     "setSpotlight": "Mettre en avant",
@@ -286,9 +287,6 @@
     "eventsPlayed": "Événements joués",
     "eventsLoadingParticipated": "Chargement...",
     "noEventsParticipated": "Aucun événement.",
-    "statusEnded": "Terminé",
-    "statusDraft": "Brouillon",
-    "statusActive": "Actif",
     "confirmDisconnectBnet": "Déconnecter Battle.net",
     "confirmDisconnectBnetMsg": "Êtes-vous sûr de vouloir déconnecter votre compte Battle.net ?",
     "confirmDisconnectDiscord": "Déconnecter Discord",
@@ -392,7 +390,7 @@
     "openMatches": "Voir les matchs"
   },
   "roster": {
-    "sectionTitle": "Roster",
+    "sectionTitle": "Joueurs",
     "playersLabel": "joueurs",
     "addPlayerBtn": "Ajouter un joueur",
     "rosterFullTitle": "Roster complet — augmentez le nombre max de joueurs pour en ajouter",
@@ -418,7 +416,7 @@
     "emptyState": "Ajoutez des joueurs avant de créer des confrontations."
   },
   "teams": {
-    "sectionTitle": "Gestion des équipes",
+    "sectionTitle": "Équipes",
     "quickSetup": "Configuration rapide",
     "teamNameLabel": "Nom de l'équipe",
     "teamNamePlaceholder": "ex. Équipe Alpha, Phoenix Squad...",
@@ -592,9 +590,6 @@
     "switchToPrivateHint": "Passer en privé masque le bouton Rejoindre et change le token d'inscription. Les liens partagés précédemment ne fonctionneront plus.",
     "switchToPublicHint": "Passez en public pour afficher le bouton Rejoindre à tous.",
     "statusKicker": "Statut de l'événement",
-    "statusEnded": "Terminé",
-    "statusDraft": "Brouillon",
-    "statusActive": "Actif",
     "draftDesc": "Cet événement est un brouillon, non visible dans les listes publiques. Les inscriptions sont désactivées.",
     "endedDesc": "Cet événement est terminé. Il est visible dans les événements passés.",
     "activeDesc": "Cet événement est actif et visible publiquement. Les inscriptions sont gérées séparément.",

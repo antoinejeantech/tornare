@@ -121,12 +121,12 @@ function sectionRoute(section: string) {
 
     <header class="overview-hero">
       <div class="overview-meta-row">
-        <AppBadge variant="chip" radius="pill">{{ ctx.event?.event_type }}</AppBadge>
+        <AppBadge variant="chip" radius="pill">{{ ctx.event?.event_type === 'TOURNEY' ? t('events.typeTourney') : t('events.typePug') }}</AppBadge>
         <AppBadge variant="chip" radius="pill">{{ ctx.event?.format }}</AppBadge>
         <RouterLink v-if="creatorProfileRoute" class="overview-creator-chip" :to="creatorProfileRoute">
-          by {{ ctx.event?.creator_name || 'Unknown' }}
+          {{ t('common.by') }} {{ ctx.event?.creator_name || t('common.unknown') }}
         </RouterLink>
-        <span v-else class="overview-creator-chip is-static">by {{ ctx.event?.creator_name || 'Unknown' }}</span>
+        <span v-else class="overview-creator-chip is-static">{{ t('common.by') }} {{ ctx.event?.creator_name || t('common.unknown') }}</span>
           <span class="overview-readiness" :aria-label="`${t('overview.statusLabel')} ${readinessLabel()}`">
           <span class="overview-readiness-copy">
             <span class="overview-readiness-kicker">{{ t('overview.statusLabel') }}</span>
