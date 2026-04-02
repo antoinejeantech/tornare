@@ -232,7 +232,7 @@ pub async fn get_participated_events(
             name: r.name,
             start_date: r.start_date.map(|dt| {
                 dt.format(&time::format_description::well_known::Rfc3339)
-                    .unwrap_or_default()
+                    .expect("start_date retrieved from the DB must always be RFC3339-formattable")
             }),
             event_type: r.event_type.as_db_value().to_string(),
             format: r.format.as_db_value().to_string(),

@@ -33,20 +33,28 @@ pub fn build_app(state: AppState) -> Router {
     // frontend calls them with credentials:'include'. Browsers reject
     // credentialed responses when the server returns Access-Control-Allow-Origin: *,
     // silently dropping the nonce cookie and breaking the callback verification.
-    // An empty origins list also falls back to allow_origin(Any), which has the
-    // same effect. OAuth providers are considered "configured" when any redirect
-    // URI is set.
-    let oauth_configured = !state.config.battlenet_redirect_uri.trim().is_empty()
-        || !state.config.discord_redirect_uri.trim().is_empty();
-    if allow_any && oauth_configured {
+    //
+    // Two failure modes must be caught:
+    // 1. allow_any is true (config contains "*" or is empty).
+    // 2. allow_any is false but every configured origin failed HeaderValue parsing,
+    //    leaving parsed_allowed_origins empty — the CorsLayer then falls back to
+    //    allow_origin(Any), which has the same credential-blocking effect.
+    //
+    // OAuth is considered configured when at least one OAuth client_id is present.
+    // Redirect URIs alone cannot be used because main.rs supplies non-empty
+    // defaults for them regardless of whether credentials are configured.
+    let oauth_configured = !state.config.battlenet_client_id.trim().is_empty()
+        || !state.config.discord_client_id.trim().is_empty();
+    let will_use_any_origin = allow_any || parsed_allowed_origins.is_empty();
+    if will_use_any_origin && oauth_configured {
         panic!(
-            "CORS wildcard ('*') or empty CORS_ALLOWED_ORIGINS is incompatible with the OAuth \
-             cookie-nonce flow. Set CORS_ALLOWED_ORIGINS to the explicit frontend origin (e.g. \
-             'http://localhost:5173') instead of '*' or leaving it blank."
+            "CORS wildcard ('*'), empty CORS_ALLOWED_ORIGINS, or all-unparseable origins are \
+             incompatible with the OAuth cookie-nonce flow. Set CORS_ALLOWED_ORIGINS to the \
+             explicit frontend origin (e.g. 'http://localhost:5173') with valid syntax."
         );
     }
 
-    let cors = if allow_any || parsed_allowed_origins.is_empty() {
+    let cors = if will_use_any_origin {
         CorsLayer::new().allow_origin(Any)
     } else {
         CorsLayer::new()

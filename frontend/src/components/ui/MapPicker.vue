@@ -74,6 +74,7 @@ function pickRandom() {
       type="button"
       class="map-picker-random"
       title="Pick a random map"
+      aria-label="Pick a random map"
       @click="pickRandom"
     >
       <span class="material-symbols-rounded map-picker-random-icon" aria-hidden="true">shuffle</span>
