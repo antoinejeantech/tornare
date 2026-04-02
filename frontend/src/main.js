@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import App from './App.vue'
+import { i18n } from './i18n'
 import './styles.css'
 import HomePage from './pages/HomePage.vue'
 import EventsPage from './pages/EventsPage.vue'
@@ -67,4 +68,4 @@ router.afterEach((to) => {
 	document.title = typeof to.meta.title === 'string' ? to.meta.title : 'Tornare'
 })
 
-createApp(App).use(pinia).use(router).mount('#app')
+createApp(App).use(pinia).use(router).use(i18n).mount('#app')
