@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getRankIcon } from '../../lib/ranks'
 import { getRoleIcon } from '../../lib/roles'
 
@@ -14,7 +15,8 @@ const props = withDefaults(defineProps<{
   compact: false,
 })
 
-const rankAlt = computed(() => `${props.rank} rank`)
+const { t } = useI18n()
+const rankAlt = computed(() => t('gamesCard.rankAlt', { rank: props.rank }))
 const rankIcon = computed(() => getRankIcon(props.rank))
 </script>
 

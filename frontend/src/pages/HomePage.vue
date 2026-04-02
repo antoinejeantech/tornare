@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiCall } from '../lib/api'
 import torbjornImage from '../assets/branding/torbjorn.webp'
 import { formatEventStartDate, getDateTimestamp } from '../lib/dates'
@@ -22,6 +23,8 @@ interface EventsKpiResponse {
   upcoming_events_this_week: number
   upcoming_tourneys_this_week: number
 }
+
+const { t } = useI18n()
 
 const events = ref<Event[]>([])
 const loadingEvents = ref(false)
@@ -157,19 +160,18 @@ onMounted(async () => {
   <main class="app-shell app-shell--wide home-shell">
     <section class="home-hero">
       <img class="home-hero-art" :src="torbjornImage" alt="Torbjorn hero art" />
-      <p class="home-eyebrow">Community Match Ops</p>
-      <h1 class="home-title">Run <em>Match Nights</em>, Not Admin.</h1>
-      <p class="home-subtitle muted">
-        Tornare is your operations cockpit for Overwatch communities.
-        Launch events quickly, keep signups visible, and move from planning to lobby with less friction.
-      </p>
+      <p class="home-eyebrow">{{ t('home.eyebrow') }}</p>
+      <i18n-t keypath="home.title" tag="h1" class="home-title">
+        <template #em><em>{{ t('home.titleEm') }}</em></template>
+      </i18n-t>
+      <p class="home-subtitle muted">{{ t('home.subtitle') }}</p>
       <div class="home-hero-kpis">
-        <span class="home-kpi-pill"><span class="home-kpi-value">{{ totalEvents }}</span> live events</span>
-        <span class="home-kpi-pill"><span class="home-kpi-value">{{ totalSignups }}</span> registered players</span>
-        <span class="home-kpi-pill"><span class="home-kpi-value">{{ upcomingThisWeek }}</span> starting this week</span>
+        <span class="home-kpi-pill"><span class="home-kpi-value">{{ totalEvents }}</span> {{ t('home.kpiEvents') }}</span>
+        <span class="home-kpi-pill"><span class="home-kpi-value">{{ totalSignups }}</span> {{ t('home.kpiPlayers') }}</span>
+        <span class="home-kpi-pill"><span class="home-kpi-value">{{ upcomingThisWeek }}</span> {{ t('home.kpiWeek') }}</span>
       </div>
       <div class="home-hero-actions">
-        <ActionCtaButton to="/events">Open Event Hub</ActionCtaButton>
+        <ActionCtaButton to="/events">{{ t('home.ctaHub') }}</ActionCtaButton>
         <AppButton
           to="/news"
           variant="muted"
@@ -178,15 +180,15 @@ onMounted(async () => {
           :with-top-spacing="false"
           class="home-hero-secondary-btn"
         >
-          Latest Updates
+          {{ t('home.ctaNews') }}
         </AppButton>
       </div>
     </section>
 
     <div class="home-section-head">
       <div class="home-section-title-wrap">
-        <p class="home-section-kicker">STATUS CENTER</p>
-        <h2 class="home-section-title">Dashboard Overview</h2>
+        <p class="home-section-kicker">{{ t('home.dashboardKicker') }}</p>
+        <h2 class="home-section-title">{{ t('home.dashboardTitle') }}</h2>
       </div>
     </div>
 
@@ -194,11 +196,11 @@ onMounted(async () => {
       <section class="home-ticker reveal-block reveal-1">
         <div class="home-ticker-head">
           <span class="material-symbols-rounded home-ticker-icon" aria-hidden="true">event</span>
-          <h2>LATEST EVENTS</h2>
-          <InlineArrowLink to="/events" label="View all" class="home-ticker-view-all" />
+          <h2>{{ t('home.latestEvents') }}</h2>
+          <InlineArrowLink to="/events" :label="t('home.viewAll')" class="home-ticker-view-all" />
         </div>
-        <p v-if="loadingEvents" class="muted home-ticker-empty">Loading events&hellip;</p>
-        <p v-else-if="sortedEvents.length === 0" class="muted home-ticker-empty">No events yet. <RouterLink to="/events">Create one</RouterLink> to get started.</p>
+        <p v-if="loadingEvents" class="muted home-ticker-empty">{{ t('home.loadingEvents') }}</p>
+        <p v-else-if="sortedEvents.length === 0" class="muted home-ticker-empty">{{ t('home.noEvents') }} <RouterLink to="/events">{{ t('home.createOne') }}</RouterLink> {{ t('home.noEventsHint') }}</p>
         <ul v-else class="home-ticker-list">
           <EventListItem
             v-for="event in sortedEvents.slice(0, 6)"
@@ -213,39 +215,39 @@ onMounted(async () => {
         <section class="home-signal-grid">
           <article class="home-signal">
             <div class="home-signal-head">
-              <span class="home-signal-label">Board</span>
+              <span class="home-signal-label">{{ t('home.boardLabel') }}</span>
               <span class="material-symbols-rounded home-signal-icon home-signal-icon-light" aria-hidden="true">calendar_month</span>
             </div>
             <strong class="home-signal-value">{{ totalEvents }}</strong>
-            <p class="muted">Current event listings available to your community.</p>
+            <p class="muted">{{ t('home.boardDesc') }}</p>
           </article>
           <article class="home-signal">
             <div class="home-signal-head">
-              <span class="home-signal-label">Signups</span>
+              <span class="home-signal-label">{{ t('home.signupsLabel') }}</span>
               <span class="material-symbols-rounded home-signal-icon home-signal-icon-light" aria-hidden="true">group</span>
             </div>
             <strong class="home-signal-value">{{ totalSignups }}</strong>
-            <p class="muted">Total players currently committed across events.</p>
+            <p class="muted">{{ t('home.signupsDesc') }}</p>
           </article>
         </section>
 
         <section class="home-countdown-grid">
           <article v-for="(event, index) in countdownEvents" :key="`countdown-${event.id}`" :class="['home-countdown', { 'home-countdown-upnext': index === 0 }]">
-            <span class="home-countdown-label">{{ index === 0 ? 'Up Next' : 'After That' }}<span v-if="index === 0" class="material-symbols-rounded home-countdown-icon" aria-hidden="true">schedule</span></span>
+            <span class="home-countdown-label">{{ index === 0 ? t('home.upNext') : t('home.afterThat') }}<span v-if="index === 0" class="material-symbols-rounded home-countdown-icon" aria-hidden="true">schedule</span></span>
               <strong class="home-countdown-value">{{ countdownLabel(event.start_date) }}</strong>
               <h3 class="home-countdown-title">{{ event.name }}</h3>
-              <p class="muted">{{ formatEventStartDate(event.start_date) || 'No date set' }}</p>
+              <p class="muted">{{ formatEventStartDate(event.start_date) || t('home.noDate') }}</p>
               <AppButton
                 :to="{ name: 'event', params: { id: event.id } }"
                 :variant="index === 0 ? 'solid' : 'muted'"
               >
-                Open event
+                {{ t('home.openEvent') }}
               </AppButton>
           </article>
           <article v-if="countdownEvents.length === 0" class="home-countdown home-countdown-empty">
-            <span class="home-countdown-label">Up Next</span>
+            <span class="home-countdown-label">{{ t('home.upNext') }}</span>
               <strong class="home-countdown-value">-</strong>
-              <p class="muted">No upcoming events.</p>
+              <p class="muted">{{ t('home.noUpcoming') }}</p>
           </article>
         </section>
       </aside>
@@ -255,37 +257,37 @@ onMounted(async () => {
       v-if="featuredEvent"
       class="reveal-block reveal-4"
       :event="featuredEvent"
-      badge-label="Spotlight Event"
+      :badge-label="t('home.spotlightBadge')"
     />
 
     <section class="home-jump-grid reveal-block reveal-5" aria-label="Quick links">
       <RouterLink class="home-jump-card" to="/events" data-watermark="trophy">
-        <h2><span class="material-symbols-rounded home-jump-icon" aria-hidden="true">trophy</span>Event Hub</h2>
-        <p class="muted">Create events, configure formats, and manage signups from one operational view.</p>
-        <InlineArrowLink class="home-jump-link" as="text" label="Go To Events" />
+        <h2><span class="material-symbols-rounded home-jump-icon" aria-hidden="true">trophy</span>{{ t('home.jumpEventsTitle') }}</h2>
+        <p class="muted">{{ t('home.jumpEventsDesc') }}</p>
+        <InlineArrowLink class="home-jump-link" as="text" :label="t('home.jumpEventsLink')" />
       </RouterLink>
 
       <RouterLink class="home-jump-card" to="/news" data-watermark="campaign">
-        <h2><span class="material-symbols-rounded home-jump-icon" aria-hidden="true">campaign</span>Latest Updates</h2>
-        <p class="muted">Broadcast patch notes, rule changes, and league news to everyone in one feed.</p>
-        <InlineArrowLink class="home-jump-link" as="text" label="Read News" />
+        <h2><span class="material-symbols-rounded home-jump-icon" aria-hidden="true">campaign</span>{{ t('home.jumpNewsTitle') }}</h2>
+        <p class="muted">{{ t('home.jumpNewsDesc') }}</p>
+        <InlineArrowLink class="home-jump-link" as="text" :label="t('home.jumpNewsLink')" />
       </RouterLink>
 
       <RouterLink class="home-jump-card" to="/about" data-watermark="description">
-        <h2><span class="material-symbols-rounded home-jump-icon" aria-hidden="true">description</span>Project Story</h2>
-        <p class="muted">See the roadmap and mission behind Tornare and where the platform is headed next.</p>
-        <InlineArrowLink class="home-jump-link" as="text" label="About Tornare" />
+        <h2><span class="material-symbols-rounded home-jump-icon" aria-hidden="true">description</span>{{ t('home.jumpAboutTitle') }}</h2>
+        <p class="muted">{{ t('home.jumpAboutDesc') }}</p>
+        <InlineArrowLink class="home-jump-link" as="text" :label="t('home.jumpAboutLink')" />
       </RouterLink>
     </section>
 
     <section class="home-banner card reveal-block reveal-7">
       <div class="home-banner-copy">
-        <h2>Command Center For Captains And Organizers</h2>
-        <p class="muted">From signup links to team coordination, Tornare keeps your event lifecycle visible and actionable.</p>
+        <h2>{{ t('home.bannerTitle') }}</h2>
+        <p class="muted">{{ t('home.bannerDesc') }}</p>
       </div>
       <RouterLink class="home-banner-action" to="/about">
         <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span>
-        <span>LEARN MORE</span>
+        <span>{{ t('home.bannerCta') }}</span>
       </RouterLink>
     </section>
   </main>

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import { useI18n } from 'vue-i18n'
 import { useAlertsStore } from '../stores/alerts'
 import type { AlertType } from '../stores/alerts'
 
+const { t } = useI18n()
 const alertsStore = useAlertsStore()
 const { items } = storeToRefs(alertsStore)
 
@@ -27,7 +29,7 @@ function iconFor(type: AlertType): string {
       <p class="alert-message">{{ item.message }}</p>
       <button class="alert-dismiss" type="button" @click="alertsStore.remove(item.id)">
         <span class="material-symbols-rounded" aria-hidden="true">close</span>
-        <span class="sr-only">Dismiss notification</span>
+        <span class="sr-only">{{ t('alerts.dismiss') }}</span>
       </button>
     </article>
   </section>

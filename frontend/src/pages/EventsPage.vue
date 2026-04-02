@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { apiCall } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 import { useDebounce } from '../composables/useDebounce'
@@ -10,6 +11,8 @@ import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import CreateEventModal from '../components/events/CreateEventModal.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
 import type { Event } from '../types'
+
+const { t } = useI18n()
 
 interface PaginatedEventsResponse {
   items: Event[]
@@ -98,7 +101,7 @@ function clearFilters() {
 
 function openCreateModal() {
   if (!authStore.isAuthenticated) {
-    setError('Sign in to create an event')
+    setError(t('events.signInToCreate'))
     return
   }
 
@@ -266,7 +269,7 @@ onBeforeUnmount(() => {
       v-if="featuredEvent"
       class="reveal-block reveal-1"
       :event="featuredEvent"
-      badge-label="Featured Event"
+      :badge-label="t('home.spotlightBadge')"
     />
 
     <section v-if="showEventsKpis" class="events-stats-grid reveal-block reveal-2" aria-label="Event highlights">
@@ -298,36 +301,36 @@ onBeforeUnmount(() => {
 
     <section class="events-header reveal-block reveal-2">
       <div class="events-toolbar-title-wrap">
-        <h2>{{ pastEventsOnly ? 'PAST EVENTS' : 'EVENTS' }}</h2>
-        <p class="muted">Browse public competitive lobbies and claim your spot on the ladder.</p>
+        <h2>{{ pastEventsOnly ? t('events.titlePast') : t('events.title') }}</h2>
+        <p class="muted">{{ t('events.subtitle') }}</p>
       </div>
       <ActionCtaButton
         class="events-create-btn"
         :disabled="!authStore.isAuthenticated"
-        :title="authStore.isAuthenticated ? 'Create a new event' : 'Sign in to create an event'"
+        :title="authStore.isAuthenticated ? t('events.createBtnTitle') : t('events.createBtnTitleGuest')"
         @click="openCreateModal"
       >
         <span class="material-symbols-rounded" aria-hidden="true">add</span>
-        <span>Create event</span>
+        <span>{{ t('events.createBtn') }}</span>
       </ActionCtaButton>
     </section>
 
     <section class="card events-toolbar reveal-block reveal-2">
       <div class="events-filter-row">
         <label class="events-search">
-          <span class="sr-only">Search events</span>
+          <span class="sr-only">{{ t('events.searchLabel') }}</span>
           <span class="material-symbols-rounded" aria-hidden="true">search</span>
-          <input v-model="eventSearchQuery" type="search" placeholder="Search by name, description, creator" />
+          <input v-model="eventSearchQuery" type="search" :placeholder="t('events.searchPlaceholder')" />
         </label>
 
-        <div v-if="authStore.isAuthenticated" class="events-subnav" aria-label="Event ownership filter">
+        <div v-if="authStore.isAuthenticated" class="events-subnav" :aria-label="t('events.ownershipFilter')">
           <button
             class="events-subnav-btn"
             :class="{ active: activeOwnerFilter === 'all' }"
             :aria-pressed="activeOwnerFilter === 'all'"
             @click="setOwnerFilter('all')"
           >
-            All events
+            {{ t('events.filterAll') }}
           </button>
           <button
             class="events-subnav-btn"
@@ -335,18 +338,18 @@ onBeforeUnmount(() => {
             :aria-pressed="activeOwnerFilter === 'mine'"
             @click="setOwnerFilter('mine')"
           >
-            My events
+            {{ t('events.filterMine') }}
           </button>
         </div>
 
-        <div class="events-subnav" aria-label="Event type filter">
+        <div class="events-subnav" :aria-label="t('events.typeFilter')">
           <button
             class="events-subnav-btn"
             :class="{ active: activeTypeFilter === 'all' }"
             :aria-pressed="activeTypeFilter === 'all'"
             @click="setTypeFilter('all')"
           >
-            All types
+            {{ t('events.typeAll') }}
           </button>
           <button
             class="events-subnav-btn"
@@ -354,7 +357,7 @@ onBeforeUnmount(() => {
             :aria-pressed="activeTypeFilter === 'PUG'"
             @click="setTypeFilter('PUG')"
           >
-            PUG
+            {{ t('events.typePug') }}
           </button>
           <button
             class="events-subnav-btn"
@@ -362,20 +365,20 @@ onBeforeUnmount(() => {
             :aria-pressed="activeTypeFilter === 'TOURNEY'"
             @click="setTypeFilter('TOURNEY')"
           >
-            Tourney
+            {{ t('events.typeTourney') }}
           </button>
         </div>
 
         <label class="events-sort">
           <span class="events-sort-copy">
-            <span class="events-sort-label">Sort</span>
+            <span class="events-sort-label">{{ t('events.sortLabel') }}</span>
           </span>
           <span class="events-sort-field">
-            <select v-model="activeSort" aria-label="Sort events">
-              <option value="soonest">Soonest</option>
-              <option value="newest">Latest</option>
-              <option value="players">Most players</option>
-              <option value="name">A-Z</option>
+            <select v-model="activeSort" :aria-label="t('events.sortLabel')">
+              <option value="soonest">{{ t('events.sortSoonest') }}</option>
+              <option value="newest">{{ t('events.sortNewest') }}</option>
+              <option value="players">{{ t('events.sortPlayers') }}</option>
+              <option value="name">{{ t('events.sortName') }}</option>
             </select>
             <span class="material-symbols-rounded events-sort-caret" aria-hidden="true">expand_more</span>
           </span>
@@ -390,8 +393,8 @@ onBeforeUnmount(() => {
           @click="pastEventsOnly = !pastEventsOnly"
         >
           <span class="events-ended-toggle-copy">
-            <span class="events-ended-toggle-label">Past events only</span>
-            <span class="events-ended-toggle-state">{{ pastEventsOnly ? 'On' : 'Off' }}</span>
+            <span class="events-ended-toggle-label">{{ t('events.pastToggleLabel') }}</span>
+            <span class="events-ended-toggle-state">{{ pastEventsOnly ? t('events.pastToggleOn') : t('events.pastToggleOff') }}</span>
           </span>
           <span class="events-ended-toggle-switch" aria-hidden="true">
             <span class="events-ended-toggle-thumb" />
@@ -405,7 +408,7 @@ onBeforeUnmount(() => {
           @click="clearFilters"
         >
           <span class="material-symbols-rounded" aria-hidden="true">refresh</span>
-          <span>Clear filters</span>
+          <span>{{ t('events.clearFilters') }}</span>
         </button>
       </div>
     </section>
@@ -413,13 +416,13 @@ onBeforeUnmount(() => {
     <p v-if="error" class="status status-error">{{ error }}</p>
 
     <section class="card events-list-shell reveal-block reveal-3">
-      <p v-if="loadingEvents">Loading events...</p>
+      <p v-if="loadingEvents">{{ t('events.loading') }}</p>
       <div v-else-if="sortedEvents.length === 0" class="events-empty-state">
-        <h2>No events match your filters</h2>
-        <p class="muted">Try widening your filters or create a new event for your community.</p>
+        <h2>{{ t('events.emptyTitle') }}</h2>
+        <p class="muted">{{ t('events.emptySubtitle') }}</p>
         <div class="events-empty-actions">
-          <button type="button" class="btn-secondary" :disabled="!hasActiveFilters" @click="clearFilters">Clear filters</button>
-          <ActionCtaButton :disabled="!authStore.isAuthenticated" @click="openCreateModal">Create event</ActionCtaButton>
+          <button type="button" class="btn-secondary" :disabled="!hasActiveFilters" @click="clearFilters">{{ t('events.clearFilters') }}</button>
+          <ActionCtaButton :disabled="!authStore.isAuthenticated" @click="openCreateModal">{{ t('events.createBtn') }}</ActionCtaButton>
         </div>
       </div>
       <ul v-else class="home-events-list">
@@ -433,19 +436,19 @@ onBeforeUnmount(() => {
         />
       </ul>
 
-      <div class="events-pagination" role="navigation" aria-label="Events pagination">
+      <div class="events-pagination" role="navigation" :aria-label="t('events.pagination')">
         <p class="events-pagination-meta muted">
-          Page {{ currentPage }} of {{ totalPages }}
+          {{ t('events.paginationPage', { current: currentPage, total: totalPages }) }}
           <span class="events-pagination-divider" aria-hidden="true">•</span>
-          {{ visibleEventsCount }} shown
+          {{ t('events.paginationShown', { count: visibleEventsCount }) }}
           <span class="events-pagination-divider" aria-hidden="true">•</span>
-          {{ totalEventsAvailable }} total
+          {{ t('events.paginationTotal', { total: totalEventsAvailable }) }}
         </p>
 
         <label class="events-pagination-size">
-          <span class="events-pagination-size-label">Results per page</span>
+          <span class="events-pagination-size-label">{{ t('events.paginationPerPage') }}</span>
           <span class="events-pagination-size-field">
-            <select v-model.number="pageSize" aria-label="Results per page">
+            <select v-model.number="pageSize" :aria-label="t('events.paginationPerPage')">
               <option v-for="option in pageSizeOptions" :key="`page-size-${option}`" :value="option">
                 {{ option }}
               </option>
@@ -462,7 +465,7 @@ onBeforeUnmount(() => {
             @click="goToPrevPage"
           >
             <span class="material-symbols-rounded" aria-hidden="true">arrow_back</span>
-            <span>Previous</span>
+            <span>{{ t('events.paginationPrev') }}</span>
           </button>
           <button
             type="button"
@@ -470,7 +473,7 @@ onBeforeUnmount(() => {
             :disabled="currentPage >= totalPages"
             @click="goToNextPage"
           >
-            <span>Next</span>
+            <span>{{ t('events.paginationNext') }}</span>
             <span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span>
           </button>
         </div>

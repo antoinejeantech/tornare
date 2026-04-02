@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -71,18 +73,18 @@ onMounted(async () => {
   if (oauthError) {
     error.value =
       oauthError === 'access_denied'
-        ? 'Sign-in was cancelled.'
+        ? t('authCallback.cancelled')
         : oauthError === 'oauth_not_configured'
-          ? 'This sign-in provider is not yet configured.'
+          ? t('authCallback.notConfigured')
           : oauthError === 'rate_limited'
-            ? 'Too many requests. Please wait a moment and try again.'
-            : 'Sign-in failed. Please try again.'
+            ? t('authCallback.rateLimited')
+            : t('authCallback.failed')
     return
   }
 
   if (needsEmailFlag === 'true') {
     if (!pendingTokenValue) {
-      error.value = 'Sign-in is missing continuation data. Please try again.'
+      error.value = t('authCallback.missingData')
       return
     }
     needsEmail.value = true
@@ -103,7 +105,7 @@ onMounted(async () => {
   }
 
   if (!accessToken || !refreshToken) {
-    error.value = 'Invalid callback parameters.'
+    error.value = t('authCallback.invalidParams')
     return
   }
 
@@ -111,7 +113,7 @@ onMounted(async () => {
     await authStore.initFromOAuth(accessToken, refreshToken)
     router.replace(sanitizeRedirectPath(redirectQuery || '/events'))
   } catch {
-    error.value = 'Authentication failed. Please try again.'
+    error.value = t('authCallback.failed')
   }
 })
 
@@ -122,7 +124,7 @@ async function submitEmail(): Promise<void> {
 
   const trimmedEmail = email.value.trim()
   if (!trimmedEmail || !trimmedEmail.includes('@')) {
-    error.value = 'Please enter a valid email address.'
+    error.value = t('authCallback.invalidEmail')
     return
   }
 
@@ -132,7 +134,7 @@ async function submitEmail(): Promise<void> {
     await authStore.completeBnetSignup(pendingToken.value, trimmedEmail)
     router.replace('/events')
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to complete sign-up.'
+    error.value = err instanceof Error ? err.message : t('authCallback.completeFailed')
   } finally {
     submitting.value = false
   }
@@ -143,15 +145,15 @@ async function submitEmail(): Promise<void> {
   <main class="app-shell auth-shell">
     <section class="card auth-card">
       <template v-if="needsEmail">
-        <h1>One more step</h1>
+        <h1>{{ t('authCallback.oneMoreStep') }}</h1>
         <p class="muted">
-          Battle.net did not provide an email for
+          {{ t('authCallback.bnetNoEmail') }}
           <strong v-if="battletag">{{ battletag }}</strong>
-          <span v-else>your account</span>.
-          Enter your email to complete sign-up.
+          <span v-else>{{ t('authCallback.bnetNoEmailAnon') }}</span>.
+          {{ t('authCallback.bnetEmailInstruction') }}
         </p>
         <form class="email-form" @submit.prevent="submitEmail">
-          <label class="field-label" for="oauth-email">Email</label>
+          <label class="field-label" for="oauth-email">{{ t('authCallback.emailLabel') }}</label>
           <input
             id="oauth-email"
             v-model="email"
@@ -163,7 +165,7 @@ async function submitEmail(): Promise<void> {
             :disabled="submitting"
           />
           <button class="btn-primary" type="submit" :disabled="submitting">
-            {{ submitting ? 'Completing…' : 'Complete sign-up' }}
+            {{ submitting ? t('authCallback.completing') : t('authCallback.completeSignup') }}
           </button>
         </form>
         <p v-if="error" class="status status-error">{{ error }}</p>
@@ -171,13 +173,13 @@ async function submitEmail(): Promise<void> {
       <template v-else-if="error">
         <div class="oauth-error">
           <span class="material-symbols-rounded oauth-error-icon" aria-hidden="true">error</span>
-          <h2 class="oauth-error-title">Something went wrong</h2>
+          <h2 class="oauth-error-title">{{ t('authCallback.errorTitle') }}</h2>
           <p class="oauth-error-message">{{ error }}</p>
-          <RouterLink :to="returnPath" class="oauth-error-back">← Go back</RouterLink>
+          <RouterLink :to="returnPath" class="oauth-error-back">{{ t('authCallback.goBack') }}</RouterLink>
         </div>
       </template>
       <template v-else>
-        <p class="muted">Signing you in with Battle.net…</p>
+        <p class="muted">{{ t('authCallback.signingIn') }}</p>
       </template>
     </section>
   </main>

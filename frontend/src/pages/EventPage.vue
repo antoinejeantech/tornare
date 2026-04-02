@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, provide, proxyRefs, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { getDateTimestamp, parseDateValue } from '../lib/dates'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
@@ -25,6 +26,7 @@ import AppButton from '../components/ui/AppButton.vue'
 import AppBadge from '../components/ui/AppBadge.vue'
 import type { Event } from '../types'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const alert = useAlert()
@@ -62,7 +64,7 @@ const eventStartsInLabel = computed(() => {
   const startAt = getDateTimestamp(raw)
   if (startAt === null) return ''
   const diffMs = startAt - nowTick.value
-  if (Math.abs(diffMs) < 60 * 1000) return 'Live now'
+  if (Math.abs(diffMs) < 60 * 1000) return t('eventPage.liveNow')
   const absMs = Math.abs(diffMs)
   const totalMinutes = Math.round(absMs / (60 * 1000))
   const days = Math.floor(totalMinutes / (60 * 24))
@@ -73,7 +75,7 @@ const eventStartsInLabel = computed(() => {
   if (hours > 0) parts.push(`${hours}h`)
   if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`)
   const readable = parts.slice(0, 2).join(' ')
-  return diffMs > 0 ? `Starts in ${readable}` : `Started ${readable} ago`
+  return diffMs > 0 ? t('eventPage.startsIn', { time: readable }) : t('eventPage.startedAgo', { time: readable })
 })
 const eventStartDateTimeLabel = computed(() => {
   const raw = String(event.value?.start_date || '').trim()
@@ -97,7 +99,7 @@ function setError(message: string) { alert.error(message) }
 function setNotice(message: string) { alert.success(message) }
 function ensureOwnerAction() {
   if (canManageEvent.value) return true
-  setError('You do not have permission for this action.')
+  setError(t('eventPage.noPermission'))
   return false
 }
 function hydrateSelections() {
@@ -183,7 +185,7 @@ async function loadEvent() {
     if (err instanceof Error && err.name === 'AbortError') return
     if (requestId !== latestEventLoadRequestId) return
     event.value = null
-    setError(err instanceof Error ? err.message : 'Failed to load event')
+    setError(err instanceof Error ? err.message : t('eventPage.loadFailed'))
   } finally {
     if (requestId === latestEventLoadRequestId) loadingEvent.value = false
   }
@@ -384,80 +386,80 @@ provide('eventCtx', proxyRefs({
 <template>
   <main class="app-shell app-shell--wide event-shell">
     <section v-if="loadingEvent" class="event-loading-state">
-      <p>Loading event...</p>
+      <p>{{ t('eventPage.loading') }}</p>
     </section>
 
     <section v-else-if="event" class="event-workspace-card">
       <div class="event-layout">
-        <aside class="event-left-nav" aria-label="Event sections">
-          <p class="event-left-nav-kicker">Navigation</p>
+        <aside class="event-left-nav" :aria-label="t('eventPage.nav')">
+          <p class="event-left-nav-kicker">{{ t('eventPage.nav') }}</p>
           <button class="left-nav-item" :class="{ active: activeSection === 'overview' }" @click="openSection('overview')">
             <span class="left-nav-label">
               <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">dashboard</span>
-              <span>Overview</span>
+              <span>{{ t('eventPage.sectionOverview') }}</span>
             </span>
           </button>
           <button class="left-nav-item" :class="{ active: activeSection === 'roster' }" @click="openSection('roster')">
             <span class="left-nav-label">
               <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">group</span>
-              <span>Players</span>
+              <span>{{ t('eventPage.sectionPlayers') }}</span>
             </span>
           </button>
           <button class="left-nav-item" :class="{ active: activeSection === 'teams' }" @click="openSection('teams')">
             <span class="left-nav-label">
               <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">verified_user</span>
-              <span>Teams</span>
+              <span>{{ t('eventPage.sectionTeams') }}</span>
             </span>
           </button>
           <button class="left-nav-item" :class="{ active: activeSection === 'matches' }" @click="openSection('matches')">
             <span class="left-nav-label">
               <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">swords</span>
-              <span>Matches</span>
+              <span>{{ t('eventPage.sectionMatches') }}</span>
             </span>
           </button>
           <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'requests' }" @click="openSection('requests')">
             <span class="left-nav-label">
               <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">mail</span>
-              <span>Requests</span>
+              <span>{{ t('eventPage.sectionRequests') }}</span>
             </span>
-            <span v-if="pendingSignupRequestCount > 0" class="left-nav-badge" :aria-label="`${pendingSignupRequestCount} pending signup requests`">
+            <span v-if="pendingSignupRequestCount > 0" class="left-nav-badge" :aria-label="t('eventPage.pendingBadge', { count: pendingSignupRequestCount })">
               {{ pendingSignupRequestCount }}
             </span>
           </button>
           <button v-if="canManageEvent" class="left-nav-item" :class="{ active: activeSection === 'settings' }" @click="openSection('settings')">
             <span class="left-nav-label">
               <span class="material-symbols-rounded left-nav-icon" aria-hidden="true">settings</span>
-              <span>Settings</span>
+              <span>{{ t('eventPage.sectionSettings') }}</span>
             </span>
           </button>
         </aside>
 
         <!-- Mobile bottom tab bar -->
-        <nav class="event-bottom-nav" aria-label="Event sections">
+        <nav class="event-bottom-nav" :aria-label="t('eventPage.nav')">
           <button class="bottom-nav-item" :class="{ active: activeSection === 'overview' }" @click="openSection('overview')">
             <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">dashboard</span>
-            <span class="bottom-nav-label">Overview</span>
+            <span class="bottom-nav-label">{{ t('eventPage.sectionOverview') }}</span>
           </button>
           <button class="bottom-nav-item" :class="{ active: activeSection === 'roster' }" @click="openSection('roster')">
             <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">group</span>
-            <span class="bottom-nav-label">Players</span>
+            <span class="bottom-nav-label">{{ t('eventPage.sectionPlayers') }}</span>
           </button>
           <button class="bottom-nav-item" :class="{ active: activeSection === 'teams' }" @click="openSection('teams')">
             <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">verified_user</span>
-            <span class="bottom-nav-label">Teams</span>
+            <span class="bottom-nav-label">{{ t('eventPage.sectionTeams') }}</span>
           </button>
           <button class="bottom-nav-item" :class="{ active: activeSection === 'matches' }" @click="openSection('matches')">
             <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">swords</span>
-            <span class="bottom-nav-label">Matches</span>
+            <span class="bottom-nav-label">{{ t('eventPage.sectionMatches') }}</span>
           </button>
           <button v-if="canManageEvent" class="bottom-nav-item" :class="{ active: activeSection === 'requests' }" @click="openSection('requests')">
             <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">mail</span>
-            <span class="bottom-nav-label">Requests</span>
+            <span class="bottom-nav-label">{{ t('eventPage.sectionRequests') }}</span>
             <span v-if="pendingSignupRequestCount > 0" class="bottom-nav-badge" aria-hidden="true">{{ pendingSignupRequestCount }}</span>
           </button>
           <button v-if="canManageEvent" class="bottom-nav-item" :class="{ active: activeSection === 'settings' }" @click="openSection('settings')">
             <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">settings</span>
-            <span class="bottom-nav-label">Settings</span>
+            <span class="bottom-nav-label">{{ t('eventPage.sectionSettings') }}</span>
           </button>
         </nav>
 
@@ -470,8 +472,8 @@ provide('eventCtx', proxyRefs({
               <div class="event-title-row">
                 <div class="event-title-name-row">
                   <h2>{{ event.name }}</h2>
-                  <AppBadge v-if="event.status === 'ENDED'" variant="muted" label="Ended" />
-                  <AppBadge v-else-if="event.status === 'DRAFT'" variant="warning" label="Draft" />
+                  <AppBadge v-if="event.status === 'ENDED'" variant="muted" :label="t('eventPage.statusEnded')" />
+                  <AppBadge v-else-if="event.status === 'DRAFT'" variant="warning" :label="t('eventPage.statusDraft')" />
                 </div>
                 <div v-if="eventStartsInLabel || eventStartDateTimeLabel" class="event-starts-in muted">
                   <span v-if="eventStartsInLabel" class="event-start-meta event-starts-in-countdown">
@@ -493,11 +495,11 @@ provide('eventCtx', proxyRefs({
                   :with-top-spacing="false"
                   @click="setFeaturedEvent(!event.is_featured)"
                 >
-                  {{ updatingFeaturedEvent ? 'Updating...' : (event.is_featured ? 'Remove spotlight' : 'Set as spotlight') }}
+                  {{ updatingFeaturedEvent ? t('eventPage.updatingFeatured') : (event.is_featured ? t('eventPage.removeSpotlight') : t('eventPage.setSpotlight')) }}
                 </AppButton>
                 <ActionCtaButton v-if="headerJoinRoute && event.status === 'ACTIVE'" :to="headerJoinRoute">
                   <span class="material-symbols-rounded" aria-hidden="true">how_to_reg</span>
-                  Join event
+                  {{ t('eventPage.joinEvent') }}
                 </ActionCtaButton>
               </div>
             </div>
@@ -518,9 +520,9 @@ provide('eventCtx', proxyRefs({
     </section>
 
     <section v-else class="event-not-found-state">
-      <h2>Event not found</h2>
-      <p class="muted">This event may have been deleted.</p>
-      <button class="btn-secondary" @click="navigateToHome">Back to events</button>
+      <h2>{{ t('eventPage.notFound') }}</h2>
+      <p class="muted">{{ t('eventPage.notFoundHint') }}</p>
+      <button class="btn-secondary" @click="navigateToHome">{{ t('eventPage.backToEvents') }}</button>
     </section>
   </main>
 </template>

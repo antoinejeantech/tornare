@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getDateTimestamp, isoToDatetimeLocalValue } from '../../lib/dates'
 import { sortPlayersByRoleThenName } from '../../lib/roles'
 import MapPicker from '../ui/MapPicker.vue'
@@ -9,6 +10,7 @@ import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventMatch } from '../../types'
 
 const ctx = inject<EventCtxType>('eventCtx')!
+const { t } = useI18n()
 
 // ── Modal state ───────────────────────────────────────────────────────────────
 const activeMatchId = ref<string | number | null>(null)
@@ -98,7 +100,7 @@ function canSaveMatchup(match: EventMatch): boolean {
 }
 
 function matchupHint(matchId: string | number): string {
-  if (isDuplicateSelection(matchId)) return 'Choose two different teams'
+  if (isDuplicateSelection(matchId)) return t('pugMatches.chooseTeamsDiff')
   return ''
 }
 
@@ -109,7 +111,11 @@ function matchStatus(match: EventMatch): string {
   return 'open'
 }
 
-const STATUS_LABELS: Record<string, string> = { done: 'Done', ready: 'Ready', open: 'Open' }
+function getStatusLabel(status: string): string {
+  if (status === 'done') return t('pugMatches.statusDone')
+  if (status === 'ready') return t('pugMatches.statusReady')
+  return t('pugMatches.statusOpen')
+}
 
 // ── Create match ──────────────────────────────────────────────────────────────
 function toggleCreateForm() {
@@ -212,24 +218,24 @@ async function saveStartDate() {
     <!-- ── New match modal ────────────────────────────────────────────────── -->
     <AppModal
       v-model:open="showCreateForm"
-      title="New Match"
+      :title="t('pugMatches.newMatchTitle')"
       max-width="420px"
     >
       <form class="grid-form pug-create-form" @submit.prevent="submitCreateMatch">
         <label>
-          Title
-          <input v-model="ctx.newMatchTitle" placeholder="Match 1" />
+          {{ t('pugMatches.titleLabel') }}
+          <input v-model="ctx.newMatchTitle" :placeholder="t('pugMatches.titlePlaceholder')" />
         </label>
         <label>
-          Map
+          {{ t('pugMatches.mapLabel') }}
           <MapPicker v-model="ctx.newMatchMap" />
         </label>
         <template v-if="(ctx.event?.teams?.length ?? 0) > 0">
           <div class="pug-create-teams-row">
             <label>
-              Team A
+              {{ t('pugMatches.teamALabel') }}
               <select v-model="ctx.newMatchTeamAId">
-                <option value="">None</option>
+                <option value="">{{ t('pugMatches.noneOption') }}</option>
                 <option
                   v-for="team in ctx.event?.teams"
                   :key="`ca-${team.id}`"
@@ -238,11 +244,11 @@ async function saveStartDate() {
                 >{{ team.name }}</option>
               </select>
             </label>
-            <span class="pug-create-vs" aria-hidden="true">VS</span>
+            <span class="pug-create-vs" aria-hidden="true">{{ t('pugMatches.vsLabel') }}</span>
             <label>
-              Team B
+              {{ t('pugMatches.teamBLabel') }}
               <select v-model="ctx.newMatchTeamBId">
-                <option value="">None</option>
+                <option value="">{{ t('pugMatches.noneOption') }}</option>
                 <option
                   v-for="team in ctx.event?.teams"
                   :key="`cb-${team.id}`"
@@ -254,7 +260,7 @@ async function saveStartDate() {
           </div>
         </template>
         <label>
-          Start Date <span class="form-label-hint">(optional)</span>
+          {{ t('pugMatches.startDateLabel') }} <span class="form-label-hint">({{ t('pugMatches.startDateOptional') }})</span>
           <input type="datetime-local" v-model="ctx.newMatchStartDate" />
         </label>
         <div class="pug-create-footer-section">
@@ -266,7 +272,7 @@ async function saveStartDate() {
             <span class="material-symbols-rounded" aria-hidden="true">
               {{ ctx.creatingMatch ? 'hourglass_top' : 'save' }}
             </span>
-            {{ ctx.creatingMatch ? 'Saving...' : 'Save' }}
+            {{ ctx.creatingMatch ? t('pugMatches.savingMatch') : t('pugMatches.saveMatch') }}
           </button>
         </div>
       </form>
@@ -276,27 +282,27 @@ async function saveStartDate() {
     <div v-if="stats.total > 0" class="pug-stats-bar">
       <div class="pug-stat-item">
         <span class="pug-stat-value">{{ stats.players }}</span>
-        <span class="pug-stat-label">Total Players</span>
+        <span class="pug-stat-label">{{ t('pugMatches.totalPlayers') }}</span>
       </div>
       <div class="pug-stat-item">
         <span class="pug-stat-value">{{ stats.teams }}</span>
-        <span class="pug-stat-label">Teams</span>
+        <span class="pug-stat-label">{{ t('pugMatches.teamsLabel') }}</span>
       </div>
       <div class="pug-stat-item">
         <span class="pug-stat-value">{{ stats.total }}</span>
-        <span class="pug-stat-label">Total Matches</span>
+        <span class="pug-stat-label">{{ t('pugMatches.totalMatches') }}</span>
       </div>
       <div class="pug-stat-item">
         <span class="pug-stat-value">
           {{ stats.played }}<span class="pug-stat-of muted">/ {{ stats.total }}</span>
         </span>
-        <span class="pug-stat-label">Matches Played</span>
+        <span class="pug-stat-label">{{ t('pugMatches.matchesPlayed') }}</span>
       </div>
     </div>
 
     <!-- ── Match grid ──────────────────────────────────────────────────────── -->
     <p v-if="!ctx.event?.matches?.length" class="pug-empty">
-      No matches yet.{{ ctx.canManageEvent ? ' Create your first match above.' : '' }}
+      {{ ctx.canManageEvent ? t('pugMatches.noMatchesAdmin') : t('pugMatches.noMatches') }}
     </p>
     <ul v-else class="pug-match-grid" role="list">
       <li
@@ -316,7 +322,7 @@ async function saveStartDate() {
           <div class="match-card-header">
             <span class="match-card-title">{{ match.title }}</span>
             <span class="match-card-badge" :class="`badge-${matchStatus(match)}`">
-              {{ STATUS_LABELS[matchStatus(match)] }}
+              {{ getStatusLabel(matchStatus(match)) }}
             </span>
           </div>
           <div class="match-card-matchup">
@@ -329,7 +335,7 @@ async function saveStartDate() {
                 class="material-symbols-rounded match-team-trophy"
                 aria-hidden="true"
               >emoji_events</span>
-              {{ match.team_a_name || 'TBD' }}
+              {{ match.team_a_name || t('pugMatches.tbd') }}
             </div>
             <div class="match-card-vs-divider" aria-hidden="true">
               <span class="vs-badge">VS</span>
@@ -343,7 +349,7 @@ async function saveStartDate() {
                 class="material-symbols-rounded match-team-trophy"
                 aria-hidden="true"
               >emoji_events</span>
-              {{ match.team_b_name || 'TBD' }}
+              {{ match.team_b_name || t('pugMatches.tbd') }}
             </div>
           </div>
           <div class="match-card-footer">
@@ -379,7 +385,7 @@ async function saveStartDate() {
         <!-- Meta row -->
         <div class="modal-meta-row">
           <span class="match-card-badge" :class="`badge-${matchStatus(activeMatch)}`">
-            {{ STATUS_LABELS[matchStatus(activeMatch)] }}
+            {{ getStatusLabel(matchStatus(activeMatch)) }}
           </span>
           <span class="modal-meta-sep" aria-hidden="true">·</span>
           <span class="modal-meta-item">
@@ -402,7 +408,7 @@ async function saveStartDate() {
 
         <!-- Schedule section -->
         <div v-if="ctx.canManageEvent" class="modal-section">
-          <h3 class="modal-section-title">Schedule</h3>
+          <h3 class="modal-section-title">{{ t('pugMatches.schedule') }}</h3>
           <div class="schedule-editor-row">
             <input
               type="datetime-local"
@@ -418,14 +424,14 @@ async function saveStartDate() {
               <span class="material-symbols-rounded" aria-hidden="true">
                 {{ savingStartDate ? 'hourglass_top' : 'save' }}
               </span>
-              {{ savingStartDate ? 'Saving...' : 'Save' }}
+              {{ savingStartDate ? t('pugMatches.savingMatch') : t('pugMatches.saveMatch') }}
             </button>
           </div>
         </div>
 
         <!-- Matchup section -->
         <div class="modal-section">
-          <h3 class="modal-section-title">Matchup</h3>
+          <h3 class="modal-section-title">{{ t('pugMatches.matchup') }}</h3>
           <template v-if="ctx.canManageEvent">
             <div class="matchup-editor-row">
               <select
@@ -433,7 +439,7 @@ async function saveStartDate() {
                 v-model="ctx.matchupSelections[activeMatch.id].teamAId"
                 :disabled="Boolean(ctx.savingMatchups[activeMatch.id])"
               >
-                <option value="">Choose team A</option>
+                <option value="">{{ t('pugMatches.chooseTeamA') }}</option>
                 <option
                   v-for="team in ctx.event?.teams"
                   :key="`a-${team.id}`"
@@ -447,7 +453,7 @@ async function saveStartDate() {
                 v-model="ctx.matchupSelections[activeMatch.id].teamBId"
                 :disabled="Boolean(ctx.savingMatchups[activeMatch.id])"
               >
-                <option value="">Choose team B</option>
+                <option value="">{{ t('pugMatches.chooseTeamB') }}</option>
                 <option
                   v-for="team in ctx.event?.teams"
                   :key="`b-${team.id}`"
@@ -463,7 +469,7 @@ async function saveStartDate() {
                 <span class="material-symbols-rounded" aria-hidden="true">
                   {{ ctx.savingMatchups[activeMatch.id] ? 'hourglass_top' : 'save' }}
                 </span>
-                {{ ctx.savingMatchups[activeMatch.id] ? 'Saving...' : 'Save' }}
+                {{ ctx.savingMatchups[activeMatch.id] ? t('pugMatches.savingMatch') : t('pugMatches.saveMatch') }}
               </button>
             </div>
             <p v-if="matchupHint(activeMatch.id)" class="matchup-hint is-error">
@@ -471,17 +477,17 @@ async function saveStartDate() {
             </p>
           </template>
           <div v-else class="matchup-display-row">
-            <span class="team-chip">{{ activeMatch.team_a_name || 'TBD' }}</span>
+            <span class="team-chip">{{ activeMatch.team_a_name || t('pugMatches.tbd') }}</span>
             <span class="vs-sep" aria-hidden="true">vs</span>
-            <span class="team-chip">{{ activeMatch.team_b_name || 'TBD' }}</span>
+            <span class="team-chip">{{ activeMatch.team_b_name || t('pugMatches.tbd') }}</span>
           </div>
         </div>
 
         <!-- Result section (only if matchup is set) -->
         <div v-if="activeMatch.team_a_id && activeMatch.team_b_id" class="modal-section">
-          <h3 class="modal-section-title">Result</h3>
+          <h3 class="modal-section-title">{{ t('pugMatches.result') }}</h3>
           <template v-if="!activeMatch.winner_team_id">
-            <p v-if="!ctx.canManageEvent" class="modal-hint-text">No result declared yet.</p>
+            <p v-if="!ctx.canManageEvent" class="modal-hint-text">{{ t('pugMatches.noResult') }}</p>
             <div v-else class="winner-declare-row">
               <button
                 class="btn-secondary icon-btn winner-declare-btn"
@@ -489,7 +495,7 @@ async function saveStartDate() {
                 @click="reportWinner(activeMatch.id, activeMatch.team_a_id)"
               >
                 <span class="material-symbols-rounded" aria-hidden="true">emoji_events</span>
-                {{ activeMatch.team_a_name || 'Team A' }} wins
+                {{ t('pugMatches.teamAWins', { name: activeMatch.team_a_name || t('pugMatches.teamADefault') }) }}
               </button>
               <button
                 class="btn-secondary icon-btn winner-declare-btn"
@@ -497,7 +503,7 @@ async function saveStartDate() {
                 @click="reportWinner(activeMatch.id, activeMatch.team_b_id)"
               >
                 <span class="material-symbols-rounded" aria-hidden="true">emoji_events</span>
-                {{ activeMatch.team_b_name || 'Team B' }} wins
+                {{ t('pugMatches.teamBWins', { name: activeMatch.team_b_name || t('pugMatches.teamBDefault') }) }}
               </button>
             </div>
           </template>
@@ -505,7 +511,7 @@ async function saveStartDate() {
             <div class="winner-result-label">
               <span class="material-symbols-rounded winner-trophy" aria-hidden="true">emoji_events</span>
               <strong>{{ activeMatch.winner_team_name || 'Unknown' }}</strong>
-              <span class="muted">won this match</span>
+              <span class="muted">{{ t('pugMatches.wonMatch', { name: activeMatch.winner_team_name || 'Unknown' }) }}</span>
             </div>
             <button
               v-if="ctx.canManageEvent"
@@ -513,19 +519,19 @@ async function saveStartDate() {
               :disabled="Boolean(ctx.cancellingWinners[activeMatch.id])"
               @click="cancelWinner"
             >
-              {{ ctx.cancellingWinners[activeMatch.id] ? 'Cancelling...' : 'Cancel result' }}
+              {{ ctx.cancellingWinners[activeMatch.id] ? t('pugMatches.cancellingResult') : t('pugMatches.cancelResult') }}
             </button>
           </div>
         </div>
 
         <!-- Players section -->
         <div v-if="activeMatch.players.length > 0" class="modal-section">
-          <h3 class="modal-section-title">Players ({{ activeMatch.players.length }})</h3>
+          <h3 class="modal-section-title">{{ t('pugMatches.playersSectionTitle', { count: activeMatch.players.length }) }}</h3>
           <!-- Two-column roster when teams are set -->
           <div v-if="hasTeamRosters" class="modal-roster-grid">
             <div class="modal-team-col">
-              <h4 class="modal-team-name">{{ activeMatch.team_a_name || 'Team A' }}</h4>
-              <p v-if="playersA.length === 0" class="modal-hint-text">No players assigned.</p>
+              <h4 class="modal-team-name">{{ activeMatch.team_a_name || t('pugMatches.teamADefault') }}</h4>
+              <p v-if="playersA.length === 0" class="modal-hint-text">{{ t('pugMatches.noPlayersAssigned') }}</p>
               <ul v-else class="modal-player-list">
                 <li v-for="player in playersA" :key="`a-${player.id}`" class="modal-player-row">
                   <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" compact />
@@ -533,8 +539,8 @@ async function saveStartDate() {
               </ul>
             </div>
             <div class="modal-team-col">
-              <h4 class="modal-team-name">{{ activeMatch.team_b_name || 'Team B' }}</h4>
-              <p v-if="playersB.length === 0" class="modal-hint-text">No players assigned.</p>
+              <h4 class="modal-team-name">{{ activeMatch.team_b_name || t('pugMatches.teamBDefault') }}</h4>
+              <p v-if="playersB.length === 0" class="modal-hint-text">{{ t('pugMatches.noPlayersAssigned') }}</p>
               <ul v-else class="modal-player-list">
                 <li v-for="player in playersB" :key="`b-${player.id}`" class="modal-player-row">
                   <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" compact />
@@ -550,7 +556,7 @@ async function saveStartDate() {
           </ul>
           <!-- Unassigned players when teams exist but some players have no team -->
           <template v-if="hasTeamRosters && playersUnassigned.length > 0">
-            <h4 class="modal-team-name modal-team-name--unassigned">Unassigned</h4>
+            <h4 class="modal-team-name modal-team-name--unassigned">{{ t('pugMatches.unassigned') }}</h4>
             <ul class="modal-player-list">
               <li v-for="player in playersUnassigned" :key="`u-${player.id}`" class="modal-player-row">
                 <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" compact />
@@ -569,7 +575,7 @@ async function saveStartDate() {
             <span class="material-symbols-rounded" aria-hidden="true">
               {{ ctx.deletingMatchId === activeMatch.id ? 'hourglass_top' : 'delete' }}
             </span>
-            {{ ctx.deletingMatchId === activeMatch.id ? 'Deleting...' : 'Delete match' }}
+            {{ ctx.deletingMatchId === activeMatch.id ? t('pugMatches.deleting') : t('pugMatches.deleteMatch') }}
           </button>
         </div>
       </template>

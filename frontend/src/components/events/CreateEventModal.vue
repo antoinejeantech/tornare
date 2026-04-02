@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { apiCall } from '../../lib/api'
 import { normalizeDatetimeLocalInput } from '../../lib/dates'
 import { formatOptionsForType } from '../../lib/event-format'
@@ -8,6 +9,8 @@ import ActionCtaButton from '../ui/ActionCtaButton.vue'
 import DiscordIcon from '../ui/DiscordIcon.vue'
 import BnetIcon from '../ui/BnetIcon.vue'
 import type { Event, EventFormat } from '../../types'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   open: boolean
@@ -75,7 +78,7 @@ async function submit() {
   try {
     normalizedStartDate = normalizeDatetimeLocalInput(newEventStartDate.value, 'event start date')
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Invalid event start date'
+    error.value = err instanceof Error ? err.message : t('createEvent.invalidDate')
     return
   }
 
@@ -99,7 +102,7 @@ async function submit() {
     emit('update:open', false)
     emit('created', created)
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to create event'
+    error.value = err instanceof Error ? err.message : t('createEvent.createFailed')
   } finally {
     creatingEvent.value = false
   }
@@ -107,32 +110,32 @@ async function submit() {
 </script>
 
 <template>
-  <AppModal :open="open" title="Create event" @update:open="emit('update:open', $event)">
+  <AppModal :open="open" :title="t('createEvent.title')" @update:open="emit('update:open', $event)">
     <form class="create-event-form" @submit.prevent="submit">
 
       <div class="create-form-section">
         <label>
-          Event name
-          <input v-model="newEventName" placeholder="Friday Night PUG" />
+          {{ t('createEvent.eventName') }}
+          <input v-model="newEventName" :placeholder="t('createEvent.eventNamePlaceholder')" />
         </label>
         <label>
-          Description
-          <textarea v-model="newEventDescription" rows="3" placeholder="Rules, cashprize, check-in info..." />
+          {{ t('createEvent.description') }}
+          <textarea v-model="newEventDescription" rows="3" :placeholder="t('createEvent.descriptionPlaceholder')" />
         </label>
       </div>
 
       <div class="create-form-section">
-        <p class="create-form-section-kicker">Format</p>
+        <p class="create-form-section-kicker">{{ t('createEvent.formatSection') }}</p>
         <div class="create-form-row-2">
           <label>
-            Event type
+            {{ t('createEvent.eventType') }}
             <select v-model="newEventType">
               <option value="PUG">PUG</option>
               <option value="TOURNEY">TOURNEY</option>
             </select>
           </label>
           <label>
-            Format
+            {{ t('createEvent.formatLabel') }}
             <select v-model="newEventFormat">
               <option v-for="format in availableFormatOptions" :key="`new-event-format-${format}`" :value="format">
                 {{ format }}
@@ -142,32 +145,32 @@ async function submit() {
         </div>
         <div class="create-form-row-2">
           <label>
-            Start date
+            {{ t('createEvent.startDate') }}
             <input v-model="newEventStartDate" type="datetime-local" />
           </label>
           <label>
-            Max players
+            {{ t('createEvent.maxPlayers') }}
             <input v-model.number="newEventMaxPlayers" min="2" max="99" type="number" />
           </label>
         </div>
       </div>
 
       <div class="create-form-section">
-        <p class="create-form-section-kicker">Registration</p>
+        <p class="create-form-section-kicker">{{ t('createEvent.registrationSection') }}</p>
         <label>
-          Signup visibility
+          {{ t('createEvent.signupVisibility') }}
           <select v-model="newEventSignupVisibility">
-            <option value="private">Private (link only)</option>
-            <option value="public">Public (visible join link)</option>
+            <option value="private">{{ t('createEvent.visibilityPrivate') }}</option>
+            <option value="public">{{ t('createEvent.visibilityPublic') }}</option>
           </select>
         </label>
         <div class="create-form-toggles">
           <label class="create-form-toggle-row">
             <span class="create-form-toggle-label">
               <DiscordIcon class="create-form-toggle-icon" />
-              Require Discord username
+              {{ t('createEvent.requireDiscord') }}
             </span>
-            <span class="create-form-toggle-hint">Reject submissions without a Discord handle</span>
+            <span class="create-form-toggle-hint">{{ t('createEvent.requireDiscordHint') }}</span>
             <button
               type="button"
               role="switch"
@@ -182,9 +185,9 @@ async function submit() {
           <label class="create-form-toggle-row">
             <span class="create-form-toggle-label">
               <BnetIcon class="create-form-toggle-icon" />
-              Require Battle.net tag
+              {{ t('createEvent.requireBnet') }}
             </span>
-            <span class="create-form-toggle-hint">Reject submissions without a Battle.net tag</span>
+            <span class="create-form-toggle-hint">{{ t('createEvent.requireBnetHint') }}</span>
             <button
               type="button"
               role="switch"
@@ -203,10 +206,10 @@ async function submit() {
 
       <div class="create-form-actions">
         <ActionCtaButton type="submit" :disabled="!canCreate || creatingEvent">
-          {{ creatingEvent ? 'Creating...' : 'Create event' }}
+          {{ creatingEvent ? t('createEvent.creating') : t('createEvent.createBtn') }}
         </ActionCtaButton>
         <button type="button" class="btn-secondary" :disabled="creatingEvent" @click="emit('update:open', false)">
-          Cancel
+          {{ t('createEvent.cancel') }}
         </button>
       </div>
     </form>

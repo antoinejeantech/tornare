@@ -1,24 +1,25 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import winstonImage from '../assets/branding/winston.png'
+
+const { t } = useI18n()
 </script>
 
 <template>
   <main class="app-shell not-found-shell">
     <section class="card not-found-card">
-      <p class="not-found-eyebrow">Signal Lost</p>
-      <h1 class="not-found-title">404</h1>
-      <h2 class="not-found-subtitle">Winston Could Not Locate This Page</h2>
-      <p class="muted not-found-copy">
-        The route you requested is not in the mission log. Return to home base or jump straight to the Event Hub.
-      </p>
+      <p class="not-found-eyebrow">{{ t('notFound.eyebrow') }}</p>
+      <h1 class="not-found-title">{{ t('notFound.title') }}</h1>
+      <h2 class="not-found-subtitle">{{ t('notFound.subtitle') }}</h2>
+      <p class="muted not-found-copy">{{ t('notFound.copy') }}</p>
 
       <div class="not-found-actions">
-        <RouterLink class="btn-primary" to="/">Go Home</RouterLink>
-        <RouterLink class="btn-secondary" to="/events">Open Event Hub</RouterLink>
+        <RouterLink class="btn-primary" to="/">{{ t('notFound.goHome') }}</RouterLink>
+        <RouterLink class="btn-secondary" to="/events">{{ t('notFound.openHub') }}</RouterLink>
       </div>
 
-      <img class="not-found-art" :src="winstonImage" alt="Winston illustration" />
+      <img class="not-found-art" :src="winstonImage" :alt="t('notFound.winstonAlt')" />
     </section>
   </main>
 </template>

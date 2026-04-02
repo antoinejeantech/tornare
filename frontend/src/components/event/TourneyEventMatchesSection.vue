@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventMatch } from '../../types'
 
 const ctx = inject<EventCtxType>('eventCtx')!
+const { t } = useI18n()
 const editingMatchups = ref<Record<string | number, boolean>>({})
 const bracketWrapEl = ref<HTMLElement | null>(null)
 const measuredCardHeight = ref(104)
@@ -38,15 +40,15 @@ function mainBracketSize(teamCount: number): number {
 
 function knockoutLabel(matchesInRound: number): string {
   if (matchesInRound <= 1) {
-    return 'Final'
+    return t('tourneyMatches.roundFinal')
   }
   if (matchesInRound === 2) {
-    return 'Semifinals'
+    return t('tourneyMatches.roundSemifinals')
   }
   if (matchesInRound === 4) {
-    return 'Quarterfinals'
+    return t('tourneyMatches.roundQuarterfinals')
   }
-  return `Round of ${matchesInRound * 2}`
+  return t('tourneyMatches.roundOf', { n: matchesInRound * 2 })
 }
 
 function buildPreviewRounds(teamCount: number) {
@@ -81,7 +83,7 @@ function buildPreviewRounds(teamCount: number) {
 function roundLabelFromMatches(round: number, cards: EventMatch[]): string {
   const hasPlayInTitles = cards.some((card) => String(card.title || '').toLowerCase().startsWith('play-in'))
   if (hasPlayInTitles || round === 1 && cards.length > 0 && cards.every((card) => String(card.title || '').toLowerCase().startsWith('play-in'))) {
-    return 'Play-In'
+    return t('tourneyMatches.roundPlayIn')
   }
 
   return knockoutLabel(cards.length)
@@ -428,7 +430,7 @@ watch(editingMatchups, () => {
           @click="ctx.generateTourneyBracket('random')"
         >
           <span class="material-symbols-rounded btn-icon" aria-hidden="true">shuffle</span>
-          {{ ctx.creatingMatch ? 'Generating…' : 'Generate Random Bracket' }}
+          {{ ctx.creatingMatch ? t('tourneyMatches.generating') : t('tourneyMatches.generateRandom') }}
         </button>
         <button
           class="btn-secondary"
@@ -436,7 +438,7 @@ watch(editingMatchups, () => {
           :disabled="ctx.creatingMatch || ctx.clearingBracket || hasPlayedMatches || !hasEnoughTeamsForBracket"
           @click="ctx.generateTourneyBracket('empty')"
         >
-          {{ ctx.creatingMatch ? 'Generating…' : 'Generate Empty Bracket' }}
+          {{ ctx.creatingMatch ? t('tourneyMatches.generating') : t('tourneyMatches.generateEmpty') }}
         </button>
         <button
           class="btn-danger toolbar-btn-delete"
@@ -445,17 +447,17 @@ watch(editingMatchups, () => {
           @click="ctx.clearTourneyBracket"
         >
           <span class="material-symbols-rounded btn-icon" aria-hidden="true">delete</span>
-          {{ ctx.clearingBracket ? 'Clearing…' : 'Delete Bracket' }}
+          {{ ctx.clearingBracket ? t('tourneyMatches.clearing') : t('tourneyMatches.deleteBracket') }}
         </button>
       </div>
       <p class="tourney-toolbar-hint muted">
         {{ hasPlayedMatches
-          ? 'At least one match result is set, so bracket regeneration and deletion are disabled.'
+          ? t('tourneyMatches.hintResultsLocked')
           : (!hasEnoughTeamsForBracket
-            ? 'Create at least 2 teams to generate a tournament bracket.'
+            ? t('tourneyMatches.hintNotEnoughTeams')
             : ((ctx.event?.matches?.length ?? 0) > 0
-              ? 'No match has been played yet. You can regenerate in random/empty mode or delete the generated bracket.'
-              : 'Choose random generation for auto-seeded matchups, or empty generation to assign matchups manually. All changes are saved automatically.')) }}
+              ? t('tourneyMatches.hintCanRegenerate')
+              : t('tourneyMatches.hintInfo'))) }}
       </p>
     </div>
 
@@ -463,29 +465,29 @@ watch(editingMatchups, () => {
     <div v-if="hasGeneratedMatches || teamCount > 0" class="bracket-stats">
       <div class="stat-item">
         <span class="stat-value">{{ ctx.event?.players?.length ?? 0 }}</span>
-        <span class="stat-label">Total Players</span>
+        <span class="stat-label">{{ t('tourneyMatches.totalPlayers') }}</span>
       </div>
       <div class="stat-item">
         <span class="stat-value">{{ teamCount }}</span>
-        <span class="stat-label">Teams Registered</span>
-        <span v-if="hasGeneratedMatches" class="stat-sub muted">Full Bracket</span>
+        <span class="stat-label">{{ t('tourneyMatches.teamsRegistered') }}</span>
+        <span v-if="hasGeneratedMatches" class="stat-sub muted">{{ t('tourneyMatches.fullBracket') }}</span>
       </div>
       <div class="stat-item">
         <span class="stat-value">{{ ctx.event?.matches?.length ?? 0 }}</span>
-        <span class="stat-label">Total Matches</span>
+        <span class="stat-label">{{ t('tourneyMatches.totalMatches') }}</span>
       </div>
       <div class="stat-item">
         <span class="stat-value">
           {{ ctx.event?.matches?.filter(m => m.winner_team_id).length ?? 0 }}
           <span class="stat-value-of muted">/ {{ ctx.event?.matches?.length ?? 0 }}</span>
         </span>
-        <span class="stat-label">Matches Played</span>
+        <span class="stat-label">{{ t('tourneyMatches.matchesPlayed') }}</span>
       </div>
     </div>
 
     <!-- Empty state -->
     <p v-if="!hasGeneratedMatches && teamCount === 0" class="muted bracket-empty-message">
-      No teams created yet. Create teams first to preview or generate the tournament bracket.
+      {{ t('tourneyMatches.noTeams') }}
     </p>
 
     <!-- Bracket -->
@@ -531,14 +533,14 @@ watch(editingMatchups, () => {
                   class="match-status-badge"
                   :class="`badge-${(match.winner_team_name ? 'completed' : match.status || 'open').toLowerCase()}`"
                 >
-                  {{ match.winner_team_name ? 'Done' : (match.status || 'Open') }}
+                  {{ match.winner_team_name ? t('tourneyMatches.statusDone') : (match.status || 'Open') }}
                 </span>
                 <button
                   v-if="ctx.canManageEvent && !match.isPlaceholder && !match.winner_team_id && match.team_a_id && match.team_b_id && nextMatchIsFull(match)"
                   class="match-warning-icon"
                   type="button"
                   data-tooltip="Next match is full &#x2014; clear a team there before reporting a result here"
-                  aria-label="Warning: next match is full"
+                  :aria-label="t('tourneyMatches.nextMatchFullAria')"
                 >⚠️</button>
               </div>
 
@@ -559,7 +561,7 @@ watch(editingMatchups, () => {
                     :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
                     @click.stop
                   >
-                    <option value="">Choose team</option>
+                    <option value="">{{ t('tourneyMatches.chooseTeam') }}</option>
                     <option v-for="team in availableTeamsForMatch(match.id)" :key="`t-a-${match.id}-${team.id}`" :value="String(team.id)">
                       {{ team.name }}
                     </option>
@@ -571,7 +573,7 @@ watch(editingMatchups, () => {
                     type="button"
                     :disabled="Boolean(ctx.reportingWinners[match.id])"
                     @click="ctx.reportMatchWinner(match.id, match.team_a_id || '')"
-                  >Win</button>
+                  >{{ t('tourneyMatches.win') }}</button>
                 </div>
 
                 <div class="match-teams-divider" aria-hidden="true"></div>
@@ -591,7 +593,7 @@ watch(editingMatchups, () => {
                     :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
                     @click.stop
                   >
-                    <option value="">Choose team</option>
+                    <option value="">{{ t('tourneyMatches.chooseTeam') }}</option>
                     <option v-for="team in availableTeamsForMatch(match.id)" :key="`t-b-${match.id}-${team.id}`" :value="String(team.id)">
                       {{ team.name }}
                     </option>
@@ -603,7 +605,7 @@ watch(editingMatchups, () => {
                     type="button"
                     :disabled="Boolean(ctx.reportingWinners[match.id])"
                     @click="ctx.reportMatchWinner(match.id, match.team_b_id || '')"
-                  >Win</button>
+                  >{{ t('tourneyMatches.win') }}</button>
                 </div>
               </div>
 
@@ -615,7 +617,7 @@ watch(editingMatchups, () => {
                   :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
                   @click="toggleMatchupEditor(match.id)"
                 >
-                  {{ isEditingMatchup(match.id) ? 'Close' : 'Edit matchup' }}
+                  {{ isEditingMatchup(match.id) ? t('tourneyMatches.close') : t('tourneyMatches.editMatchup') }}
                 </button>
                 <button
                   v-if="isEditingMatchup(match.id)"
@@ -624,7 +626,7 @@ watch(editingMatchups, () => {
                   :disabled="Boolean(ctx.savingMatchups[match.id]) || Boolean(ctx.reportingWinners[match.id]) || Boolean(ctx.cancellingWinners[match.id])"
                   @click="saveMatchupAndClose(match.id)"
                 >
-                  {{ ctx.savingMatchups[match.id] ? 'Saving…' : 'Save' }}
+                  {{ ctx.savingMatchups[match.id] ? t('tourneyMatches.savingMatchup') : t('tourneyMatches.saveMatchup') }}
                 </button>
                 <button
                   v-if="canCancelWinner(match) && !isEditingMatchup(match.id)"
@@ -633,7 +635,7 @@ watch(editingMatchups, () => {
                   :disabled="Boolean(ctx.cancellingWinners[match.id]) || Boolean(ctx.reportingWinners[match.id])"
                   @click="ctx.cancelMatchWinner(match.id)"
                 >
-                  {{ ctx.cancellingWinners[match.id] ? 'Cancelling…' : 'Cancel Result' }}
+                  {{ ctx.cancellingWinners[match.id] ? t('tourneyMatches.cancellingResult') : t('tourneyMatches.cancelResult') }}
                 </button>
               </div>
             </article>
@@ -1086,11 +1088,11 @@ watch(editingMatchups, () => {
 
   .tourney-bracket {
     grid-template-columns: repeat(var(--rounds), minmax(180px, 1fr));
-    --col-gap: 12px;
+    --col-gap: 40px;
   }
 
   .bracket-round-list {
-    gap: 0.5rem;
+    gap: 1.25rem;
     min-height: auto;
   }
 

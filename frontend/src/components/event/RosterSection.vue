@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppModal from '../ui/AppModal.vue'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
@@ -7,6 +8,7 @@ import ActionCtaButton from '../ui/ActionCtaButton.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventPlayer, OverwatchRole, RoleRank } from '../../types'
 
+const { t } = useI18n()
 const ctx = inject<EventCtxType>('eventCtx')!
 
 function startEditPlayer(player: EventPlayer) {
@@ -156,39 +158,39 @@ const canSavePlayerEdit = computed(() => {
 
 <template>
   <section>
-    <EventSectionHeader icon="groups" title="Roster">
+    <EventSectionHeader icon="groups" :title="t('roster.sectionTitle')">
       <div class="header-right">
         <p class="section-total muted">
           <span class="section-total-value">{{ padRosterCount(ctx.event?.players?.length || 0) }}/{{ padRosterCount(ctx.event?.max_players || 0) }}</span>
-          <span>players</span>
+          <span>{{ t('roster.playersLabel') }}</span>
         </p>
         <ActionCtaButton
           v-if="ctx.canManageEvent"
           class="cta-add-player"
           type="button"
           :disabled="ctx.eventIsFull"
-          :title="ctx.eventIsFull ? 'Roster is full — increase max players to add more' : ''"
+          :title="ctx.eventIsFull ? t('roster.rosterFullTitle') : ''"
           @click="openAddPlayerModal"
         >
           <span class="material-symbols-rounded" aria-hidden="true">add</span>
-          <span class="cta-add-player-label">Add player</span>
+          <span class="cta-add-player-label">{{ t('roster.addPlayerBtn') }}</span>
         </ActionCtaButton>
       </div>
     </EventSectionHeader>
 
     <AppModal
       v-model:open="showAddPlayerForm"
-      title="Add player"
+      :title="t('roster.modalTitle')"
       max-width="min(520px, 100%)"
     >
       <form class="player-modal-form" @submit.prevent="submitAddPlayer">
             <label>
-              Player name
-              <input v-model="ctx.newPlayerName" placeholder="Player123" autofocus />
+              {{ t('roster.playerName') }}
+              <input v-model="ctx.newPlayerName" :placeholder="t('roster.playerNamePlaceholder')" autofocus />
             </label>
 
             <div class="modal-roles-section">
-              <span class="modal-roles-label">ROLE PREFERENCES</span>
+              <span class="modal-roles-label">{{ t('roster.rolePrefs') }}</span>
               <ul class="modal-roles-list">
                 <li
                   v-for="(entry, index) in ctx.newPlayerRoles"
@@ -197,8 +199,8 @@ const canSavePlayerEdit = computed(() => {
                 >
                   <label class="modal-role-field">
                     <span class="modal-role-field-lbl">
-                      Role
-                      <span v-if="index === 0" class="modal-role-pref-hint">preferred</span>
+                      {{ t('roster.roleLabel') }}
+                      <span v-if="index === 0" class="modal-role-pref-hint">{{ t('roster.preferred') }}</span>
                     </span>
                     <select v-model="entry.role">
                       <option value="" disabled hidden></option>
@@ -208,19 +210,19 @@ const canSavePlayerEdit = computed(() => {
                     </select>
                   </label>
                   <label class="modal-role-field">
-                    Rank
+                    {{ t('roster.rankLabel') }}
                     <select v-model="entry.rank">
                       <option value="" disabled hidden></option>
                       <option v-for="rank in ctx.overwatchRanks" :key="rank" :value="rank">{{ rank }}</option>
                     </select>
                   </label>
                   <div class="modal-role-remove-col">
-                    <span class="modal-role-remove-spacer" aria-hidden="true">Role</span>
+                    <span class="modal-role-remove-spacer" aria-hidden="true">{{ t('roster.roleLabel') }}</span>
                     <button
                       v-if="ctx.newPlayerRoles.length > 1"
                       type="button"
                       class="modal-role-remove"
-                      :aria-label="`Remove role preference ${index + 1}`"
+                      :aria-label="t('roster.removeRoleAria', { n: index + 1 })"
                       @click="removeNewRole(index)"
                     >
                       <span class="material-symbols-rounded" aria-hidden="true">delete</span>
@@ -235,14 +237,14 @@ const canSavePlayerEdit = computed(() => {
                 @click="addNewRole"
               >
                 <span class="material-symbols-rounded" aria-hidden="true">add</span>
-                Add role
+                {{ t('roster.addRole') }}
               </button>
             </div>
 
             <div class="player-modal-actions">
               <button class="btn-secondary" type="button" @click="closeAddPlayerModal">
                 <span class="material-symbols-rounded" aria-hidden="true">close</span>
-                Cancel
+                {{ t('roster.cancel') }}
               </button>
               <button
                 class="btn-primary"
@@ -250,13 +252,13 @@ const canSavePlayerEdit = computed(() => {
                 :disabled="!ctx.canAddPlayer || ctx.addingPlayer || ctx.eventIsFull"
               >
                 <span class="material-symbols-rounded" aria-hidden="true">{{ ctx.addingPlayer ? 'hourglass_empty' : 'person_add' }}</span>
-                {{ ctx.addingPlayer ? 'Adding...' : 'Add player' }}
+                {{ ctx.addingPlayer ? t('roster.adding') : t('roster.addBtn') }}
               </button>
             </div>
       </form>
     </AppModal>
 
-    <p v-if="(ctx.event?.players.length ?? 0) === 0" class="muted">Add players before creating matchups.</p>
+    <p v-if="(ctx.event?.players.length ?? 0) === 0" class="muted">{{ t('roster.emptyState') }}</p>
     <ul v-else class="roster-list">
       <li v-for="player in ctx.event?.players" :key="player.id" class="roster-list-item">
         <PlayerCard :player="player" :clickable="ctx.canManageEvent" :show-socials="ctx.canManageEvent" @select="openPlayerEditModal" />
@@ -265,7 +267,7 @@ const canSavePlayerEdit = computed(() => {
 
     <AppModal
       :open="ctx.canManageEvent && showEditModal"
-      :title="activeEditPlayer ? `Edit ${activeEditPlayer.name}` : ''"
+      :title="activeEditPlayer ? t('roster.editTitle', { name: activeEditPlayer.name }) : ''"
       max-width="min(520px, 100%)"
       @update:open="!$event && cancelEditPlayer()"
     >
@@ -275,12 +277,12 @@ const canSavePlayerEdit = computed(() => {
         @submit.prevent="ctx.savePlayerEdit(activeEditPlayer.id)"
       >
           <label>
-            Player name
-            <input v-model="ctx.editPlayerName" placeholder="Player name" />
+            {{ t('roster.playerNameEdit') }}
+            <input v-model="ctx.editPlayerName" :placeholder="t('roster.playerNameEditPlaceholder')" />
           </label>
 
           <div class="modal-roles-section">
-            <span class="modal-roles-label">ROLE PREFERENCES</span>
+            <span class="modal-roles-label">{{ t('roster.rolePrefs') }}</span>
             <ul class="modal-roles-list">
               <li
                 v-for="(entry, index) in ctx.editPlayerRoles"
@@ -289,8 +291,8 @@ const canSavePlayerEdit = computed(() => {
               >
                 <label class="modal-role-field">
                   <span class="modal-role-field-lbl">
-                    Role
-                    <span v-if="index === 0" class="modal-role-pref-hint">preferred</span>
+                    {{ t('roster.roleLabel') }}
+                    <span v-if="index === 0" class="modal-role-pref-hint">{{ t('roster.preferred') }}</span>
                   </span>
                   <select v-model="entry.role">
                     <option value="" disabled hidden></option>
@@ -300,24 +302,24 @@ const canSavePlayerEdit = computed(() => {
                   </select>
                 </label>
                 <label class="modal-role-field">
-                  Rank
-                  <select v-model="entry.rank">
-                    <option value="" disabled hidden></option>
-                    <option v-for="rank in ctx.overwatchRanks" :key="rank" :value="rank">{{ rank }}</option>
-                  </select>
-                </label>
-                <div class="modal-role-remove-col">
-                  <span class="modal-role-remove-spacer" aria-hidden="true">Role</span>
-                  <button
-                    v-if="ctx.editPlayerRoles.length > 1"
-                    type="button"
-                    class="modal-role-remove"
-                    :aria-label="`Remove role preference ${index + 1}`"
-                    @click="removeEditRole(index)"
-                  >
-                    <span class="material-symbols-rounded" aria-hidden="true">delete</span>
-                  </button>
-                </div>
+                    {{ t('roster.rankLabel') }}
+                    <select v-model="entry.rank">
+                      <option value="" disabled hidden></option>
+                      <option v-for="rank in ctx.overwatchRanks" :key="rank" :value="rank">{{ rank }}</option>
+                    </select>
+                  </label>
+                  <div class="modal-role-remove-col">
+                    <span class="modal-role-remove-spacer" aria-hidden="true">{{ t('roster.roleLabel') }}</span>
+                    <button
+                      v-if="ctx.editPlayerRoles.length > 1"
+                      type="button"
+                      class="modal-role-remove"
+                      :aria-label="t('roster.removeRoleAria', { n: index + 1 })"
+                      @click="removeEditRole(index)"
+                    >
+                      <span class="material-symbols-rounded" aria-hidden="true">delete</span>
+                    </button>
+                  </div>
               </li>
             </ul>
             <button
@@ -327,7 +329,7 @@ const canSavePlayerEdit = computed(() => {
               @click="addEditRole"
             >
               <span class="material-symbols-rounded" aria-hidden="true">add</span>
-              Add role
+              {{ t('roster.addRole') }}
             </button>
           </div>
 
@@ -339,19 +341,14 @@ const canSavePlayerEdit = computed(() => {
               @click="removePlayerFromModal"
             >
               <span class="material-symbols-rounded" aria-hidden="true">delete</span>
-              {{ ctx.deletingPlayers[activeEditPlayer.id] ? 'Removing…' : 'Delete' }}
+              {{ ctx.deletingPlayers[activeEditPlayer.id] ? t('roster.removing') : t('roster.delete') }}
             </button>
             <button class="btn-secondary" type="button" @click="cancelEditPlayer">
               <span class="material-symbols-rounded" aria-hidden="true">close</span>
-              Cancel
-            </button>
-            <button
-              class="btn-primary"
-              type="submit"
-              :disabled="!canSavePlayerEdit || Boolean(ctx.savingPlayerEdits[activeEditPlayer.id])"
+              {{ t('roster.cancel') }}
             >
               <span class="material-symbols-rounded" aria-hidden="true">{{ ctx.savingPlayerEdits[activeEditPlayer.id] ? 'hourglass_empty' : 'save' }}</span>
-              {{ ctx.savingPlayerEdits[activeEditPlayer.id] ? 'Saving…' : 'Save' }}
+              {{ ctx.savingPlayerEdits[activeEditPlayer.id] ? t('roster.saving') : t('roster.save') }}
             </button>
           </div>
         </form>

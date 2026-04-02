@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { averagePlayersElo } from '../../lib/elo'
 import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
 import PlayerCard from '../player/PlayerCard.vue'
@@ -9,6 +10,7 @@ import AppModal from '../ui/AppModal.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventPlayer, EventTeam, RoleRank } from '../../types'
 
+const { t } = useI18n()
 const ctx = inject<EventCtxType>('eventCtx')!
 const assignmentSearchByTeam = reactive<Record<string, string>>({})
 const teamPickerTeamId = ref<string>('')
@@ -351,24 +353,15 @@ function cancelEditTeam() {
 
 function formatTeamAverageElo(teamId: string | number): string {
   const rawAverage = averagePlayersElo(playersForTeam(teamId))
-  if (rawAverage === null || rawAverage === undefined) {
-    return 'N/A'
-  }
-
+  if (rawAverage === null || rawAverage === undefined) return t('teams.naElo')
   const average = Number(rawAverage)
-  if (!Number.isFinite(average)) {
-    return 'N/A'
-  }
-
+  if (!Number.isFinite(average)) return t('teams.naElo')
   return Math.round(average).toLocaleString('en-US')
 }
 
 function assignmentNotice(player: EventPlayer): string {
-  if (!player?.team_id || !player?.team) {
-    return ''
-  }
-
-  return `Currently in ${player.team}`
+  if (!player?.team_id || !player?.team) return ''
+  return t('teams.playerInTeam', { team: player.team })
 }
 
 function playerInitials(name: string): string {
@@ -405,49 +398,34 @@ function teamMatchesCount(teamId: string | number): number {
 
 function formatTeamModified(team: EventTeam): string {
   const raw = team?.updated_at || team?.created_at
-  if (!raw) {
-    return 'Just now'
-  }
-
+  if (!raw) return t('teams.justNow')
   const parsed = new Date(raw)
-  if (Number.isNaN(parsed.getTime())) {
-    return 'Recently'
-  }
-
+  if (Number.isNaN(parsed.getTime())) return t('teams.recently')
   const diffMs = Date.now() - parsed.getTime()
-  if (diffMs < 60 * 1000) {
-    return 'Just now'
-  }
-
+  if (diffMs < 60 * 1000) return t('teams.justNow')
   const mins = Math.floor(diffMs / (60 * 1000))
-  if (mins < 60) {
-    return `${mins} min${mins === 1 ? '' : 's'} ago`
-  }
-
+  if (mins < 60) return t('teams.minsAgo', { n: mins })
   const hours = Math.floor(mins / 60)
-  if (hours < 24) {
-    return `${hours}h ago`
-  }
-
+  if (hours < 24) return t('teams.hoursAgo', { n: hours })
   const days = Math.floor(hours / 24)
-  return `${days}d ago`
+  return t('teams.daysAgo', { n: days })
 }
 
 </script>
 
 <template>
   <section>
-    <EventSectionHeader icon="shield" title="Team Management" />
+    <EventSectionHeader icon="shield" :title="t('teams.sectionTitle')" />
     <div class="teams-layout" :class="{ 'is-readonly': !ctx.canManageEvent }">
       <aside v-if="ctx.canManageEvent" class="teams-sidebar">
-        <p class="teams-sidebar-kicker">Quick setup</p>
+        <p class="teams-sidebar-kicker">{{ t('teams.quickSetup') }}</p>
         <form class="grid-form" @submit.prevent="ctx.createTeam">
           <label>
-            Team name
-            <input v-model="ctx.newTeamName" placeholder="e.g. Team Alpha, Phoenix Squad..." />
+            {{ t('teams.teamNameLabel') }}
+            <input v-model="ctx.newTeamName" :placeholder="t('teams.teamNamePlaceholder')" />
           </label>
           <button type="submit" class="btn-primary teams-primary-cta" :disabled="!ctx.canCreateTeam || ctx.creatingTeam">
-            {{ ctx.creatingTeam ? 'Creating team...' : '+ Create Team' }}
+            {{ ctx.creatingTeam ? t('teams.creating') : t('teams.createTeamBtn') }}
           </button>
         </form>
 
@@ -459,7 +437,7 @@ function formatTeamModified(team: EventTeam): string {
             @click="ctx.autoCreateSoloTeams"
           >
             <span class="material-symbols-rounded sidebar-utility-btn-icon" aria-hidden="true">group_add</span>
-            {{ ctx.creatingSoloTeams ? 'Creating solo teams...' : `Auto-create solo teams (${unassignedPlayersCount})` }}
+            {{ ctx.creatingSoloTeams ? t('teams.creatingAutoSolo') : t('teams.autoCreateSolo', { count: unassignedPlayersCount }) }}
           </button>
           <button
             v-if="!isOneVOneFormat"
@@ -468,23 +446,23 @@ function formatTeamModified(team: EventTeam): string {
             @click="ctx.autoBalanceTeams"
           >
             <span class="material-symbols-rounded sidebar-utility-btn-icon" aria-hidden="true">auto_fix_high</span>
-            {{ ctx.balancingTeams ? 'Balancing teams...' : 'Auto balance teams' }}
+            {{ ctx.balancingTeams ? t('teams.balancing') : t('teams.autoBalance') }}
           </button>
           <p class="muted solo-team-help">
             <template v-if="isOneVOneFormat">
-              "Auto-create" creates one solo team per unassigned player.
+              {{ t('teams.helpAutoCreate') }}
             </template>
             <template v-else-if="!autoBalanceSupportsTeamCount">
-              Auto-balance currently requires exactly 2 teams.
+              {{ t('teams.helpBalance2Teams') }}
             </template>
             <template v-else>
-              "Best setup" rebalances existing teams using rank ELO calculations.
+              {{ t('teams.helpBestSetup') }}
             </template>
           </p>
         </div>
 
         <div v-if="ctx.lastBalanceSummary" class="balance-report-box" role="status" aria-live="polite">
-          <p class="balance-report-title">Last auto-balance report</p>
+          <p class="balance-report-title">{{ t('teams.balanceReport') }}</p>
           <p class="balance-report-text">{{ ctx.lastBalanceSummary }}</p>
         </div>
 
@@ -492,7 +470,7 @@ function formatTeamModified(team: EventTeam): string {
           <div class="balance-helper-head">
             <span class="balance-helper-head-main">
               <span class="material-symbols-rounded balance-helper-info-icon" aria-hidden="true">info</span>
-              <p class="balance-helper-title">PUG balance assistant</p>
+              <p class="balance-helper-title">{{ t('teams.balanceHelper') }}</p>
             </span>
             <AppBadge
               bg="color-mix(in srgb, var(--primary-300) 20%, var(--card) 80%)"
@@ -503,7 +481,7 @@ function formatTeamModified(team: EventTeam): string {
             />
           </div>
           <p class="balance-helper-summary">
-            Current roster supports <span class="balance-helper-summary-highlight">{{ maxBalancedTeamsFromRoster }} fully balanced teams</span> for standard competitive {{ effectivePugFormat }}.
+            {{ t('teams.balanceRosterInfo', { max: maxBalancedTeamsFromRoster, format: effectivePugFormat }) }}
           </p>
           <div class="balance-roster-row">
             <span class="balance-roster-chip">
@@ -526,34 +504,34 @@ function formatTeamModified(team: EventTeam): string {
       </aside>
 
       <div class="teams-board">
-        <p v-if="(ctx.event?.teams.length ?? 0) === 0" class="muted">No teams yet. Create teams first.</p>
+        <p v-if="(ctx.event?.teams.length ?? 0) === 0" class="muted">{{ t('teams.noTeams') }}</p>
         <ul v-else class="entry-list" :class="{ 'is-single': orderedTeams.length === 1 }">
           <li v-for="team in orderedTeams" :key="team.id" class="team-row">
             <div class="list-main">
               <div v-if="ctx.editingTeamId === team.id" class="inline-edit-row">
-                <input v-model="ctx.editTeamName" placeholder="Team name" />
+                <input v-model="ctx.editTeamName" :placeholder="t('teams.teamNameEditPlaceholder')" />
                 <button
                   class="btn-primary icon-btn"
                   :disabled="Boolean(ctx.savingTeamEdits[team.id])"
-                  :title="ctx.savingTeamEdits[team.id] ? 'Saving team' : 'Save team'"
+                  :title="ctx.savingTeamEdits[team.id] ? t('teams.savingTeam') : t('teams.saveTeam')"
                   @click="ctx.saveTeamEdit(team.id)"
                 >
                   <span class="material-symbols-rounded" aria-hidden="true">
                     {{ ctx.savingTeamEdits[team.id] ? 'hourglass_top' : 'save' }}
                   </span>
-                  <span class="sr-only">{{ ctx.savingTeamEdits[team.id] ? 'Saving team' : 'Save team' }}</span>
+                  <span class="sr-only">{{ ctx.savingTeamEdits[team.id] ? t('teams.savingTeam') : t('teams.saveTeam') }}</span>
                 </button>
-                <button class="btn-secondary icon-btn" title="Cancel editing team" @click="cancelEditTeam">
+                <button class="btn-secondary icon-btn" :title="t('teams.cancelTeam')" @click="cancelEditTeam">
                   <span class="material-symbols-rounded" aria-hidden="true">close</span>
-                  <span class="sr-only">Cancel editing team</span>
+                  <span class="sr-only">{{ t('teams.cancelTeam') }}</span>
                 </button>
               </div>
               <span v-else class="entry-title-row">
                 <span class="entry-title">{{ team.name }}</span>
               </span>
               <div class="team-meta-row muted">
-                <span class="team-meta-count">{{ team.player_ids?.length ?? 0 }} players</span>
-                <span class="team-meta-elo">AVG ELO: {{ formatTeamAverageElo(team.id) }}</span>
+                <span class="team-meta-count">{{ t('teams.teamPlayers', { count: team.player_ids?.length ?? 0 }) }}</span>
+                <span class="team-meta-elo">{{ t('teams.avgElo', { elo: formatTeamAverageElo(team.id) }) }}</span>
               </div>
               <div v-if="ctx.canManageEvent && !ctx.isTourneyEvent" class="team-balance-row">
                 <AppBadge :variant="{ ok: 'ok', missing: 'warning', excess: 'danger' }[roleStatusClass(team.id, 'Tank')]" :label="`Tank ${teamRoleCounts(team.id).Tank}/${pugRoleTargets.Tank}`" />
@@ -567,7 +545,7 @@ function formatTeamModified(team: EventTeam): string {
                     <span class="team-player-stack">
                       <span class="team-player-name">{{ player.name }}</span>
                       <span class="team-player-rank">
-                        Rank:
+                        {{ t('teams.rankLabel') }}
                         <span class="team-player-rank-value" :class="teamRankTierClass(player.assigned_rank || player.rank)">
                           {{ player.assigned_rank || player.rank || 'Unranked' }}
                         </span>
@@ -582,37 +560,37 @@ function formatTeamModified(team: EventTeam): string {
                     v-if="ctx.canManageEvent"
                     class="btn-secondary icon-btn team-player-remove"
                     :disabled="Boolean(ctx.savingPlayerTeams[player.id])"
-                    :title="ctx.savingPlayerTeams[player.id] ? 'Removing from team' : 'Remove from team'"
+                    :title="ctx.savingPlayerTeams[player.id] ? t('teams.removingFromTeam') : t('teams.removeFromTeam')"
                     @click="ctx.removePlayerFromTeam(player.id)"
                   >
                     <span class="material-symbols-rounded" aria-hidden="true">
                       {{ ctx.savingPlayerTeams[player.id] ? 'hourglass_top' : 'link_off' }}
                     </span>
-                    <span class="sr-only">{{ ctx.savingPlayerTeams[player.id] ? 'Removing from team' : 'Remove from team' }}</span>
+                    <span class="sr-only">{{ ctx.savingPlayerTeams[player.id] ? t('teams.removingFromTeam') : t('teams.removeFromTeam') }}</span>
                   </button>
                 </li>
               </ul>
-              <span v-else class="muted team-player-empty">No players assigned</span>
+              <span v-else class="muted team-player-empty">{{ t('teams.noPlayersAssigned') }}</span>
               <div v-if="ctx.canManageEvent" class="team-assign-grid">
-                <p v-if="playersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">No available players to assign</p>
+                <p v-if="playersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">{{ t('teams.noAvailablePlayers') }}</p>
                 <div v-else class="team-assign-row">
-                  <label class="sr-only" :for="`assign-search-${team.id}`">Search assignable players for {{ team.name }}</label>
+                  <label class="sr-only" :for="`assign-search-${team.id}`">{{ t('teams.pickerSearchAria', { name: team.name }) }}</label>
                   <input
                     :id="`assign-search-${team.id}`"
                     :value="assignmentSearchValue(team.id)"
                     type="search"
-                    placeholder="Search player, role, rank..."
+                    :placeholder="t('teams.searchPlaceholder')"
                     @input="setAssignmentSearch(team.id, ($event.target as HTMLInputElement).value)"
                   />
-                  <p v-if="hasTeamAssignmentSearch(team.id)" class="muted team-assign-match-count">{{ filteredPlayersAssignableToTeam(team.id).length }} matches</p>
+                  <p v-if="hasTeamAssignmentSearch(team.id)" class="muted team-assign-match-count">{{ t('teams.searchResultsCount', { count: filteredPlayersAssignableToTeam(team.id).length }) }}</p>
 
                   <div
                     v-if="hasTeamAssignmentSearch(team.id)"
                     class="team-assign-dropdown"
                     role="listbox"
-                    :aria-label="`Search results for ${team.name}`"
+                    :aria-label="t('teams.searchResultsAria', { name: team.name })"
                   >
-                    <p v-if="filteredPlayersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">No players match this search.</p>
+                    <p v-if="filteredPlayersAssignableToTeam(team.id).length === 0" class="muted team-player-empty">{{ t('teams.searchNoResults') }}</p>
 
                     <ul v-else class="team-assign-results">
                       <li v-for="player in visibleTeamAssignResults(team.id)" :key="`assign-result-${team.id}-${player.id}`">
@@ -631,46 +609,46 @@ function formatTeamModified(team: EventTeam): string {
                     </ul>
 
                     <p v-if="filteredPlayersAssignableToTeam(team.id).length > 10" class="muted team-assign-limit-note">
-                      Showing first 10 matches. Refine search to narrow results.
+                      {{ t('teams.showingFirst10') }}
                     </p>
                   </div>
                 </div>
               </div>
               <div class="team-card-footer muted">
-                <span>Last modified: {{ formatTeamModified(team) }}</span>
-                <span>{{ teamMatchesCount(team.id) }} matches</span>
+                <span>{{ t('teams.lastModified', { date: formatTeamModified(team) }) }}</span>
+                <span>{{ t('teams.teamMatchCount', { count: teamMatchesCount(team.id) }) }}</span>
               </div>
             </div>
             <div class="team-actions">
               <button
                 v-if="ctx.canManageEvent && ctx.editingTeamId !== team.id"
                 class="btn-secondary icon-btn"
-                title="Add unassigned player"
+                :title="t('teams.addUnassigned')"
                 @click="openTeamPicker(team.id)"
               >
                 <span class="material-symbols-rounded" aria-hidden="true">add</span>
-                <span class="sr-only">Add unassigned player</span>
+                <span class="sr-only">{{ t('teams.addUnassigned') }}</span>
               </button>
               <button
                 v-if="ctx.canManageEvent && ctx.editingTeamId !== team.id"
                 class="btn-secondary icon-btn"
-                title="Edit team"
+                :title="t('teams.editTeam')"
                 @click="startEditTeam(team)"
               >
                 <span class="material-symbols-rounded" aria-hidden="true">edit</span>
-                <span class="sr-only">Edit team</span>
+                <span class="sr-only">{{ t('teams.editTeam') }}</span>
               </button>
               <button
                 v-if="ctx.canManageEvent && ctx.editingTeamId !== team.id"
                 class="btn-danger icon-btn"
                 :disabled="Boolean(ctx.deletingTeams[team.id])"
-                :title="ctx.deletingTeams[team.id] ? 'Deleting team' : 'Delete team'"
+                :title="ctx.deletingTeams[team.id] ? t('teams.deletingTeam') : t('teams.deleteTeam')"
                 @click="ctx.deleteTeam(team)"
               >
                 <span class="material-symbols-rounded" aria-hidden="true">
                   {{ ctx.deletingTeams[team.id] ? 'hourglass_top' : 'delete' }}
                 </span>
-                <span class="sr-only">{{ ctx.deletingTeams[team.id] ? 'Deleting team' : 'Delete team' }}</span>
+                <span class="sr-only">{{ ctx.deletingTeams[team.id] ? t('teams.deletingTeam') : t('teams.deleteTeam') }}</span>
               </button>
             </div>
           </li>
@@ -680,14 +658,14 @@ function formatTeamModified(team: EventTeam): string {
 
     <AppModal
       :open="isTeamPickerOpen"
-      :title="`Add unassigned player to: ${teamPickerTarget?.name || 'this team'}`"
+      :title="t('teams.pickerTitle', { name: teamPickerTarget?.name || 'this team' })"
       max-width="min(42rem, 100%)"
       @update:open="!$event && closeTeamPicker()"
     >
-      <p v-if="unassignedPlayers.length === 0" class="muted">All players are already assigned.</p>
+      <p v-if="unassignedPlayers.length === 0" class="muted">{{ t('teams.allAssigned') }}</p>
 
       <template v-else>
-        <p class="team-picker-hint muted">Click a player card to assign with their preferred role, or click a role badge to assign as that role.</p>
+        <p class="team-picker-hint muted">{{ t('teams.pickerHint') }}</p>
 
         <ul class="team-picker-list">
           <li v-for="player in unassignedPlayers" :key="`picker-player-${player.id}`">

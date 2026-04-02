@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import PugEventMatchesSection from './PugEventMatchesSection.vue'
 import TourneyEventMatchesSection from './TourneyEventMatchesSection.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
@@ -7,17 +8,18 @@ import ActionCtaButton from '../ui/ActionCtaButton.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 
 const ctx = inject<EventCtxType>('eventCtx')!
+const { t } = useI18n()
 const isTourney = computed(() => Boolean(ctx.isTourneyEvent))
 const pugRef = ref<InstanceType<typeof PugEventMatchesSection> | null>(null)
 </script>
 
 <template>
   <section style="min-width: 0">
-    <EventSectionHeader icon="sports_score" title="Matches">
+    <EventSectionHeader icon="sports_score" :title="t('pugMatches.sectionTitle')">
       <div class="header-right">
         <p class="section-total muted">
           <span class="section-total-value">{{ ctx.event?.matches?.length ?? 0 }}</span>
-          <span>matches</span>
+          <span>{{ t('pugMatches.matchCount') }}</span>
         </p>
         <ActionCtaButton
           v-if="!isTourney && ctx.canManageEvent"
@@ -26,7 +28,7 @@ const pugRef = ref<InstanceType<typeof PugEventMatchesSection> | null>(null)
           @click="pugRef?.toggleCreateForm()"
         >
           <span class="material-symbols-rounded" aria-hidden="true">add</span>
-          <span class="cta-new-match-label">New match</span>
+          <span class="cta-new-match-label">{{ t('pugMatches.newMatchBtn') }}</span>
         </ActionCtaButton>
       </div>
     </EventSectionHeader>

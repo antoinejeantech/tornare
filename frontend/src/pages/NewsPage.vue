@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import AppBadge from '../components/ui/AppBadge.vue'
+
+const { t } = useI18n()
 
 const placeholderNews = [
   {
@@ -46,31 +49,31 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 <template>
   <main class="app-shell app-shell--wide news-shell">
     <header class="page-header">
-      <h1 class="page-title">Tornare Newsroom</h1>
-      <p class="muted page-subtitle">Platform updates, community recaps, and release notes.</p>
+      <h1 class="page-title">{{ t('news.title') }}</h1>
+      <p class="muted page-subtitle">{{ t('news.subtitle') }}</p>
     </header>
 
     <section class="card news-hero reveal-block reveal-1">
-      <p class="section-kicker">Release Intelligence</p>
-      <h2>Product updates, engineering notes, and platform milestones.</h2>
+      <p class="section-kicker">{{ t('news.kicker') }}</p>
+      <h2>{{ t('news.intro') }}</h2>
       <p class="muted">
-        Follow feature drops, database migrations, and community announcements as Tornare ships toward a full public release.
+        {{ t('news.introCopy') }}
       </p>
       <div class="news-meta-strip">
-        <span class="news-meta-pill">{{ placeholderNews.length }} recent stories</span>
-        <span class="news-meta-pill">{{ productNewsCount }} product updates</span>
-        <span class="news-meta-pill">Updated April 2026</span>
+        <span class="news-meta-pill">{{ t('news.recentStories', { count: placeholderNews.length }) }}</span>
+        <span class="news-meta-pill">{{ t('news.productUpdates', { count: productNewsCount }) }}</span>
+        <span class="news-meta-pill">{{ t('news.updatedDate') }}</span>
       </div>
       <div class="news-hero-actions">
-        <RouterLink class="news-cta news-cta-link news-cta-link-primary" to="/events">Open Event Hub</RouterLink>
-        <RouterLink class="news-cta news-cta-link" to="/about">About Tornare</RouterLink>
+        <RouterLink class="news-cta news-cta-link news-cta-link-primary" to="/events">{{ t('news.openHub') }}</RouterLink>
+        <RouterLink class="news-cta news-cta-link" to="/about">{{ t('news.aboutTornare') }}</RouterLink>
       </div>
     </section>
 
     <section class="news-grid">
       <section v-if="featuredPost" class="card news-featured reveal-block reveal-2">
         <div class="news-featured-head">
-          <span class="news-featured-badge">Featured Story</span>
+          <span class="news-featured-badge">{{ t('news.featuredStory') }}</span>
           <AppBadge :label="featuredPost.category" variant="muted" radius="pill" />
         </div>
         <h2>{{ featuredPost.title }}</h2>
@@ -83,8 +86,8 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 
       <aside class="card news-briefing reveal-block reveal-3">
         <div class="news-list-head">
-          <h2>Quick Briefing</h2>
-          <RouterLink class="news-link" to="/events">See platform in action</RouterLink>
+          <h2>{{ t('news.briefingTitle') }}</h2>
+          <RouterLink class="news-link" to="/events">{{ t('news.seeInAction') }}</RouterLink>
         </div>
         <ul class="news-briefing-list">
           <li v-for="item in placeholderNews.slice(0, 3)" :key="`brief-${item.id}`" class="news-briefing-item">
@@ -97,7 +100,7 @@ const productNewsCount = computed(() => placeholderNews.filter((item) => item.ca
 
     <section class="card reveal-block reveal-4">
       <div class="news-list-head">
-        <h2>Latest Updates</h2>
+        <h2>{{ t('news.latestUpdates') }}</h2>
       </div>
       <ul class="news-list">
         <li v-for="item in remainingPosts" :key="item.id" class="news-item">

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import spotlightEventBackground from '../../assets/branding/spotlight-event-bg.jpg'
 import { formatMediumDate } from '../../lib/dates'
 import ActionCtaButton from '../ui/ActionCtaButton.vue'
 import type { Event } from '../../types'
 
+const { t } = useI18n()
 const props = withDefaults(defineProps<{
   event: Event
   badgeLabel?: string
@@ -18,7 +20,7 @@ const eventLink = computed(() => {
 })
 
 const eventDateText = computed(() => {
-  return formatMediumDate(props.event?.start_date, 'Date TBD')
+  return formatMediumDate(props.event?.start_date, t('spotlight.dateTbd'))
 })
 
 const eventTypeText = computed(() => {
@@ -48,7 +50,7 @@ const spotlightCardStyle = computed(() => {
 })
 
 const eventPlayersText = computed(() => {
-  return `${getPlayerCount(props.event)}/${Number(props.event?.max_players) || 0} players`
+  return t('spotlight.players', { count: getPlayerCount(props.event), max: Number(props.event?.max_players) || 0 })
 })
 
 function getPlayerCount(event: typeof props.event): number {
@@ -80,8 +82,8 @@ function getPlayerCount(event: typeof props.event): number {
       </span>
     </p>
     <div class="spotlight-cta-stack">
-      <ActionCtaButton class="spotlight-cta" :to="eventLink">SIGN UP NOW</ActionCtaButton>
-      <p class="spotlight-cta-note">LIMITED SLOTS AVAILABLE</p>
+      <ActionCtaButton class="spotlight-cta" :to="eventLink">{{ t('spotlight.signUpNow') }}</ActionCtaButton>
+      <p class="spotlight-cta-note">{{ t('spotlight.limitedSlots') }}</p>
     </div>
   </section>
 </template>

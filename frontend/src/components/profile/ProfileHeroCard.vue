@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { AuthUser } from '../../types'
 import AvatarPickerPopup from './AvatarPickerPopup.vue'
 
@@ -22,6 +23,7 @@ defineEmits<{
 }>()
 
 const showPicker = ref(false)
+const { t } = useI18n()
 </script>
 
 <template>
@@ -38,12 +40,12 @@ const showPicker = ref(false)
             class="hero-avatar-edit-btn"
             :class="{ 'hero-avatar-edit-btn--saving': savingAvatar }"
             :disabled="savingAvatar"
-            :title="savingAvatar ? 'Saving…' : 'Change profile picture'"
+            :title="savingAvatar ? t('profileCard.changePictureSaving') : t('profileCard.changePicture')"
             aria-haspopup="dialog"
             @click.stop="showPicker = !showPicker"
           >
             <span class="material-symbols-rounded" aria-hidden="true">{{ savingAvatar ? 'hourglass_empty' : 'photo_camera' }}</span>
-            <span class="sr-only">Change profile picture</span>
+            <span class="sr-only">{{ t('profileCard.changePicture') }}</span>
           </button>
 
           <AvatarPickerPopup
@@ -69,7 +71,7 @@ const showPicker = ref(false)
           @click="$emit('edit-account')"
         >
           <span class="material-symbols-rounded" aria-hidden="true">edit</span>
-          <span class="sr-only">Edit profile</span>
+          <span class="sr-only">{{ t('profileCard.editProfile') }}</span>
         </button>
         <slot name="hero-actions" />
       </div>
@@ -81,19 +83,19 @@ const showPicker = ref(false)
 
     <dl v-else class="hero-details-grid">
       <div class="hero-details-row">
-        <dt>Username</dt>
+        <dt>{{ t('profileCard.usernameLabel') }}</dt>
         <dd>{{ profile.username }}</dd>
       </div>
       <div class="hero-details-row">
-        <dt>Display Name</dt>
+        <dt>{{ t('profileCard.displayNameLabel') }}</dt>
         <dd>{{ profile.display_name }}</dd>
       </div>
       <div class="hero-details-row">
-        <dt>Role</dt>
+        <dt>{{ t('profileCard.roleLabel') }}</dt>
         <dd>{{ profile.role || 'user' }}</dd>
       </div>
       <div v-if="canEdit" class="hero-details-row">
-        <dt>Email</dt>
+        <dt>{{ t('profileCard.emailLabel') }}</dt>
         <dd>{{ profile.email }}</dd>
       </div>
     </dl>

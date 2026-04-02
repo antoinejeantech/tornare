@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { getRoleIcon } from '../../lib/roles'
 import type { AuthUser } from '../../types'
 
@@ -17,6 +18,8 @@ withDefaults(defineProps<{
   canEdit: false,
   overwatchSummaryRows: () => [],
 })
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -24,20 +27,20 @@ withDefaults(defineProps<{
     <header class="games-header">
       <h3 class="games-title">
         <span class="material-symbols-rounded games-title-icon" aria-hidden="true">sports_esports</span>
-        <span>Linked Games</span>
+        <span>{{ t('gamesCard.linkedGames') }}</span>
       </h3>
     </header>
 
     <section class="game-panel">
       <div class="game-row">
         <h4 class="game-name-wrap">
-          <img class="game-logo" :src="overwatchLogo" alt="Overwatch" />
+          <img class="game-logo" :src="overwatchLogo" :alt="t('gamesCard.overwatch')" />
           <span class="game-title-stack">
-            <span class="game-name">Overwatch 2</span>
-            <span class="game-publisher">Blizzard Entertainment</span>
+            <span class="game-name">{{ t('gamesCard.overwatch') }}</span>
+            <span class="game-publisher">{{ t('gamesCard.publisher') }}</span>
           </span>
         </h4>
-        <a class="game-external" href="https://overwatch.blizzard.com" target="_blank" rel="noreferrer noopener" aria-label="Open Overwatch official website">
+        <a class="game-external" href="https://overwatch.blizzard.com" target="_blank" rel="noreferrer noopener" :aria-label="t('gamesCard.owWebsiteAria')">
           <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span>
         </a>
       </div>
@@ -51,7 +54,7 @@ withDefaults(defineProps<{
                 <span class="material-symbols-rounded rank-role-icon" aria-hidden="true">{{ getRoleIcon(entry.role) }}</span>
               </p>
               <p class="rank-value">
-                <img class="rank-icon" :src="entry.icon" :alt="`${entry.rank} rank`" />
+                <img class="rank-icon" :src="entry.icon" :alt="t('gamesCard.rankAlt', { rank: entry.rank })" />
                 <span>{{ entry.rank }}</span>
               </p>
             </article>
@@ -61,15 +64,15 @@ withDefaults(defineProps<{
     </section>
 
     <section class="quick-actions">
-      <p class="quick-actions-label">Quick Actions</p>
+      <p class="quick-actions-label">{{ t('gamesCard.quickActions') }}</p>
       <div class="quick-actions-row">
         <button type="button" class="action-btn" disabled>
           <span class="material-symbols-rounded" aria-hidden="true">add</span>
-          <span>Add Game</span>
+          <span>{{ t('gamesCard.addGame') }}</span>
         </button>
         <button type="button" class="action-btn" disabled>
           <span class="material-symbols-rounded" aria-hidden="true">settings</span>
-          <span>Account Settings</span>
+          <span>{{ t('gamesCard.accountSettings') }}</span>
         </button>
       </div>
     </section>

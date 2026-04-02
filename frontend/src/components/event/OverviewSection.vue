@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { getDateTimestamp } from '../../lib/dates'
 import AppBadge from '../ui/AppBadge.vue'
@@ -7,6 +8,7 @@ import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 
+const { t } = useI18n()
 const ctx = inject<EventCtxType>('eventCtx')!
 
 const rosterCount = computed(() => ctx.event?.players.length || 0)
@@ -98,17 +100,10 @@ const featuredPlayers = computed(() => {
 })
 
 function readinessLabel() {
-  if (rosterCount.value === 0) {
-    return 'Starting Setup'
-  }
-  if (teamCount.value === 0) {
-    return 'Creating Teams'
-  }
-  if (matchCount.value === 0) {
-    return 'Creating Matches'
-  }
-
-  return 'Operations Ready'
+  if (rosterCount.value === 0) return t('overview.statusSetup')
+  if (teamCount.value === 0) return t('overview.statusTeams')
+  if (matchCount.value === 0) return t('overview.statusMatches')
+  return t('overview.statusReady')
 }
 
 function sectionRoute(section: string) {
@@ -122,7 +117,7 @@ function sectionRoute(section: string) {
 
 <template>
   <section class="overview-section">
-    <EventSectionHeader icon="dashboard" title="Event Snapshot" />
+    <EventSectionHeader icon="dashboard" :title="t('overview.sectionTitle')" />
 
     <header class="overview-hero">
       <div class="overview-meta-row">
@@ -132,9 +127,9 @@ function sectionRoute(section: string) {
           by {{ ctx.event?.creator_name || 'Unknown' }}
         </RouterLink>
         <span v-else class="overview-creator-chip is-static">by {{ ctx.event?.creator_name || 'Unknown' }}</span>
-        <span class="overview-readiness" :aria-label="`Status ${readinessLabel()}`">
+          <span class="overview-readiness" :aria-label="`${t('overview.statusLabel')} ${readinessLabel()}`">
           <span class="overview-readiness-copy">
-            <span class="overview-readiness-kicker">STATUS</span>
+            <span class="overview-readiness-kicker">{{ t('overview.statusLabel') }}</span>
             <span class="overview-readiness-value">{{ readinessLabel() }}</span>
           </span>
           <span class="overview-readiness-dot" aria-hidden="true"></span>
@@ -146,34 +141,34 @@ function sectionRoute(section: string) {
 
     <div class="overview-kpis">
       <article class="overview-kpi">
-        <p class="overview-kpi-label">Roster</p>
+        <p class="overview-kpi-label">{{ t('overview.kpiRoster') }}</p>
         <p class="overview-kpi-value">{{ rosterCount }}/{{ ctx.event?.max_players }}</p>
-        <p class="muted overview-kpi-meta">{{ rosterFillPercent }}% full</p>
+        <p class="muted overview-kpi-meta">{{ t('overview.rosterFull', { pct: rosterFillPercent }) }}</p>
         <span class="overview-kpi-track" aria-hidden="true"><span class="overview-kpi-fill" :style="{ width: `${rosterFillPercent}%` }"></span></span>
       </article>
       <article class="overview-kpi">
-        <p class="overview-kpi-label">Assignment</p>
+        <p class="overview-kpi-label">{{ t('overview.kpiAssignment') }}</p>
         <p class="overview-kpi-value">{{ assignedCount }}/{{ rosterCount }}</p>
-        <p class="muted overview-kpi-meta">{{ assignmentPercent }}% assigned</p>
+        <p class="muted overview-kpi-meta">{{ t('overview.assignmentPct', { pct: assignmentPercent }) }}</p>
         <span class="overview-kpi-track" aria-hidden="true"><span class="overview-kpi-fill" :style="{ width: `${assignmentPercent}%` }"></span></span>
       </article>
       <article class="overview-kpi">
-        <p class="overview-kpi-label">Teams</p>
+        <p class="overview-kpi-label">{{ t('overview.kpiTeams') }}</p>
         <p class="overview-kpi-value">{{ teamCount }}</p>
-        <p class="muted overview-kpi-meta">{{ unassignedCount }} unassigned</p>
+        <p class="muted overview-kpi-meta">{{ t('overview.unassigned', { count: unassignedCount }) }}</p>
         <span class="overview-kpi-track" aria-hidden="true"><span class="overview-kpi-fill" :style="{ width: `${assignmentPercent}%` }"></span></span>
       </article>
       <article class="overview-kpi">
-        <p class="overview-kpi-label">Matches</p>
+        <p class="overview-kpi-label">{{ t('overview.kpiMatches') }}</p>
         <p class="overview-kpi-value">{{ matchCount }}</p>
-        <p class="muted overview-kpi-meta">{{ ctx.isTourneyEvent ? 'Bracket operations' : 'PUG operations' }}</p>
+        <p class="muted overview-kpi-meta">{{ ctx.isTourneyEvent ? t('overview.tourneyOps') : t('overview.pugOps') }}</p>
       </article>
     </div>
 
     <div class="overview-grid">
       <article class="overview-card">
         <div class="overview-card-head">
-          <h4>Players</h4>
+          <h4>{{ t('overview.playersTitle') }}</h4>
           <span class="material-symbols-rounded overview-card-icon" aria-hidden="true">group</span>
         </div>
         <ul v-if="featuredPlayers.length > 0" class="overview-player-list">
@@ -181,44 +176,44 @@ function sectionRoute(section: string) {
             <PlayerCard :player="player" :clickable="false" :show-socials="false" />
           </li>
         </ul>
-        <p v-else class="muted">No players yet.</p>
-        <p class="muted overview-card-meta">{{ assignedCount }} assigned to teams • {{ unassignedCount }} unassigned</p>
+        <p v-else class="muted">{{ t('overview.noPlayers') }}</p>
+        <p class="muted overview-card-meta">{{ t('overview.playersAssigned', { assigned: assignedCount, unassigned: unassignedCount }) }}</p>
         <RouterLink class="overview-open-btn" :to="sectionRoute('roster')">
-          <span>Open players</span>
+          <span>{{ t('overview.openPlayers') }}</span>
           <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span>
         </RouterLink>
       </article>
 
       <article class="overview-card">
         <div class="overview-card-head">
-          <h4>Teams</h4>
+          <h4>{{ t('overview.teamsTitle') }}</h4>
           <span class="material-symbols-rounded overview-card-icon" aria-hidden="true">verified_user</span>
         </div>
-        <p v-if="largestTeams.length === 0" class="muted">No teams yet.</p>
+        <p v-if="largestTeams.length === 0" class="muted">{{ t('overview.noTeams') }}</p>
         <ul v-else class="overview-team-list">
           <li v-for="(team, index) in largestTeams" :key="team.id" class="overview-team-row">
             <span class="overview-team-tag">T{{ index + 1 }}</span>
             <span class="overview-team-name">{{ team.name }}</span>
-            <span class="overview-team-size">{{ team.player_ids?.length ?? 0 }} players</span>
+            <span class="overview-team-size">{{ t('overview.teamPlayers', { count: team.player_ids?.length ?? 0 }) }}</span>
           </li>
         </ul>
         <RouterLink class="overview-open-btn" :to="sectionRoute('teams')">
-          <span>Open teams</span>
+          <span>{{ t('overview.openTeams') }}</span>
           <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span>
         </RouterLink>
       </article>
 
       <article class="overview-card">
         <div class="overview-card-head">
-          <h4>Next Matches</h4>
+          <h4>{{ t('overview.matchesTitle') }}</h4>
           <span class="material-symbols-rounded overview-card-icon" aria-hidden="true">swords</span>
         </div>
         <div v-if="nextMatches.length === 0" class="overview-empty-state">
           <span class="overview-empty-icon-wrap" aria-hidden="true">
             <span class="material-symbols-rounded overview-empty-icon">schedule</span>
           </span>
-          <p class="overview-empty-title">No matches created yet</p>
-          <p class="muted overview-empty-copy">The bracket is currently being generated by the administrator. Check back soon.</p>
+          <p class="overview-empty-title">{{ t('overview.noMatches') }}</p>
+          <p class="muted overview-empty-copy">{{ t('overview.bracketGenerating') }}</p>
         </div>
         <ul v-else class="overview-list">
           <li v-for="(match, index) in nextMatches" :key="match.id" class="overview-match-row">
@@ -226,16 +221,16 @@ function sectionRoute(section: string) {
             <span class="overview-match-name">
               <template v-if="match.team_a_name && match.team_b_name">
                 <span class="overview-match-team">{{ match.team_a_name }}</span>
-                <span class="overview-match-vs" aria-hidden="true">vs</span>
+                <span class="overview-match-vs" aria-hidden="true">{{ t('overview.vs') }}</span>
                 <span class="overview-match-team">{{ match.team_b_name }}</span>
               </template>
-              <span v-else class="muted">Matchup not set</span>
+              <span v-else class="muted">{{ t('overview.matchupNotSet') }}</span>
             </span>
             <span v-if="match.start_date" class="overview-match-date">{{ formatMatchDate(match.start_date) }}</span>
           </li>
         </ul>
         <RouterLink class="overview-open-btn" :to="sectionRoute('matches')">
-          <span>Open matches</span>
+          <span>{{ t('overview.openMatches') }}</span>
           <span class="material-symbols-rounded" aria-hidden="true">open_in_new</span>
         </RouterLink>
       </article>
