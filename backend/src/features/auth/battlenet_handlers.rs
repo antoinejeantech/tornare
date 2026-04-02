@@ -20,10 +20,18 @@ use super::{battlenet_service, service};
 use super::battlenet_service::BnetCallbackResult;
 
 fn nonce_cookie(nonce: &str, redirect_uri: &str, max_age: u32) -> String {
-    let secure = if redirect_uri.starts_with("https") { "; Secure" } else { "" };
+    // See discord_handlers::nonce_cookie for the full rationale.
+    // SameSite=None;Secure is required for OAuth connect flows where the
+    // cookie is set via cross-origin fetch and must survive the provider
+    // redirect back to the callback.
+    let (samesite, secure) = if redirect_uri.starts_with("https") {
+        ("None", "; Secure")
+    } else {
+        ("Lax", "")
+    };
     format!(
-        "bnet_nonce={}; HttpOnly; SameSite=Lax{}; Path=/api/auth/battlenet/callback; Max-Age={}",
-        nonce, secure, max_age
+        "bnet_nonce={}; HttpOnly; SameSite={}{}; Path=/api/auth/battlenet/callback; Max-Age={}",
+        nonce, samesite, secure, max_age
     )
 }
 
