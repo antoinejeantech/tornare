@@ -4,7 +4,8 @@ use crate::{
     app::state::AppState,
     features::{
         auth::models::AuthUser,
-        users::models::{UpdateUserProfileInput, UserSearchResult, OVERWATCH_RANKS},
+        events::repo as events_repo,
+        users::models::{ParticipatedEventSummary, UpdateUserProfileInput, UserSearchResult, OVERWATCH_RANKS},
     },
     shared::{
         crypto::hash_password,
@@ -39,6 +40,9 @@ pub async fn get_user_profile_public(
         rank_support: row.rank_support,
         can_edit_battletag: !row.has_battlenet_identity,
         has_password: row.has_password,
+        has_discord_identity: row.has_discord_identity,
+        discord_username: row.discord_username,
+        avatar_url: row.avatar_url,
     })
 }
 
@@ -65,10 +69,7 @@ pub async fn update_user_profile_for_user(
 
     let username = normalize_username(&payload.username)?;
 
-    let email = normalize_email(&payload.email);
-    if email.is_empty() || !email.contains('@') {
-        return Err(bad_request("A valid email is required"));
-    }
+    let email = normalize_email(&payload.email)?;
 
     if repo::email_exists_for_other_user(&state.pool, target_user_id, &email).await? {
         return Err(bad_request("Email is already registered"));
@@ -143,6 +144,33 @@ pub async fn update_user_profile_for_user(
     get_user_profile_public(state, target_user_id).await
 }
 
+pub async fn update_user_avatar(
+    state: &AppState,
+    authenticated_user_id: Uuid,
+    target_user_id: Uuid,
+    avatar_url: Option<&str>,
+) -> Result<AuthUser, ApiError> {
+    use crate::features::users::models::ALLOWED_PRESET_AVATARS;
+
+    if authenticated_user_id != target_user_id {
+        let Some(actor) = repo::find_user_profile_by_id(&state.pool, authenticated_user_id).await? else {
+            return Err(forbidden("You do not have permission to edit this profile"));
+        };
+        if !actor.is_active || !actor.role.eq_ignore_ascii_case("admin") {
+            return Err(forbidden("You can only edit your own profile unless you are an admin"));
+        }
+    }
+
+    if let Some(url) = avatar_url {
+        if !ALLOWED_PRESET_AVATARS.contains(&url) {
+            return Err(bad_request("Invalid avatar selection"));
+        }
+    }
+
+    repo::update_user_avatar_url(&state.pool, target_user_id, avatar_url).await?;
+    get_user_profile_public(state, target_user_id).await
+}
+
 pub async fn delete_user_account(
     state: &AppState,
     authenticated_user_id: Uuid,
@@ -188,5 +216,27 @@ pub async fn search_users(
     Ok(rows
         .into_iter()
         .map(|(id, username, display_name)| UserSearchResult { id, username, display_name })
+        .collect())
+}
+
+pub async fn get_participated_events(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<Vec<ParticipatedEventSummary>, ApiError> {
+    let rows = events_repo::list_participated_events(&state.pool, user_id, 10).await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| ParticipatedEventSummary {
+            id: r.id,
+            name: r.name,
+            start_date: r.start_date.map(|dt| {
+                dt.format(&time::format_description::well_known::Rfc3339)
+                    .expect("start_date retrieved from the DB must always be RFC3339-formattable")
+            }),
+            event_type: r.event_type.as_db_value().to_string(),
+            format: r.format.as_db_value().to_string(),
+            status: r.status.as_db_value().to_string(),
+        })
         .collect())
 }

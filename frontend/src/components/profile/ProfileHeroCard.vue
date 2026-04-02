@@ -1,27 +1,59 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { AuthUser } from '../../types'
+import AvatarPickerPopup from './AvatarPickerPopup.vue'
 
 withDefaults(defineProps<{
   profile: AuthUser
   canEdit?: boolean
   editingAccount?: boolean
   profileInitial?: string
+  savingAvatar?: boolean
 }>(), {
   canEdit: false,
   editingAccount: false,
   profileInitial: 'A',
+  savingAvatar: false,
 })
 
 defineEmits<{
   (e: 'edit-account'): void
+  (e: 'update-avatar', avatarUrl: string | null): void
 }>()
+
+const showPicker = ref(false)
 </script>
 
 <template>
   <article class="card profile-hero-card">
     <div class="hero-identity-row">
       <div class="hero-identity">
-        <span class="hero-avatar" aria-hidden="true">{{ profileInitial }}</span>
+        <div class="hero-avatar-wrap" :class="{ 'hero-avatar-wrap--editable': canEdit }">
+          <span v-if="!profile.avatar_url" class="hero-avatar" aria-hidden="true">{{ profileInitial }}</span>
+          <img v-else class="hero-avatar hero-avatar--img" :src="profile.avatar_url" :alt="profile.display_name" referrerpolicy="no-referrer" />
+
+          <button
+            v-if="canEdit"
+            type="button"
+            class="hero-avatar-edit-btn"
+            :class="{ 'hero-avatar-edit-btn--saving': savingAvatar }"
+            :disabled="savingAvatar"
+            :title="savingAvatar ? 'Saving…' : 'Change profile picture'"
+            aria-haspopup="dialog"
+            @click.stop="showPicker = !showPicker"
+          >
+            <span class="material-symbols-rounded" aria-hidden="true">{{ savingAvatar ? 'hourglass_empty' : 'photo_camera' }}</span>
+            <span class="sr-only">Change profile picture</span>
+          </button>
+
+          <AvatarPickerPopup
+            v-if="showPicker"
+            :current-avatar-url="profile.avatar_url ?? null"
+            :has-discord="profile.has_discord_identity"
+            @pick="(url) => { $emit('update-avatar', url); showPicker = false }"
+            @close="showPicker = false"
+          />
+        </div>
         <div class="hero-name-wrap">
           <h2 class="hero-display-name">{{ profile.display_name }}</h2>
           <p class="hero-username">@{{ profile.username }}</p>
@@ -112,6 +144,48 @@ defineEmits<{
   background: linear-gradient(145deg, color-mix(in srgb, var(--brand-1) 94%, white 6%), var(--brand-1));
   border: 1px solid color-mix(in srgb, var(--brand-1) 60%, var(--line) 40%);
   box-shadow: 0 12px 20px rgba(27, 20, 7, 0.32);
+  flex-shrink: 0;
+}
+
+.hero-avatar--img {
+  object-fit: cover;
+}
+
+.hero-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hero-avatar-edit-btn {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: rgba(0, 0, 0, 0.52);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 140ms;
+}
+
+.hero-avatar-wrap--editable:hover .hero-avatar-edit-btn,
+.hero-avatar-edit-btn:focus-visible {
+  opacity: 1;
+}
+
+.hero-avatar-edit-btn--saving {
+  opacity: 1;
+  cursor: default;
+}
+
+.hero-avatar-edit-btn .material-symbols-rounded {
+  font-size: 1.1rem;
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 20;
 }
 
 .hero-name-wrap {

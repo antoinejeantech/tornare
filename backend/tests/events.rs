@@ -105,6 +105,15 @@ async fn legacy_flex_players_do_not_break_events_listing(pool: PgPool) {
         .await
         .expect("failed to update event_player_roles role to FLEX");
 
+    // Publish the event so it appears in the default (ACTIVE+ENDED) listing.
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/publish"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "publish event should return 200");
+
     let res = client
         .get(format!("{base}/api/events?page=1&per_page=12"))
         .bearer_auth(&token)
@@ -392,6 +401,16 @@ async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
     let event: Value = res.json().await.unwrap();
     let event_id = event["id"].as_str().expect("event id missing").to_string();
 
+    // Event must be ACTIVE and have public_signup_enabled before submissions are
+    // accepted. Publish first.
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/publish"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "publish event should return 200");
+
     let res = client
         .get(format!("{base}/api/events/{event_id}/signup-link"))
         .bearer_auth(&token)
@@ -406,6 +425,7 @@ async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
         .post(format!("{base}/api/public/event-signups/{signup_token}/requests"))
         .json(&json!({
             "name": "Carol",
+            "discord_username": "carol#1234",
             "roles": [{"role": "Support", "rank": "Platinum"}]
         }))
         .send()
@@ -413,17 +433,18 @@ async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
         .unwrap();
     assert_eq!(res.status().as_u16(), 200, "signup request should be accepted");
 
-    // Duplicate name while pending must be rejected.
+    // Duplicate discord handle while pending must be rejected.
     let res = client
         .post(format!("{base}/api/public/event-signups/{signup_token}/requests"))
         .json(&json!({
-            "name": "Carol",
-            "roles": [{"role": "Support", "rank": "Platinum"}]
+            "name": "Carol2",
+            "discord_username": "carol#1234",
+            "roles": [{"role": "Tank", "rank": "Gold"}]
         }))
         .send()
         .await
         .unwrap();
-    assert_eq!(res.status().as_u16(), 400, "duplicate pending signup must return 400");
+    assert_eq!(res.status().as_u16(), 400, "duplicate discord handle must return 400");
 
     let res = client
         .get(format!("{base}/api/events/{event_id}/signup-requests"))
@@ -455,6 +476,128 @@ async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
         find_named_item(&event["players"], "Carol")["role"].as_str().unwrap(),
         "Support"
     );
+}
+
+#[sqlx::test]
+async fn authenticated_public_signup_preserves_linked_user_and_reported_handles(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "owner-linked@test.local", "owner_linked").await;
+    let submitter = register(&client, &base, "submitter-linked@test.local", "submitter_linked").await;
+
+    let owner_token = owner["access_token"]
+        .as_str()
+        .expect("owner response must include access token")
+        .to_string();
+    let submitter_token = submitter["access_token"]
+        .as_str()
+        .expect("submitter response must include access token")
+        .to_string();
+    let submitter_id = submitter["user"]["id"]
+        .as_str()
+        .expect("submitter response must include user id")
+        .to_string();
+    let submitter_username = submitter["user"]["username"]
+        .as_str()
+        .expect("submitter response must include username")
+        .to_string();
+    let submitter_display_name = submitter["user"]["display_name"]
+        .as_str()
+        .expect("submitter response must include display_name")
+        .to_string();
+
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&owner_token)
+        .json(&json!({
+            "name": "Linked Signup PUG",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": true,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "create event should return 200");
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().expect("event id missing").to_string();
+
+    // Publish so that public signups are accepted.
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/publish"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "publish event should return 200");
+
+    let res = client
+        .get(format!("{base}/api/events/{event_id}/signup-link"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    let link: Value = res.json().await.unwrap();
+    let signup_token = link["signup_token"].as_str().expect("signup_token missing").to_string();
+
+    let res = client
+        .post(format!("{base}/api/public/event-signups/{signup_token}/requests"))
+        .bearer_auth(&submitter_token)
+        .json(&json!({
+            "name": "Linked Carol",
+            "roles": [{"role": "Support", "rank": "Platinum"}],
+            "discord_username": "carol.discord",
+            "battletag": "Carol#1234"
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "signup request should be accepted");
+
+    let res = client
+        .get(format!("{base}/api/events/{event_id}/signup-requests"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    let requests: Value = res.json().await.unwrap();
+    let request = find_named_item(&requests, "Linked Carol");
+    let request_id = request["id"]
+        .as_str()
+        .expect("request id missing")
+        .to_string();
+
+    assert_eq!(request["reported_discord"].as_str(), Some("carol.discord"));
+    assert_eq!(request["reported_battletag"].as_str(), Some("Carol#1234"));
+    assert_eq!(request["linked_user"]["id"].as_str(), Some(submitter_id.as_str()));
+    assert_eq!(request["linked_user"]["username"].as_str(), Some(submitter_username.as_str()));
+    assert_eq!(
+        request["linked_user"]["display_name"].as_str(),
+        Some(submitter_display_name.as_str())
+    );
+    assert!(request["linked_user"]["discord_username"].is_null());
+    assert!(request["linked_user"]["battletag"].is_null());
+
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/signup-requests/{request_id}/accept"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "accept signup should return 200");
+    let accepted_event: Value = res.json().await.unwrap();
+    let player = find_named_item(&accepted_event["players"], "Linked Carol");
+
+    assert_eq!(player["linked_user"]["id"].as_str(), Some(submitter_id.as_str()));
+    assert_eq!(player["linked_user"]["username"].as_str(), Some(submitter_username.as_str()));
+    assert_eq!(player["reported_discord"].as_str(), Some("carol.discord"));
+    assert_eq!(player["reported_battletag"].as_str(), Some("Carol#1234"));
+    assert_eq!(player["role"].as_str(), Some("Support"));
 }
 
 // ---------------------------------------------------------------------------
@@ -489,6 +632,15 @@ async fn deleting_event_soft_deletes_it_and_hides_it(pool: PgPool) {
     let event_id = event["id"].as_str().unwrap().to_string();
     let event_uuid = Uuid::parse_str(&event_id).expect("event id must be a uuid");
 
+    // Publish so the event appears in listings before deletion.
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/publish"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "publish event should return 200");
+
     let res = client
         .delete(format!("{base}/api/events/{event_id}"))
         .bearer_auth(&token)
@@ -504,6 +656,15 @@ async fn deleting_event_soft_deletes_it_and_hides_it(pool: PgPool) {
             .await
             .expect("deleted event row should still exist");
     assert!(deleted_at.is_some(), "soft-deleted event must retain row with deleted_at set");
+
+    // Soft delete must not change the event status (it was ACTIVE, must stay ACTIVE).
+    let status: String =
+        sqlx::query_scalar("SELECT status FROM events WHERE id = $1")
+            .bind(event_uuid)
+            .fetch_one(&pool)
+            .await
+            .expect("deleted event row should still exist");
+    assert_eq!(status, "ACTIVE", "soft delete must preserve event status");
 
     let res = client
         .get(format!("{base}/api/events/{event_id}"))
@@ -529,22 +690,24 @@ async fn deleting_event_soft_deletes_it_and_hides_it(pool: PgPool) {
     assert!(!still_listed, "soft-deleted event must be hidden from listings");
 }
 
+// ---------------------------------------------------------------------------
+// Event lifecycle: publish / unpublish / end
+// ---------------------------------------------------------------------------
+
+/// New events start as DRAFT.
 #[sqlx::test]
-async fn ending_event_hides_it_from_default_listing_allows_direct_access_and_can_be_reopened(
-    pool: PgPool,
-) {
-    let base = spawn_test_server(pool.clone()).await;
+async fn new_event_defaults_to_draft(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "endedvis@test.local", "endedvis").await;
-    assert!(owner["access_token"].is_string(), "owner registration failed: {owner}");
+    let owner = register(&client, &base, "draft-default@test.local", "draft_default").await;
     let token = owner["access_token"].as_str().unwrap().to_string();
 
     let res = client
         .post(format!("{base}/api/events"))
         .bearer_auth(&token)
         .json(&json!({
-            "name": "Ended Visibility Test",
+            "name": "Brand New Event",
             "description": "",
             "event_type": "PUG",
             "format": "5v5",
@@ -554,82 +717,292 @@ async fn ending_event_hides_it_from_default_listing_allows_direct_access_and_can
         .send()
         .await
         .unwrap();
-    assert_eq!(res.status().as_u16(), 200, "create event failed");
+    assert_eq!(res.status().as_u16(), 200, "create event should return 200");
+    let event: Value = res.json().await.unwrap();
+    assert_eq!(
+        event["status"].as_str(),
+        Some("DRAFT"),
+        "newly created event must have status DRAFT"
+    );
+}
+
+/// Full lifecycle: DRAFT → publish → ACTIVE → unpublish → DRAFT → publish → ACTIVE → end → ENDED.
+/// Verifies listing visibility at each stage.
+#[sqlx::test]
+async fn event_lifecycle_publish_unpublish_end(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "lifecycle@test.local", "lifecycle").await;
+    let token = owner["access_token"].as_str().unwrap().to_string();
+
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "name": "Lifecycle Event",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": false,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
     let event: Value = res.json().await.unwrap();
     let event_id = event["id"].as_str().unwrap().to_string();
+    assert_eq!(event["status"].as_str(), Some("DRAFT"));
 
-    let res = client
-        .put(format!("{base}/api/events/{event_id}/ended"))
-        .bearer_auth(&token)
-        .json(&json!({ "ended": true }))
-        .send()
-        .await
-        .unwrap();
-    assert_eq!(res.status().as_u16(), 200, "set-ended should return 200");
-    let updated: Value = res.json().await.unwrap();
-    assert_eq!(updated["is_ended"], json!(true), "event should be marked as ended");
+    // DRAFT: must not appear in the default listing.
+    let items = list_events(&client, &base, "", &token).await;
+    assert!(!items.iter().any(|e| e["id"] == event_id), "DRAFT event must not appear in default listing");
 
+    // publish: DRAFT → ACTIVE
     let res = client
-        .get(format!("{base}/api/events?page=1&per_page=12"))
+        .post(format!("{base}/api/events/{event_id}/publish"))
         .bearer_auth(&token)
         .send()
         .await
         .unwrap();
-    assert_eq!(res.status().as_u16(), 200, "events listing should succeed");
-    let payload: Value = res.json().await.unwrap();
-    let in_default_listing = payload["items"]
-        .as_array()
-        .expect("items must be an array")
-        .iter()
-        .any(|item| item["id"].as_str() == Some(event_id.as_str()));
-    assert!(!in_default_listing, "ended event must not appear in the default (non-ended) listing");
+    assert_eq!(res.status().as_u16(), 200, "publish should return 200");
+    let event: Value = res.json().await.unwrap();
+    assert_eq!(event["status"].as_str(), Some("ACTIVE"), "event must be ACTIVE after publish");
 
+    // ACTIVE: must appear in the default listing.
+    let items = list_events(&client, &base, "", &token).await;
+    assert!(items.iter().any(|e| e["id"] == event_id), "ACTIVE event must appear in default listing");
+
+    // unpublish: ACTIVE → DRAFT
     let res = client
-        .get(format!("{base}/api/events?page=1&per_page=12&ended_only=true"))
+        .post(format!("{base}/api/events/{event_id}/unpublish"))
         .bearer_auth(&token)
         .send()
         .await
         .unwrap();
-    assert_eq!(res.status().as_u16(), 200, "ended-only listing should succeed");
-    let payload: Value = res.json().await.unwrap();
-    let in_ended_listing = payload["items"]
-        .as_array()
-        .expect("items must be an array")
-        .iter()
-        .any(|item| item["id"].as_str() == Some(event_id.as_str()));
-    assert!(in_ended_listing, "ended event must appear in the ended-only listing");
+    assert_eq!(res.status().as_u16(), 200, "unpublish should return 200");
+    let event: Value = res.json().await.unwrap();
+    assert_eq!(event["status"].as_str(), Some("DRAFT"), "event must be DRAFT after unpublish");
 
+    // Back to DRAFT: must not appear in default listing.
+    let items = list_events(&client, &base, "", &token).await;
+    assert!(!items.iter().any(|e| e["id"] == event_id), "DRAFT event must not appear in default listing");
+
+    // Re-publish: DRAFT → ACTIVE
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/publish"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "second publish should return 200");
+
+    // end: ACTIVE → ENDED
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/end"))
+        .bearer_auth(&token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "end should return 200");
+    let event: Value = res.json().await.unwrap();
+    assert_eq!(event["status"].as_str(), Some("ENDED"), "event must be ENDED after end");
+
+    // ENDED: appears in default listing (ACTIVE + ENDED).
+    let items = list_events(&client, &base, "", &token).await;
+    assert!(items.iter().any(|e| e["id"] == event_id), "ENDED event must appear in default listing");
+
+    // ENDED: not in ?status=active listing.
+    let items = list_events(&client, &base, "&status=active", &token).await;
+    assert!(!items.iter().any(|e| e["id"] == event_id), "ENDED event must not appear in active-only listing");
+
+    // ENDED: present in ?status=ended listing.
+    let items = list_events(&client, &base, "&status=ended", &token).await;
+    assert!(items.iter().any(|e| e["id"] == event_id), "ENDED event must appear in ended-only listing");
+
+    // Direct access still works.
     let res = client
         .get(format!("{base}/api/events/{event_id}"))
         .bearer_auth(&token)
         .send()
         .await
         .unwrap();
-    assert_eq!(res.status().as_u16(), 200, "ended event should still be directly accessible");
+    assert_eq!(res.status().as_u16(), 200, "ended event must remain directly accessible");
+}
+
+/// Once ENDED an event cannot be published, unpublished, or ended again.
+#[sqlx::test]
+async fn ended_event_is_terminal(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "terminal@test.local", "terminal").await;
+    let token = owner["access_token"].as_str().unwrap().to_string();
+
+    let event_id = create_and_publish_event(&client, &base, &token, "Terminal Event").await;
 
     let res = client
-        .put(format!("{base}/api/events/{event_id}/ended"))
+        .post(format!("{base}/api/events/{event_id}/end"))
         .bearer_auth(&token)
-        .json(&json!({ "ended": false }))
         .send()
         .await
         .unwrap();
-    assert_eq!(res.status().as_u16(), 200, "reopen should return 200");
-    let reopened: Value = res.json().await.unwrap();
-    assert_eq!(reopened["is_ended"], json!(false), "event should be marked as not ended after reopen");
+    assert_eq!(res.status().as_u16(), 200, "first end must succeed");
+
+    for path in &["publish", "unpublish", "end"] {
+        let res = client
+            .post(format!("{base}/api/events/{event_id}/{path}"))
+            .bearer_auth(&token)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(
+            res.status().as_u16(),
+            409,
+            "/{path} on an ENDED event must return 409"
+        );
+    }
+}
+
+/// A DRAFT event cannot be ended directly; it must be published first.
+#[sqlx::test]
+async fn draft_event_cannot_be_ended_directly(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "draftend@test.local", "draftend").await;
+    let token = owner["access_token"].as_str().unwrap().to_string();
 
     let res = client
-        .get(format!("{base}/api/events?page=1&per_page=12"))
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "name": "Draft End Guard",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": false,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().unwrap().to_string();
+
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/end"))
         .bearer_auth(&token)
         .send()
         .await
         .unwrap();
-    assert_eq!(res.status().as_u16(), 200, "events listing should succeed after reopen");
+    assert_eq!(
+        res.status().as_u16(),
+        409,
+        "ending a DRAFT event must return 409"
+    );
+}
+
+/// DRAFT events are hidden from public listings but visible to their owner
+/// via the owner-scoped listing (?owner=mine).
+#[sqlx::test]
+async fn draft_events_visible_to_owner_in_owner_scoped_listing(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "draftvis@test.local", "draftvis").await;
+    let token = owner["access_token"].as_str().unwrap().to_string();
+
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&token)
+        .json(&json!({
+            "name": "My Draft",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": false,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().unwrap().to_string();
+    assert_eq!(event["status"].as_str(), Some("DRAFT"));
+
+    // Not in the global default listing.
+    let items = list_events(&client, &base, "", &token).await;
+    assert!(
+        !items.iter().any(|e| e["id"] == event_id),
+        "DRAFT event must not appear in global listing"
+    );
+
+    // Visible to the owner via ?owner=mine.
+    let items = list_events(&client, &base, "&owner=mine", &token).await;
+    assert!(
+        items.iter().any(|e| e["id"] == event_id),
+        "DRAFT event must appear when owner lists their own events"
+    );
+
+    // Not visible in the owner-scoped listing when an explicit ?status=active filter is applied.
+    let items = list_events(&client, &base, "&owner=mine&status=active", &token).await;
+    assert!(
+        !items.iter().any(|e| e["id"] == event_id),
+        "DRAFT event must not appear when owner filters for active events only"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+
+async fn list_events(client: &Client, base: &str, extra_qs: &str, token: &str) -> Vec<Value> {
+    let res = client
+        .get(format!("{base}/api/events?page=1&per_page=50{extra_qs}"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "list events should return 200");
     let payload: Value = res.json().await.unwrap();
-    let back_in_listing = payload["items"]
+    payload["items"]
         .as_array()
         .expect("items must be an array")
-        .iter()
-        .any(|item| item["id"].as_str() == Some(event_id.as_str()));
-    assert!(back_in_listing, "reopened event must reappear in the default listing");
+        .clone()
+}
+
+async fn create_and_publish_event(
+    client: &Client,
+    base: &str,
+    token: &str,
+    name: &str,
+) -> String {
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(token)
+        .json(&json!({
+            "name": name,
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": false,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "create event should return 200");
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().unwrap().to_string();
+
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/publish"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "publish event should return 200");
+
+    event_id
 }

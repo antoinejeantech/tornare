@@ -33,7 +33,9 @@ const router = createRouter({
 		{ path: '/terms', name: 'terms', component: TermsPage, meta: { title: 'Terms Of Service | Tornare' } },
 		{ path: '/faq', name: 'faq', component: FaqPage, meta: { title: 'FAQ | Tornare' } },
 		{ path: '/support', name: 'support', component: SupportPage, meta: { title: 'Support | Tornare' } },
-		{ path: '/auth', name: 'auth', component: AuthPage, meta: { title: 'Sign In | Tornare' } },
+		{ path: '/auth', redirect: '/login' },
+		{ path: '/login', name: 'login', component: AuthPage, meta: { title: 'Sign In | Tornare' } },
+		{ path: '/register', name: 'register', component: AuthPage, meta: { title: 'Create Account | Tornare' } },
 		{ path: '/auth/callback', name: 'auth-callback', component: AuthCallbackPage, meta: { title: 'Signing in… | Tornare' } },
 		{ path: '/events/:id', name: 'event', component: EventPage, meta: { title: 'Event Setup | Tornare' } },
 		{ path: '/join/:token', name: 'join-event', component: JoinEventPage, meta: { title: 'Join Event | Tornare' } },
@@ -50,12 +52,12 @@ router.beforeEach(async (to) => {
   // actions, keeping authStore.isAuthenticated and the module-level access token consistent.
   authStore.syncTokensFromStorage()
 
-  if (to.name === 'auth' && authStore.isAuthenticated) {
+  if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
     return { name: 'events' }
   }
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return { name: 'auth', query: { redirect: to.fullPath } }
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
 
   return true

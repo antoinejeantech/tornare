@@ -35,6 +35,10 @@ pub struct CreateEventInput {
     #[serde(default)]
     pub public_signup_enabled: bool,
     pub max_players: u8,
+    #[serde(default)]
+    pub require_discord: bool,
+    #[serde(default)]
+    pub require_battletag: bool,
 }
 
 impl CreateEventInput {
@@ -58,6 +62,10 @@ pub struct UpdateEventInput {
     pub event_type: EventType,
     pub format: EventFormat,
     pub max_players: u8,
+    #[serde(default)]
+    pub require_discord: bool,
+    #[serde(default)]
+    pub require_battletag: bool,
 }
 
 impl UpdateEventInput {
@@ -188,6 +196,8 @@ pub struct RolePreferenceInput {
 pub struct CreateEventSignupRequestInput {
     pub name: String,
     pub roles: Vec<RolePreferenceInput>,
+    pub discord_username: Option<String>,
+    pub battletag: Option<String>,
 }
 
 impl CreateEventSignupRequestInput {
@@ -215,6 +225,16 @@ impl CreateEventSignupRequestInput {
                 .map_err(|_| bad_request("Invalid player rank"))?;
             if !seen_roles.insert(role.to_string()) {
                 return Err(bad_request("Duplicate role preferences are not allowed"));
+            }
+        }
+        if let Some(ref d) = self.discord_username {
+            if d.trim().len() > 100 {
+                return Err(bad_request("Discord username must be 100 characters or fewer"));
+            }
+        }
+        if let Some(ref b) = self.battletag {
+            if b.trim().len() > 100 {
+                return Err(bad_request("Battletag must be 100 characters or fewer"));
             }
         }
         Ok(())
@@ -334,11 +354,6 @@ pub struct SetEventFeaturedInput {
     pub featured: bool,
 }
 
-#[derive(Deserialize)]
-pub struct SetEventEndedInput {
-    pub ended: bool,
-}
-
 // ---------------------------------------------------------------------------
 // Query / response types
 // ---------------------------------------------------------------------------
@@ -353,7 +368,8 @@ pub struct ListEventsQuery {
     pub page: Option<u32>,
     pub per_page: Option<u32>,
     pub limit: Option<u32>,
-    pub ended_only: Option<bool>,
+    /// Filter by event status. None / "all" shows ACTIVE+ENDED; "active", "ended", "draft" filter to that status.
+    pub status: Option<String>,
 }
 
 #[derive(Serialize)]

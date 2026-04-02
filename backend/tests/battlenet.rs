@@ -239,7 +239,7 @@ async fn ensure_bnet_identity_inserts_new_active_row(pool: PgPool) {
     let sub = "reactivate-sub-88888";
 
     // No prior row — ensure_bnet_identity must insert a fresh active row.
-    tornare::features::auth::repo::ensure_bnet_identity(&pool, user_a_id, sub)
+    tornare::features::auth::repo::ensure_bnet_identity(&pool, user_a_id, sub, "TestPlayer#1234")
         .await
         .unwrap_or_else(|_| panic!("ensure_bnet_identity must succeed"));
 

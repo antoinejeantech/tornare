@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import { getDateTimestamp, isoToDatetimeLocalValue } from '../../lib/dates'
 import { sortPlayersByRoleThenName } from '../../lib/roles'
+import MapPicker from '../ui/MapPicker.vue'
+import AppModal from '../ui/AppModal.vue'
 import PlayerNameplate from '../player/PlayerNameplate.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 import type { EventMatch } from '../../types'
@@ -49,27 +51,6 @@ function openModal(matchId: string | number) {
 function closeModal() {
   activeMatchId.value = null
 }
-
-function onOverlayClick(e: MouseEvent) {
-  if (e.target === e.currentTarget) closeModal()
-}
-
-function closeCreateForm() {
-  showCreateForm.value = false
-}
-
-function onCreateOverlayClick(e: MouseEvent) {
-  if (e.target === e.currentTarget) closeCreateForm()
-}
-
-function onEscapeKey(e: KeyboardEvent) {
-  if (e.key !== 'Escape') return
-  if (activeMatchId.value !== null) closeModal()
-  else if (showCreateForm.value) closeCreateForm()
-}
-
-onMounted(() => document.addEventListener('keydown', onEscapeKey))
-onBeforeUnmount(() => document.removeEventListener('keydown', onEscapeKey))
 
 // ── Team color stripe ─────────────────────────────────────────────────────────
 const teamPalette = ['#f04f23', '#0f2f8c', '#00a3a3', '#7828c8', '#f7b801', '#2e7d4f']
@@ -132,12 +113,15 @@ const STATUS_LABELS: Record<string, string> = { done: 'Done', ready: 'Ready', op
 
 // ── Create match ──────────────────────────────────────────────────────────────
 function toggleCreateForm() {
+  if (!showCreateForm.value) {
+    ctx.initializeNewMatchDraft()
+  }
   showCreateForm.value = !showCreateForm.value
 }
 
 async function submitCreateMatch() {
-  await ctx.createMatch()
-  if (!ctx.creatingMatch && !ctx.newMatchTitle && !ctx.newMatchMap) {
+  const created = await ctx.createMatch()
+  if (created) {
     showCreateForm.value = false
   }
 }
@@ -226,82 +210,67 @@ async function saveStartDate() {
   <div class="pug-root" style="min-width: 0">
 
     <!-- ── New match modal ────────────────────────────────────────────────── -->
-    <Teleport to="body">
-      <div
-        v-if="ctx.canManageEvent && showCreateForm"
-        class="pug-modal-overlay"
-        @click="onCreateOverlayClick"
-      >
-        <div class="pug-modal pug-create-modal" role="dialog" aria-modal="true" aria-labelledby="pug-create-title">
-          <div class="pug-modal-header pug-create-modal-header">
-            <div class="modal-header-content">
-              <h2 id="pug-create-title" class="modal-title">New Match</h2>
-            </div>
-            <button class="btn-secondary icon-btn modal-close-btn" title="Close" @click="closeCreateForm">
-              <span class="material-symbols-rounded" aria-hidden="true">close</span>
-              <span class="sr-only">Close</span>
-            </button>
+    <AppModal
+      v-model:open="showCreateForm"
+      title="New Match"
+      max-width="420px"
+    >
+      <form class="grid-form pug-create-form" @submit.prevent="submitCreateMatch">
+        <label>
+          Title
+          <input v-model="ctx.newMatchTitle" placeholder="Match 1" />
+        </label>
+        <label>
+          Map
+          <MapPicker v-model="ctx.newMatchMap" />
+        </label>
+        <template v-if="(ctx.event?.teams?.length ?? 0) > 0">
+          <div class="pug-create-teams-row">
+            <label>
+              Team A
+              <select v-model="ctx.newMatchTeamAId">
+                <option value="">None</option>
+                <option
+                  v-for="team in ctx.event?.teams"
+                  :key="`ca-${team.id}`"
+                  :value="String(team.id)"
+                  :disabled="String(team.id) === String(ctx.newMatchTeamBId)"
+                >{{ team.name }}</option>
+              </select>
+            </label>
+            <span class="pug-create-vs" aria-hidden="true">VS</span>
+            <label>
+              Team B
+              <select v-model="ctx.newMatchTeamBId">
+                <option value="">None</option>
+                <option
+                  v-for="team in ctx.event?.teams"
+                  :key="`cb-${team.id}`"
+                  :value="String(team.id)"
+                  :disabled="String(team.id) === String(ctx.newMatchTeamAId)"
+                >{{ team.name }}</option>
+              </select>
+            </label>
           </div>
-          <div class="pug-modal-body">
-            <form class="grid-form pug-create-form" @submit.prevent="submitCreateMatch">
-              <label>
-                Title
-                <input v-model="ctx.newMatchTitle" placeholder="Match 1" />
-              </label>
-              <label>
-                Map
-                <input v-model="ctx.newMatchMap" placeholder="King's Row" />
-              </label>
-              <template v-if="(ctx.event?.teams?.length ?? 0) > 0">
-                <div class="pug-create-teams-row">
-                  <label>
-                    Team A
-                    <select v-model="ctx.newMatchTeamAId">
-                      <option value="">None</option>
-                      <option
-                        v-for="team in ctx.event?.teams"
-                        :key="`ca-${team.id}`"
-                        :value="String(team.id)"
-                        :disabled="String(team.id) === String(ctx.newMatchTeamBId)"
-                      >{{ team.name }}</option>
-                    </select>
-                  </label>
-                  <span class="pug-create-vs" aria-hidden="true">VS</span>
-                  <label>
-                    Team B
-                    <select v-model="ctx.newMatchTeamBId">
-                      <option value="">None</option>
-                      <option
-                        v-for="team in ctx.event?.teams"
-                        :key="`cb-${team.id}`"
-                        :value="String(team.id)"
-                        :disabled="String(team.id) === String(ctx.newMatchTeamAId)"
-                      >{{ team.name }}</option>
-                    </select>
-                  </label>
-                </div>
-              </template>
-              <label>
-                Start Date <span class="form-label-hint">(optional)</span>
-                <input type="datetime-local" v-model="ctx.newMatchStartDate" />
-              </label>
-              <div class="pug-create-footer-section">
-                <button
-                  type="submit"
-                  class="btn-primary icon-btn"
-                  :disabled="!ctx.canCreateMatch || ctx.creatingMatch"
-                >
-                  <span class="material-symbols-rounded" aria-hidden="true">
-                    {{ ctx.creatingMatch ? 'hourglass_top' : 'save' }}
-                  </span>
-                  {{ ctx.creatingMatch ? 'Saving...' : 'Save' }}
-                </button>
-              </div>
-            </form>
-          </div>
+        </template>
+        <label>
+          Start Date <span class="form-label-hint">(optional)</span>
+          <input type="datetime-local" v-model="ctx.newMatchStartDate" />
+        </label>
+        <div class="pug-create-footer-section">
+          <button
+            type="submit"
+            class="btn-primary icon-btn"
+            :disabled="!ctx.canCreateMatch || ctx.creatingMatch"
+          >
+            <span class="material-symbols-rounded" aria-hidden="true">
+              {{ ctx.creatingMatch ? 'hourglass_top' : 'save' }}
+            </span>
+            {{ ctx.creatingMatch ? 'Saving...' : 'Save' }}
+          </button>
         </div>
-      </div>
-    </Teleport>
+      </form>
+    </AppModal>
 
     <!-- ── Stats bar ──────────────────────────────────────────────────────── -->
     <div v-if="stats.total > 0" class="pug-stats-bar">
@@ -400,233 +369,211 @@ async function saveStartDate() {
     </ul>
 
     <!-- ── Match detail modal ─────────────────────────────────────────────── -->
-    <Teleport to="body">
-      <div
-        v-if="activeMatch"
-        class="pug-modal-overlay"
-        @click="onOverlayClick"
-      >
-        <div
-          class="pug-modal"
-          role="dialog"
-          aria-modal="true"
-          :aria-labelledby="`pug-modal-title-${activeMatch.id}`"
-        >
-          <!-- Header (fixed) -->
-          <div class="pug-modal-header" :style="matchStripeStyle(activeMatch)">
-            <div class="modal-header-stripe" aria-hidden="true"></div>
-            <div class="modal-header-content">
-              <div class="modal-title-row">
-                <h2 :id="`pug-modal-title-${activeMatch.id}`" class="modal-title">{{ activeMatch.title }}</h2>
-                <span class="match-card-badge" :class="`badge-${matchStatus(activeMatch)}`">
-                  {{ STATUS_LABELS[matchStatus(activeMatch)] }}
-                </span>
-              </div>
-              <p class="modal-subtitle">
-                <span class="modal-meta-item">
-                  <span class="material-symbols-rounded modal-meta-icon" aria-hidden="true">map</span>
-                  {{ activeMatch.map }}
-                </span>
-                <span class="modal-meta-sep" aria-hidden="true">·</span>
-                <span class="modal-meta-item">
-                  <span class="material-symbols-rounded modal-meta-icon" aria-hidden="true">group</span>
-                  {{ activeMatch.players.length }}/{{ activeMatch.max_players }} players
-                </span>
-                <template v-if="activeMatch.start_date">
-                  <span class="modal-meta-sep" aria-hidden="true">·</span>
-                  <span class="modal-meta-item">
-                    <span class="material-symbols-rounded modal-meta-icon" aria-hidden="true">schedule</span>
-                    {{ formatMatchStartDate(activeMatch.start_date) }}
-                  </span>
-                </template>
-              </p>
-            </div>
-            <button class="btn-secondary icon-btn modal-close-btn" title="Close" @click="closeModal">
-              <span class="material-symbols-rounded" aria-hidden="true">close</span>
-              <span class="sr-only">Close</span>
+    <AppModal
+      :open="activeMatchId !== null"
+      :title="activeMatch?.title ?? ''"
+      max-width="min(580px, 100%)"
+      @update:open="!$event && closeModal()"
+    >
+      <template v-if="activeMatch">
+        <!-- Meta row -->
+        <div class="modal-meta-row">
+          <span class="match-card-badge" :class="`badge-${matchStatus(activeMatch)}`">
+            {{ STATUS_LABELS[matchStatus(activeMatch)] }}
+          </span>
+          <span class="modal-meta-sep" aria-hidden="true">·</span>
+          <span class="modal-meta-item">
+            <span class="material-symbols-rounded modal-meta-icon" aria-hidden="true">map</span>
+            {{ activeMatch.map }}
+          </span>
+          <span class="modal-meta-sep" aria-hidden="true">·</span>
+          <span class="modal-meta-item">
+            <span class="material-symbols-rounded modal-meta-icon" aria-hidden="true">group</span>
+            {{ activeMatch.players.length }}/{{ activeMatch.max_players }} players
+          </span>
+          <template v-if="activeMatch.start_date">
+            <span class="modal-meta-sep" aria-hidden="true">·</span>
+            <span class="modal-meta-item">
+              <span class="material-symbols-rounded modal-meta-icon" aria-hidden="true">schedule</span>
+              {{ formatMatchStartDate(activeMatch.start_date) }}
+            </span>
+          </template>
+        </div>
+
+        <!-- Schedule section -->
+        <div v-if="ctx.canManageEvent" class="modal-section">
+          <h3 class="modal-section-title">Schedule</h3>
+          <div class="schedule-editor-row">
+            <input
+              type="datetime-local"
+              v-model="editStartDate"
+              :disabled="savingStartDate"
+              class="schedule-date-input"
+            />
+            <button
+              class="btn-primary icon-btn"
+              :disabled="savingStartDate"
+              @click="saveStartDate"
+            >
+              <span class="material-symbols-rounded" aria-hidden="true">
+                {{ savingStartDate ? 'hourglass_top' : 'save' }}
+              </span>
+              {{ savingStartDate ? 'Saving...' : 'Save' }}
             </button>
           </div>
+        </div>
 
-          <!-- Scrollable body -->
-          <div class="pug-modal-body">
-
-            <!-- Schedule section -->
-            <div v-if="ctx.canManageEvent" class="modal-section">
-              <h3 class="modal-section-title">Schedule</h3>
-              <div class="schedule-editor-row">
-                <input
-                  type="datetime-local"
-                  v-model="editStartDate"
-                  :disabled="savingStartDate"
-                  class="schedule-date-input"
-                />
-                <button
-                  class="btn-primary icon-btn"
-                  :disabled="savingStartDate"
-                  @click="saveStartDate"
-                >
-                  <span class="material-symbols-rounded" aria-hidden="true">
-                    {{ savingStartDate ? 'hourglass_top' : 'save' }}
-                  </span>
-                  {{ savingStartDate ? 'Saving...' : 'Save' }}
-                </button>
-              </div>
+        <!-- Matchup section -->
+        <div class="modal-section">
+          <h3 class="modal-section-title">Matchup</h3>
+          <template v-if="ctx.canManageEvent">
+            <div class="matchup-editor-row">
+              <select
+                v-if="ctx.matchupSelections[activeMatch.id]"
+                v-model="ctx.matchupSelections[activeMatch.id].teamAId"
+                :disabled="Boolean(ctx.savingMatchups[activeMatch.id])"
+              >
+                <option value="">Choose team A</option>
+                <option
+                  v-for="team in ctx.event?.teams"
+                  :key="`a-${team.id}`"
+                  :value="String(team.id)"
+                  :disabled="String(team.id) === selectionFor(activeMatch.id).teamBId"
+                >{{ team.name }}</option>
+              </select>
+              <span class="vs-sep" aria-hidden="true">vs</span>
+              <select
+                v-if="ctx.matchupSelections[activeMatch.id]"
+                v-model="ctx.matchupSelections[activeMatch.id].teamBId"
+                :disabled="Boolean(ctx.savingMatchups[activeMatch.id])"
+              >
+                <option value="">Choose team B</option>
+                <option
+                  v-for="team in ctx.event?.teams"
+                  :key="`b-${team.id}`"
+                  :value="String(team.id)"
+                  :disabled="String(team.id) === selectionFor(activeMatch.id).teamAId"
+                >{{ team.name }}</option>
+              </select>
+              <button
+                class="btn-primary icon-btn"
+                :disabled="!canSaveMatchup(activeMatch)"
+                @click="ctx.saveMatchup(activeMatch.id)"
+              >
+                <span class="material-symbols-rounded" aria-hidden="true">
+                  {{ ctx.savingMatchups[activeMatch.id] ? 'hourglass_top' : 'save' }}
+                </span>
+                {{ ctx.savingMatchups[activeMatch.id] ? 'Saving...' : 'Save' }}
+              </button>
             </div>
+            <p v-if="matchupHint(activeMatch.id)" class="matchup-hint is-error">
+              {{ matchupHint(activeMatch.id) }}
+            </p>
+          </template>
+          <div v-else class="matchup-display-row">
+            <span class="team-chip">{{ activeMatch.team_a_name || 'TBD' }}</span>
+            <span class="vs-sep" aria-hidden="true">vs</span>
+            <span class="team-chip">{{ activeMatch.team_b_name || 'TBD' }}</span>
+          </div>
+        </div>
 
-            <!-- Matchup section -->
-            <div class="modal-section">
-              <h3 class="modal-section-title">Matchup</h3>
-              <template v-if="ctx.canManageEvent">
-                <div class="matchup-editor-row">
-                  <select
-                    v-if="ctx.matchupSelections[activeMatch.id]"
-                    v-model="ctx.matchupSelections[activeMatch.id].teamAId"
-                    :disabled="Boolean(ctx.savingMatchups[activeMatch.id])"
-                  >
-                    <option value="">Choose team A</option>
-                    <option
-                      v-for="team in ctx.event?.teams"
-                      :key="`a-${team.id}`"
-                      :value="String(team.id)"
-                      :disabled="String(team.id) === selectionFor(activeMatch.id).teamBId"
-                    >{{ team.name }}</option>
-                  </select>
-                  <span class="vs-sep" aria-hidden="true">vs</span>
-                  <select
-                    v-if="ctx.matchupSelections[activeMatch.id]"
-                    v-model="ctx.matchupSelections[activeMatch.id].teamBId"
-                    :disabled="Boolean(ctx.savingMatchups[activeMatch.id])"
-                  >
-                    <option value="">Choose team B</option>
-                    <option
-                      v-for="team in ctx.event?.teams"
-                      :key="`b-${team.id}`"
-                      :value="String(team.id)"
-                      :disabled="String(team.id) === selectionFor(activeMatch.id).teamAId"
-                    >{{ team.name }}</option>
-                  </select>
-                  <button
-                    class="btn-primary icon-btn"
-                    :disabled="!canSaveMatchup(activeMatch)"
-                    @click="ctx.saveMatchup(activeMatch.id)"
-                  >
-                    <span class="material-symbols-rounded" aria-hidden="true">
-                      {{ ctx.savingMatchups[activeMatch.id] ? 'hourglass_top' : 'save' }}
-                    </span>
-                    {{ ctx.savingMatchups[activeMatch.id] ? 'Saving...' : 'Save' }}
-                  </button>
-                </div>
-                <p v-if="matchupHint(activeMatch.id)" class="matchup-hint is-error">
-                  {{ matchupHint(activeMatch.id) }}
-                </p>
-              </template>
-              <div v-else class="matchup-display-row">
-                <span class="team-chip">{{ activeMatch.team_a_name || 'TBD' }}</span>
-                <span class="vs-sep" aria-hidden="true">vs</span>
-                <span class="team-chip">{{ activeMatch.team_b_name || 'TBD' }}</span>
-              </div>
+        <!-- Result section (only if matchup is set) -->
+        <div v-if="activeMatch.team_a_id && activeMatch.team_b_id" class="modal-section">
+          <h3 class="modal-section-title">Result</h3>
+          <template v-if="!activeMatch.winner_team_id">
+            <p v-if="!ctx.canManageEvent" class="modal-hint-text">No result declared yet.</p>
+            <div v-else class="winner-declare-row">
+              <button
+                class="btn-secondary icon-btn winner-declare-btn"
+                :disabled="Boolean(ctx.reportingWinners[activeMatch.id])"
+                @click="reportWinner(activeMatch.id, activeMatch.team_a_id)"
+              >
+                <span class="material-symbols-rounded" aria-hidden="true">emoji_events</span>
+                {{ activeMatch.team_a_name || 'Team A' }} wins
+              </button>
+              <button
+                class="btn-secondary icon-btn winner-declare-btn"
+                :disabled="Boolean(ctx.reportingWinners[activeMatch.id])"
+                @click="reportWinner(activeMatch.id, activeMatch.team_b_id)"
+              >
+                <span class="material-symbols-rounded" aria-hidden="true">emoji_events</span>
+                {{ activeMatch.team_b_name || 'Team B' }} wins
+              </button>
             </div>
-
-            <!-- Result section (only if matchup is set) -->
-            <div v-if="activeMatch.team_a_id && activeMatch.team_b_id" class="modal-section">
-              <h3 class="modal-section-title">Result</h3>
-              <template v-if="!activeMatch.winner_team_id">
-                <p v-if="!ctx.canManageEvent" class="modal-hint-text">No result declared yet.</p>
-                <div v-else class="winner-declare-row">
-                  <button
-                    class="btn-secondary icon-btn winner-declare-btn"
-                    :disabled="Boolean(ctx.reportingWinners[activeMatch.id])"
-                    @click="reportWinner(activeMatch.id, activeMatch.team_a_id)"
-                  >
-                    <span class="material-symbols-rounded" aria-hidden="true">emoji_events</span>
-                    {{ activeMatch.team_a_name || 'Team A' }} wins
-                  </button>
-                  <button
-                    class="btn-secondary icon-btn winner-declare-btn"
-                    :disabled="Boolean(ctx.reportingWinners[activeMatch.id])"
-                    @click="reportWinner(activeMatch.id, activeMatch.team_b_id)"
-                  >
-                    <span class="material-symbols-rounded" aria-hidden="true">emoji_events</span>
-                    {{ activeMatch.team_b_name || 'Team B' }} wins
-                  </button>
-                </div>
-              </template>
-              <div v-else class="winner-result-row">
-                <div class="winner-result-label">
-                  <span class="material-symbols-rounded winner-trophy" aria-hidden="true">emoji_events</span>
-                  <strong>{{ activeMatch.winner_team_name || 'Unknown' }}</strong>
-                  <span class="muted">won this match</span>
-                </div>
-                <button
-                  v-if="ctx.canManageEvent"
-                  class="btn-secondary"
-                  :disabled="Boolean(ctx.cancellingWinners[activeMatch.id])"
-                  @click="cancelWinner"
-                >
-                  {{ ctx.cancellingWinners[activeMatch.id] ? 'Cancelling...' : 'Cancel result' }}
-                </button>
-              </div>
+          </template>
+          <div v-else class="winner-result-row">
+            <div class="winner-result-label">
+              <span class="material-symbols-rounded winner-trophy" aria-hidden="true">emoji_events</span>
+              <strong>{{ activeMatch.winner_team_name || 'Unknown' }}</strong>
+              <span class="muted">won this match</span>
             </div>
+            <button
+              v-if="ctx.canManageEvent"
+              class="btn-secondary"
+              :disabled="Boolean(ctx.cancellingWinners[activeMatch.id])"
+              @click="cancelWinner"
+            >
+              {{ ctx.cancellingWinners[activeMatch.id] ? 'Cancelling...' : 'Cancel result' }}
+            </button>
+          </div>
+        </div>
 
-            <!-- Players section -->
-            <div v-if="activeMatch.players.length > 0" class="modal-section">
-              <h3 class="modal-section-title">Players ({{ activeMatch.players.length }})</h3>
-              <!-- Two-column roster when teams are set -->
-              <div v-if="hasTeamRosters" class="modal-roster-grid">
-                <div class="modal-team-col">
-                  <h4 class="modal-team-name">{{ activeMatch.team_a_name || 'Team A' }}</h4>
-                  <p v-if="playersA.length === 0" class="modal-hint-text">No players assigned.</p>
-                  <ul v-else class="modal-player-list">
-                    <li v-for="player in playersA" :key="`a-${player.id}`" class="modal-player-row">
-                      <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" compact />
-                    </li>
-                  </ul>
-                </div>
-                <div class="modal-team-col">
-                  <h4 class="modal-team-name">{{ activeMatch.team_b_name || 'Team B' }}</h4>
-                  <p v-if="playersB.length === 0" class="modal-hint-text">No players assigned.</p>
-                  <ul v-else class="modal-player-list">
-                    <li v-for="player in playersB" :key="`b-${player.id}`" class="modal-player-row">
-                      <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" compact />
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              <!-- Flat list when no teams set -->
+        <!-- Players section -->
+        <div v-if="activeMatch.players.length > 0" class="modal-section">
+          <h3 class="modal-section-title">Players ({{ activeMatch.players.length }})</h3>
+          <!-- Two-column roster when teams are set -->
+          <div v-if="hasTeamRosters" class="modal-roster-grid">
+            <div class="modal-team-col">
+              <h4 class="modal-team-name">{{ activeMatch.team_a_name || 'Team A' }}</h4>
+              <p v-if="playersA.length === 0" class="modal-hint-text">No players assigned.</p>
               <ul v-else class="modal-player-list">
-                <li v-for="player in playersUnassigned" :key="player.id" class="modal-player-row">
+                <li v-for="player in playersA" :key="`a-${player.id}`" class="modal-player-row">
                   <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" compact />
                 </li>
               </ul>
-              <!-- Unassigned players when teams exist but some players have no team -->
-              <template v-if="hasTeamRosters && playersUnassigned.length > 0">
-                <h4 class="modal-team-name modal-team-name--unassigned">Unassigned</h4>
-                <ul class="modal-player-list">
-                  <li v-for="player in playersUnassigned" :key="`u-${player.id}`" class="modal-player-row">
-                    <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" compact />
-                  </li>
-                </ul>
-              </template>
             </div>
-
-            <!-- Admin — danger zone -->
-            <div v-if="ctx.canManageEvent" class="modal-danger-zone">
-              <button
-                class="btn-danger icon-btn"
-                :disabled="ctx.deletingMatchId === activeMatch.id"
-                @click="deleteActiveMatch"
-              >
-                <span class="material-symbols-rounded" aria-hidden="true">
-                  {{ ctx.deletingMatchId === activeMatch.id ? 'hourglass_top' : 'delete' }}
-                </span>
-                {{ ctx.deletingMatchId === activeMatch.id ? 'Deleting...' : 'Delete match' }}
-              </button>
+            <div class="modal-team-col">
+              <h4 class="modal-team-name">{{ activeMatch.team_b_name || 'Team B' }}</h4>
+              <p v-if="playersB.length === 0" class="modal-hint-text">No players assigned.</p>
+              <ul v-else class="modal-player-list">
+                <li v-for="player in playersB" :key="`b-${player.id}`" class="modal-player-row">
+                  <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" compact />
+                </li>
+              </ul>
             </div>
+          </div>
+          <!-- Flat list when no teams set -->
+          <ul v-else class="modal-player-list">
+            <li v-for="player in playersUnassigned" :key="player.id" class="modal-player-row">
+              <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" compact />
+            </li>
+          </ul>
+          <!-- Unassigned players when teams exist but some players have no team -->
+          <template v-if="hasTeamRosters && playersUnassigned.length > 0">
+            <h4 class="modal-team-name modal-team-name--unassigned">Unassigned</h4>
+            <ul class="modal-player-list">
+              <li v-for="player in playersUnassigned" :key="`u-${player.id}`" class="modal-player-row">
+                <PlayerNameplate :name="player.name" :role="player.role" :rank="player.rank" compact />
+              </li>
+            </ul>
+          </template>
+        </div>
 
-          </div><!-- /.pug-modal-body -->
-        </div><!-- /.pug-modal -->
-      </div><!-- /.pug-modal-overlay -->
-    </Teleport>
+        <!-- Admin — danger zone -->
+        <div v-if="ctx.canManageEvent" class="modal-danger-zone">
+          <button
+            class="btn-danger icon-btn"
+            :disabled="ctx.deletingMatchId === activeMatch.id"
+            @click="deleteActiveMatch"
+          >
+            <span class="material-symbols-rounded" aria-hidden="true">
+              {{ ctx.deletingMatchId === activeMatch.id ? 'hourglass_top' : 'delete' }}
+            </span>
+            {{ ctx.deletingMatchId === activeMatch.id ? 'Deleting...' : 'Delete match' }}
+          </button>
+        </div>
+      </template>
+    </AppModal>
 
   </div>
 </template>
@@ -640,20 +587,8 @@ async function saveStartDate() {
 }
 
 /* ── Create match modal ──────────────────────────────────────────────────── */
-.pug-create-modal {
-  max-width: 420px;
-}
-
-.pug-create-modal-header {
-  padding: 0;
-}
-
-.pug-create-modal-header .modal-header-content {
-  padding-left: 1.25rem;
-}
-
 .pug-create-form {
-  padding: 1.25rem;
+  padding: 0.25rem 0;
   gap: 0.85rem;
 }
 
@@ -916,106 +851,15 @@ async function saveStartDate() {
   font-size: 0.95rem;
 }
 
-/* ── Modal overlay ───────────────────────────────────────────────────────── */
-.pug-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(8, 16, 36, 0.72);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 900;
-  padding: 1rem;
-}
-
-.pug-modal {
-  width: 100%;
-  max-width: 580px;
-  max-height: 90vh;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* ── Modal header (fixed, not scrolled) ──────────────────────────────────── */
-.pug-modal-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 0;
-  border-bottom: 1px solid var(--line);
-  flex-shrink: 0;
-}
-
-.modal-header-stripe {
-  width: 5px;
-  align-self: stretch;
-  flex-shrink: 0;
-  background: linear-gradient(180deg, var(--stripe-a), var(--stripe-b));
-}
-
-.modal-header-content {
-  flex: 1;
-  min-width: 0;
-  padding: 1rem 0.75rem 1rem 1rem;
-}
-
-.modal-title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  flex-wrap: wrap;
-}
-
-.modal-title {
-  font-size: 1.15rem;
-  font-weight: 800;
-  color: var(--ink-1);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 0;
-}
-
-.modal-subtitle {
+/* ── Modal meta row (under AppModal title) ──────────────────────────────── */
+.modal-meta-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.45rem;
   font-size: 0.86rem;
   color: var(--ink-3);
-  margin: 0.35rem 0 0;
-}
-
-.modal-meta-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.modal-meta-icon {
-  font-size: 0.95rem;
-}
-
-.modal-meta-sep {
-  color: var(--ink-3);
-  line-height: 1;
-}
-
-.modal-close-btn {
-  flex-shrink: 0;
-  margin: 0.65rem 0.65rem 0 0;
-}
-
-/* ── Modal scrollable body ───────────────────────────────────────────────── */
-.pug-modal-body {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+  margin-bottom: 0.75rem;
 }
 
 /* ── Modal sections ──────────────────────────────────────────────────────── */
@@ -1219,14 +1063,7 @@ async function saveStartDate() {
   }
 
   .pug-modal-overlay {
-    align-items: flex-end;
-    padding: 0;
-  }
-
-  .pug-modal {
-    max-width: 100%;
-    max-height: 88vh;
-    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    display: none;
   }
 }
 </style>

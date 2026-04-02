@@ -243,6 +243,73 @@ impl TryFrom<&str> for SignupStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Event status
+// ---------------------------------------------------------------------------
+
+/// Lifecycle status of an event.
+///
+/// DRAFT:  being set up; not visible in public listings; no registrations.
+/// ACTIVE: live and visible; registrations controlled by public_signup_enabled.
+/// ENDED:  finished; still visible in public listings (shown by default).
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum EventStatus {
+    Draft,
+    Active,
+    Ended,
+}
+
+impl EventStatus {
+    pub fn as_db_value(&self) -> &'static str {
+        match self {
+            EventStatus::Draft  => "DRAFT",
+            EventStatus::Active => "ACTIVE",
+            EventStatus::Ended  => "ENDED",
+        }
+    }
+
+    /// DRAFT → ACTIVE
+    pub fn publish(self) -> Result<Self, &'static str> {
+        match self {
+            EventStatus::Draft => Ok(EventStatus::Active),
+            EventStatus::Active => Err("Event is already active"),
+            EventStatus::Ended => Err("An ended event cannot be re-published"),
+        }
+    }
+
+    /// ACTIVE → DRAFT
+    pub fn unpublish(self) -> Result<Self, &'static str> {
+        match self {
+            EventStatus::Active => Ok(EventStatus::Draft),
+            EventStatus::Draft => Err("Event is already a draft"),
+            EventStatus::Ended => Err("An ended event cannot be moved back to draft"),
+        }
+    }
+
+    /// ACTIVE → ENDED
+    pub fn end(self) -> Result<Self, &'static str> {
+        match self {
+            EventStatus::Active => Ok(EventStatus::Ended),
+            EventStatus::Draft => Err("A draft event cannot be ended directly; publish it first"),
+            EventStatus::Ended => Err("Event is already ended"),
+        }
+    }
+}
+
+impl TryFrom<&str> for EventStatus {
+    type Error = String;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "DRAFT"  => Ok(EventStatus::Draft),
+            "ACTIVE" => Ok(EventStatus::Active),
+            "ENDED"  => Ok(EventStatus::Ended),
+            other => Err(format!("Invalid event status: {other}")),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Match status
 // ---------------------------------------------------------------------------
 
@@ -281,6 +348,18 @@ impl TryFrom<&str> for MatchStatus {
 // Domain aggregates
 // ---------------------------------------------------------------------------
 
+/// Minimal profile of the registered user linked to an event player or
+/// signup request. Only included when the caller has manage access.
+#[derive(Serialize, Clone)]
+pub struct LinkedUserInfo {
+    pub id: Uuid,
+    pub username: String,
+    pub display_name: String,
+    pub discord_username: Option<String>,
+    pub battletag: Option<String>,
+    pub avatar_url: Option<String>,
+}
+
 #[derive(Serialize, Clone)]
 pub struct Player {
     pub id: Uuid,
@@ -298,6 +377,12 @@ pub struct Player {
     /// For manually-added players these are owner-set; for accepted signup
     /// requests they are copied from the original application.
     pub roles: Vec<RolePreference>,
+    /// Linked registered user — always present in API responses when a user
+    /// is linked, visible to both owner and non-owner (id/name only harms nothing;
+    /// sensitive fields are null for non-owners via the service layer).
+    pub linked_user: Option<LinkedUserInfo>,
+    pub reported_discord: Option<String>,
+    pub reported_battletag: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -345,13 +430,15 @@ pub struct Event {
     pub event_type: EventType,
     pub format: EventFormat,
     pub is_featured: bool,
-    pub is_ended: bool,
+    pub status: EventStatus,
     pub is_owner: bool,
     pub can_manage: bool,
     pub creator_id: Option<Uuid>,
     pub creator_name: Option<String>,
     pub public_signup_enabled: bool,
     pub public_signup_token: Option<String>,
+    pub require_discord: bool,
+    pub require_battletag: bool,
     pub max_players: u8,
     pub players: Vec<Player>,
     pub teams: Vec<EventTeam>,
@@ -376,6 +463,15 @@ pub struct EventSignupRequest {
     pub name: String,
     pub roles: Vec<RolePreference>,
     pub status: SignupStatus,
+    /// Set when the request was submitted by a registered user.
+    pub linked_user: Option<LinkedUserInfo>,
+    /// Self-reported Discord username (from form input, unverified).
+    pub reported_discord: Option<String>,
+    /// Self-reported Battle.net battletag (from form input, unverified).
+    pub reported_battletag: Option<String>,
+    /// Internal: carried for accept-flow propagation, not serialised.
+    #[serde(skip)]
+    pub submitter_user_id: Option<Uuid>,
 }
 
 #[derive(Serialize)]
@@ -390,6 +486,11 @@ pub struct PublicEventSignupInfo {
     pub max_players: u8,
     pub current_players: usize,
     pub current_signup_requests: usize,
+    pub status: EventStatus,
+    pub public_signup_enabled: bool,
+    pub require_discord: bool,
+    pub require_battletag: bool,
+    pub already_joined: bool,
 }
 
 // ---------------------------------------------------------------------------

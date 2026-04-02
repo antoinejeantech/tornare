@@ -6,7 +6,7 @@ use crate::shared::errors::{internal_error, not_found};
 use crate::shared::numeric::i32_to_u8;
 
 use crate::features::events::models::{
-    Event, EventFormat, EventSignupRequest, EventTeam, EventType, Match, MatchStatus, Player,
+    Event, EventFormat, EventSignupRequest, EventStatus, EventTeam, EventType, LinkedUserInfo, Match, MatchStatus, Player,
     PlayerRank, PlayerRole, PublicEventSignupInfo, RolePreference, RolePreferenceInput, SignupStatus,
 };
 
@@ -91,7 +91,12 @@ pub struct ListVisibleEventsOptions {
     pub sort: EventListSort,
     pub limit: u32,
     pub offset: u32,
-    pub ended_only: bool,
+    /// None → show ACTIVE + ENDED (default public view).
+    /// Some(Draft/Active/Ended) → filter to that specific status.
+    pub status_filter: Option<EventStatus>,
+    /// When true, the None status_filter default is bypassed and all statuses
+    /// are shown (used for owner-scoped listings so drafts are visible).
+    pub include_drafts: bool,
 }
 
 pub struct ListVisibleEventsResult {
@@ -156,7 +161,6 @@ pub async fn featured_event_id(
          FROM events
                  WHERE is_featured = TRUE
                      AND deleted_at IS NULL
-                     AND is_ended = FALSE
          ORDER BY start_date IS NULL, start_date ASC, id DESC
          LIMIT 1",
     )
@@ -174,7 +178,7 @@ pub async fn featured_event_id(
          WHERE start_date IS NOT NULL
            AND deleted_at IS NULL
            AND start_date >= NOW()
-           AND is_ended = FALSE
+           AND status = 'ACTIVE'
          ORDER BY start_date ASC, id DESC
          LIMIT 1",
     )
@@ -190,7 +194,7 @@ pub async fn featured_event_id(
         "SELECT id
          FROM events
                  WHERE deleted_at IS NULL
-                     AND is_ended = FALSE
+                     AND status = 'ACTIVE'
          ORDER BY start_date IS NULL, start_date ASC, id DESC
          LIMIT 1",
     )
@@ -273,11 +277,15 @@ fn apply_event_list_filters(
 ) {
     query_builder.push(" AND e.deleted_at IS NULL");
 
-    if options.ended_only {
-        query_builder.push(" AND e.is_ended = TRUE");
-    } else {
-        query_builder.push(" AND e.is_ended = FALSE");
-    }
+    match options.status_filter {
+        Some(EventStatus::Draft)  => { query_builder.push(" AND e.status = 'DRAFT'"); }
+        Some(EventStatus::Active) => { query_builder.push(" AND e.status = 'ACTIVE'"); }
+        Some(EventStatus::Ended)  => { query_builder.push(" AND e.status = 'ENDED'"); }
+        // Default: hide drafts on the public view; show all when the listing is
+        // scoped to the owner themselves (so they can see their own drafts).
+        None if !options.include_drafts => { query_builder.push(" AND e.status IN ('ACTIVE', 'ENDED')"); }
+        None => {}
+    };
 
     if let Some(event_type) = options.event_type.as_ref() {
         query_builder.push(" AND e.event_type = ");
@@ -345,10 +353,12 @@ pub async fn insert_event(
     public_signup_enabled: bool,
     max_players: i32,
     signup_token: &str,
+    require_discord: bool,
+    require_battletag: bool,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO events (id, name, description, start_date, event_type, format, public_signup_enabled, max_players, signup_token)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        "INSERT INTO events (id, name, description, start_date, event_type, format, public_signup_enabled, max_players, signup_token, status, require_discord, require_battletag)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'DRAFT', $10, $11)",
     )
     .bind(event_id)
     .bind(name)
@@ -359,6 +369,8 @@ pub async fn insert_event(
     .bind(public_signup_enabled)
     .bind(max_players)
     .bind(signup_token)
+    .bind(require_discord)
+    .bind(require_battletag)
     .execute(pool)
     .await
     .map_err(internal_error)?;
@@ -394,11 +406,14 @@ pub async fn update_event_details(
     event_type: &str,
     format: &str,
     max_players: i32,
+    require_discord: bool,
+    require_battletag: bool,
 ) -> Result<bool, crate::shared::errors::ApiError> {
     let updated = sqlx::query(
         "UPDATE events
-         SET name = $1, description = $2, start_date = $3, event_type = $4, format = $5, max_players = $6
-            WHERE id = $7 AND deleted_at IS NULL
+         SET name = $1, description = $2, start_date = $3, event_type = $4, format = $5, max_players = $6,
+             require_discord = $7, require_battletag = $8
+            WHERE id = $9 AND deleted_at IS NULL
          RETURNING id",
     )
     .bind(name)
@@ -407,6 +422,8 @@ pub async fn update_event_details(
     .bind(event_type)
     .bind(format)
     .bind(max_players)
+    .bind(require_discord)
+    .bind(require_battletag)
     .bind(event_id)
     .fetch_optional(pool)
     .await
@@ -422,8 +439,7 @@ pub async fn delete_event_by_id(
     let result = sqlx::query(
         "UPDATE events
          SET deleted_at = NOW(),
-             is_featured = FALSE,
-             is_ended = TRUE
+             is_featured = FALSE
          WHERE id = $1 AND deleted_at IS NULL",
     )
         .bind(event_id)
@@ -487,18 +503,20 @@ pub async fn insert_event_player(
     name: &str,
     role: &str,
     rank: &str,
+    user_id: Option<Uuid>,
 ) -> Result<(), crate::shared::errors::ApiError> {
     let player_id = Uuid::new_v4();
     let mut tx = pool.begin().await.map_err(internal_error)?;
 
     sqlx::query(
-        "INSERT INTO event_players (id, event_id, name, role, rank) VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO event_players (id, event_id, name, role, rank, user_id) VALUES ($1, $2, $3, $4, $5, $6)",
     )
     .bind(player_id)
     .bind(event_id)
     .bind(name)
     .bind(role)
     .bind(rank)
+    .bind(user_id)
     .execute(&mut *tx)
     .await
     .map_err(internal_error)?;
@@ -920,11 +938,12 @@ pub async fn insert_event_player_in_tx(
     role: &str,
     rank: &str,
     signup_request_id: Option<Uuid>,
+    user_id: Option<Uuid>,
     roles: &[(&str, &str)],
 ) -> Result<(), crate::shared::errors::ApiError> {
     let player_id = Uuid::new_v4();
     sqlx::query(
-        "INSERT INTO event_players (id, event_id, name, role, rank, signup_request_id) VALUES ($1, $2, $3, $4, $5, $6)",
+        "INSERT INTO event_players (id, event_id, name, role, rank, signup_request_id, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
     )
     .bind(player_id)
     .bind(event_id)
@@ -932,6 +951,7 @@ pub async fn insert_event_player_in_tx(
     .bind(role)
     .bind(rank)
     .bind(signup_request_id)
+    .bind(user_id)
     .execute(&mut **tx)
     .await
     .map_err(internal_error)?;
@@ -1029,9 +1049,50 @@ pub async fn rotate_signup_token_for_event(
     Ok(result.rows_affected() > 0)
 }
 
+pub async fn is_user_already_a_player(
+    pool: &PgPool,
+    event_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT id
+             FROM event_players
+             WHERE event_id = $1
+               AND user_id = $2
+             LIMIT 1",
+    )
+    .bind(event_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.is_some())
+}
+
+pub async fn user_has_identity_for_provider(
+    pool: &PgPool,
+    user_id: Uuid,
+    provider: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT id FROM auth_identities
+         WHERE user_id = $1 AND provider = $2
+         LIMIT 1",
+    )
+    .bind(user_id)
+    .bind(provider)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.is_some())
+}
+
 pub async fn event_signup_info_by_token(
     pool: &PgPool,
     signup_token: &str,
+    viewer_user_id: Option<Uuid>,
 ) -> Result<Option<PublicEventSignupInfo>, crate::shared::errors::ApiError> {
     let row = sqlx::query(
         "SELECT
@@ -1042,6 +1103,10 @@ pub async fn event_signup_info_by_token(
                 e.event_type,
                 e.format,
                 e.max_players,
+                e.status,
+                e.public_signup_enabled,
+                e.require_discord,
+                e.require_battletag,
                 (
                     SELECT COUNT(*)
                     FROM event_players ep
@@ -1084,8 +1149,22 @@ pub async fn event_signup_info_by_token(
     let max_players = u8::try_from(row.get::<i32, _>("max_players"))
         .map_err(|_| internal_error("invalid max_players in DB"))?;
 
+    let status_db: String = row.get("status");
+    let status = EventStatus::try_from(status_db.as_str())
+        .map_err(|_| internal_error(format!("invalid event status in DB: {status_db}")))?;
+    let public_signup_enabled: bool = row.get("public_signup_enabled");
+    let require_discord: bool = row.get("require_discord");
+    let require_battletag: bool = row.get("require_battletag");
+    let event_id: Uuid = row.get("id");
+
+    let already_joined = if let Some(uid) = viewer_user_id {
+        is_user_already_a_player(pool, event_id, uid).await?
+    } else {
+        false
+    };
+
     Ok(Some(PublicEventSignupInfo {
-        event_id: row.get("id"),
+        event_id,
         event_name: row.get("name"),
         event_description: row.get("description"),
         start_date: row.get::<Option<OffsetDateTime>, _>("start_date"),
@@ -1094,6 +1173,11 @@ pub async fn event_signup_info_by_token(
         max_players,
         current_players,
         current_signup_requests,
+        status,
+        public_signup_enabled,
+        require_discord,
+        require_battletag,
+        already_joined,
     }))
 }
 
@@ -1152,15 +1236,15 @@ pub async fn set_featured_event_state(
     Ok(())
 }
 
-pub async fn set_event_ended_state(
+pub async fn set_event_status(
     pool: &PgPool,
     event_id: Uuid,
-    ended: bool,
+    status: EventStatus,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "UPDATE events SET is_ended = $1, is_featured = CASE WHEN $1 THEN FALSE ELSE is_featured END WHERE id = $2 AND deleted_at IS NULL"
+        "UPDATE events SET status = $1 WHERE id = $2 AND deleted_at IS NULL"
     )
-        .bind(ended)
+        .bind(status.as_db_value())
         .bind(event_id)
         .execute(pool)
         .await
@@ -1173,18 +1257,24 @@ pub async fn create_signup_request(
     pool: &PgPool,
     event_id: Uuid,
     name: &str,
+    user_id: Option<Uuid>,
     roles: &[RolePreferenceInput],
+    reported_discord: Option<&str>,
+    reported_battletag: Option<&str>,
 ) -> Result<(), crate::shared::errors::ApiError> {
     let request_id = Uuid::new_v4();
     let mut tx = pool.begin().await.map_err(internal_error)?;
 
     sqlx::query(
-        "INSERT INTO event_signup_requests (id, event_id, name, status)
-             VALUES ($1, $2, $3, 'pending')",
+        "INSERT INTO event_signup_requests (id, event_id, name, status, user_id, reported_discord, reported_battletag)
+             VALUES ($1, $2, $3, 'pending', $4, $5, $6)",
     )
     .bind(request_id)
     .bind(event_id)
     .bind(name)
+    .bind(user_id)
+    .bind(reported_discord)
+    .bind(reported_battletag)
     .execute(&mut *tx)
     .await
     .map_err(internal_error)?;
@@ -1209,21 +1299,95 @@ pub async fn create_signup_request(
     Ok(())
 }
 
-pub async fn has_pending_signup_request_with_name(
+pub async fn has_pending_signup_request_with_user_id(
     pool: &PgPool,
     event_id: Uuid,
-    name: &str,
+    user_id: Uuid,
 ) -> Result<bool, crate::shared::errors::ApiError> {
     let row = sqlx::query(
         "SELECT id
              FROM event_signup_requests
              WHERE event_id = $1
                AND status = 'pending'
-               AND LOWER(name) = LOWER($2)
+               AND user_id = $2
              LIMIT 1",
     )
     .bind(event_id)
-    .bind(name)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.is_some())
+}
+
+pub async fn has_pending_signup_request_with_battletag(
+    pool: &PgPool,
+    event_id: Uuid,
+    battletag: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "-- pending request with matching reported_battletag
+         SELECT id FROM event_signup_requests
+         WHERE event_id = $1
+           AND status = 'pending'
+           AND LOWER(reported_battletag) = LOWER($2)
+         UNION ALL
+         -- pending request whose linked user has this battletag
+         SELECT esr.id FROM event_signup_requests esr
+         JOIN auth_identities ai ON ai.user_id = esr.user_id
+           AND ai.provider = 'battlenet'
+           AND LOWER(ai.provider_username) = LOWER($2)
+         WHERE esr.event_id = $1
+           AND esr.status = 'pending'
+         UNION ALL
+         -- accepted player whose linked user has this battletag
+         SELECT ep.id FROM event_players ep
+         JOIN auth_identities ai ON ai.user_id = ep.user_id
+           AND ai.provider = 'battlenet'
+           AND LOWER(ai.provider_username) = LOWER($2)
+         WHERE ep.event_id = $1
+         LIMIT 1",
+    )
+    .bind(event_id)
+    .bind(battletag)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.is_some())
+}
+
+pub async fn has_pending_signup_request_with_discord(
+    pool: &PgPool,
+    event_id: Uuid,
+    discord: &str,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "-- pending request with matching reported_discord
+         SELECT id FROM event_signup_requests
+         WHERE event_id = $1
+           AND status = 'pending'
+           AND LOWER(reported_discord) = LOWER($2)
+         UNION ALL
+         -- pending request whose linked user has this discord
+         SELECT esr.id FROM event_signup_requests esr
+         JOIN auth_identities ai ON ai.user_id = esr.user_id
+           AND ai.provider = 'discord'
+           AND LOWER(ai.provider_username) = LOWER($2)
+         WHERE esr.event_id = $1
+           AND esr.status = 'pending'
+         UNION ALL
+         -- accepted player whose linked user has this discord
+         SELECT ep.id FROM event_players ep
+         JOIN auth_identities ai ON ai.user_id = ep.user_id
+           AND ai.provider = 'discord'
+           AND LOWER(ai.provider_username) = LOWER($2)
+         WHERE ep.event_id = $1
+         LIMIT 1",
+    )
+    .bind(event_id)
+    .bind(discord)
     .fetch_optional(pool)
     .await
     .map_err(internal_error)?;
@@ -1236,10 +1400,17 @@ pub async fn list_signup_requests_for_event(
     event_id: Uuid,
 ) -> Result<Vec<EventSignupRequest>, crate::shared::errors::ApiError> {
     let rows = sqlx::query(
-        "SELECT id, event_id, name, status
-             FROM event_signup_requests
-             WHERE event_id = $1
-             ORDER BY created_at DESC",
+        "SELECT esr.id, esr.event_id, esr.name, esr.status, esr.user_id,
+                esr.reported_discord, esr.reported_battletag,
+                u.username, u.display_name,
+                (SELECT ai.provider_username FROM auth_identities ai
+                 WHERE ai.user_id = esr.user_id AND ai.provider = 'discord' LIMIT 1) AS discord_username,
+                (SELECT ai.provider_username FROM auth_identities ai
+                 WHERE ai.user_id = esr.user_id AND ai.provider = 'battlenet' LIMIT 1) AS battletag
+             FROM event_signup_requests esr
+             LEFT JOIN users u ON u.id = esr.user_id
+             WHERE esr.event_id = $1
+             ORDER BY esr.created_at DESC",
     )
     .bind(event_id)
     .fetch_all(pool)
@@ -1281,12 +1452,25 @@ pub async fn list_signup_requests_for_event(
         let status = SignupStatus::try_from(status_str.as_str())
             .map_err(|_| internal_error(format!("invalid signup status in DB: {status_str}")))?;
         let roles = roles_by_request.remove(&id).unwrap_or_default();
+        let submitter_user_id: Option<Uuid> = row.get("user_id");
+        let linked_user = submitter_user_id.map(|uid| LinkedUserInfo {
+            id: uid,
+            username: row.get::<Option<String>, _>("username").unwrap_or_default(),
+            display_name: row.get::<Option<String>, _>("display_name").unwrap_or_default(),
+            discord_username: row.get("discord_username"),
+            battletag: row.get("battletag"),
+            avatar_url: None,
+        });
         requests.push(EventSignupRequest {
             id,
             event_id: row.get("event_id"),
             name: row.get("name"),
             roles,
             status,
+            linked_user,
+            reported_discord: row.get("reported_discord"),
+            reported_battletag: row.get("reported_battletag"),
+            submitter_user_id,
         });
     }
 
@@ -1299,9 +1483,16 @@ pub async fn get_signup_request(
     request_id: Uuid,
 ) -> Result<Option<EventSignupRequest>, crate::shared::errors::ApiError> {
     let row = sqlx::query(
-        "SELECT id, event_id, name, status
-             FROM event_signup_requests
-             WHERE event_id = $1 AND id = $2",
+        "SELECT esr.id, esr.event_id, esr.name, esr.status, esr.user_id,
+                esr.reported_discord, esr.reported_battletag,
+                u.username, u.display_name,
+                (SELECT ai.provider_username FROM auth_identities ai
+                 WHERE ai.user_id = esr.user_id AND ai.provider = 'discord' LIMIT 1) AS discord_username,
+                (SELECT ai.provider_username FROM auth_identities ai
+                 WHERE ai.user_id = esr.user_id AND ai.provider = 'battlenet' LIMIT 1) AS battletag
+             FROM event_signup_requests esr
+             LEFT JOIN users u ON u.id = esr.user_id
+             WHERE esr.event_id = $1 AND esr.id = $2",
     )
     .bind(event_id)
     .bind(request_id)
@@ -1339,12 +1530,25 @@ pub async fn get_signup_request(
     let status_str: String = row.get("status");
     let status = SignupStatus::try_from(status_str.as_str())
         .map_err(|_| internal_error(format!("invalid signup status in DB: {status_str}")))?;
+    let submitter_user_id: Option<Uuid> = row.get("user_id");
+    let linked_user = submitter_user_id.map(|uid| LinkedUserInfo {
+        id: uid,
+        username: row.get::<Option<String>, _>("username").unwrap_or_default(),
+        display_name: row.get::<Option<String>, _>("display_name").unwrap_or_default(),
+        discord_username: row.get("discord_username"),
+        battletag: row.get("battletag"),
+        avatar_url: None,
+    });
     Ok(Some(EventSignupRequest {
         id: row.get("id"),
         event_id: row.get("event_id"),
         name: row.get("name"),
         roles,
         status,
+        linked_user,
+        reported_discord: row.get("reported_discord"),
+        reported_battletag: row.get("reported_battletag"),
+        submitter_user_id,
     }))
 }
 
@@ -1379,9 +1583,11 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
             e.event_type,
             e.format,
             e.is_featured,
-            e.is_ended,
+            e.status,
             e.signup_token,
             e.public_signup_enabled,
+            e.require_discord,
+            e.require_battletag,
             e.max_players,
             m.user_id AS creator_id,
             u.display_name AS creator_name
@@ -1419,7 +1625,11 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         event_type,
         format,
         is_featured: row.get("is_featured"),
-        is_ended: row.get("is_ended"),
+        status: {
+            let s: String = row.get("status");
+            EventStatus::try_from(s.as_str())
+                .map_err(|_| internal_error(format!("invalid event status in DB: {s}")))?       
+        },
         is_owner: false,
         can_manage: false,
         creator_id: row.get("creator_id"),
@@ -1433,6 +1643,8 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
                 None
             }
         },
+        require_discord: row.get("require_discord"),
+        require_battletag: row.get("require_battletag"),
         max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,
         players,
         teams,
@@ -1538,13 +1750,29 @@ pub async fn load_event_players_for_event(
             ep.name,
             ep.role,
             ep.rank,
+            ep.user_id AS linked_user_id,
             et.id AS team_id,
             et.name AS team_name,
             etm.assigned_role,
-            etm.assigned_rank
+            etm.assigned_rank,
+            u.username AS linked_username,
+            u.display_name AS linked_display_name,
+            (SELECT ai.provider_username
+             FROM auth_identities ai
+             WHERE ai.user_id = ep.user_id AND ai.provider = 'discord'
+             LIMIT 1) AS linked_discord_username,
+            (SELECT ai.provider_username
+             FROM auth_identities ai
+             WHERE ai.user_id = ep.user_id AND ai.provider = 'battlenet'
+             LIMIT 1) AS linked_battletag,
+            u.avatar_url AS linked_avatar_url,
+            esr.reported_discord,
+            esr.reported_battletag
          FROM event_players ep
          LEFT JOIN event_team_members etm ON etm.event_player_id = ep.id
          LEFT JOIN event_teams et ON et.id = etm.event_team_id
+         LEFT JOIN users u ON u.id = ep.user_id
+         LEFT JOIN event_signup_requests esr ON esr.id = ep.signup_request_id
          WHERE ep.event_id = $1
          ORDER BY ep.id ASC",
     )
@@ -1606,6 +1834,17 @@ pub async fn load_event_players_for_event(
                         .map_err(|_| internal_error(format!("invalid assigned player rank in DB: {s}")))
                 })
                 .transpose()?;
+        let linked_user_id: Option<Uuid> = row.get("linked_user_id");
+        let linked_user = linked_user_id.map(|id| {
+            LinkedUserInfo {
+                id,
+                username: row.get::<Option<String>, _>("linked_username").unwrap_or_default(),
+                display_name: row.get::<Option<String>, _>("linked_display_name").unwrap_or_default(),
+                discord_username: row.get("linked_discord_username"),
+                battletag: row.get("linked_battletag"),
+                avatar_url: row.get("linked_avatar_url"),
+            }
+        });
         players.push(Player {
             id: player_id,
             name: row.get("name"),
@@ -1616,6 +1855,9 @@ pub async fn load_event_players_for_event(
             assigned_role,
             assigned_rank,
             roles,
+            linked_user,
+            reported_discord: row.get("reported_discord"),
+            reported_battletag: row.get("reported_battletag"),
         });
     }
 
@@ -1665,4 +1907,64 @@ pub async fn load_event_teams_for_event(
             }
         })
         .collect())
+}
+
+// ---------------------------------------------------------------------------
+// Participated-events query (for profile page)
+// ---------------------------------------------------------------------------
+
+pub struct ParticipatedEventRow {
+    pub id: Uuid,
+    pub name: String,
+    pub start_date: Option<OffsetDateTime>,
+    pub event_type: EventType,
+    pub format: EventFormat,
+    pub status: EventStatus,
+}
+
+pub async fn list_participated_events(
+    pool: &PgPool,
+    user_id: Uuid,
+    limit: i64,
+) -> Result<Vec<ParticipatedEventRow>, crate::shared::errors::ApiError> {
+    let rows = sqlx::query(
+        "SELECT e.id, e.name, e.start_date, e.event_type, e.format, e.status
+         FROM events e
+         INNER JOIN event_players ep ON ep.event_id = e.id
+         WHERE ep.user_id = $1
+           AND e.deleted_at IS NULL
+           AND e.status != 'DRAFT'
+         GROUP BY e.id
+         ORDER BY e.start_date IS NULL, e.start_date DESC, e.id DESC
+         LIMIT $2",
+    )
+    .bind(user_id)
+    .bind(limit)
+    .fetch_all(pool)
+    .await
+    .map_err(internal_error)?;
+
+    let mut result = Vec::with_capacity(rows.len());
+    for row in rows {
+        let event_type_str: String = row.get("event_type");
+        let event_type = EventType::try_from(event_type_str.as_str())
+            .map_err(|_| internal_error(format!("invalid event type in DB: {event_type_str}")))?;
+        let format_str: String = row.get("format");
+        let format = EventFormat::try_from(format_str.as_str())
+            .map_err(|_| internal_error(format!("invalid event format in DB: {format_str}")))?;
+        result.push(ParticipatedEventRow {
+            id: row.get("id"),
+            name: row.get("name"),
+            start_date: row.get("start_date"),
+            event_type,
+            format,
+            status: {
+                let s: String = row.get("status");
+                EventStatus::try_from(s.as_str())
+                    .map_err(|_| internal_error(format!("invalid event status in DB: {s}")))?
+            },
+        });
+    }
+
+    Ok(result)
 }

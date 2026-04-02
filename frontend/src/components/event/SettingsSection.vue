@@ -3,6 +3,8 @@ import { inject } from 'vue'
 import { formatOptionsForType } from '../../lib/event-format'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
+import DiscordIcon from '../ui/DiscordIcon.vue'
+import BnetIcon from '../ui/BnetIcon.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 
 const ctx = inject<EventCtxType>('eventCtx')!
@@ -46,36 +48,55 @@ const ctx = inject<EventCtxType>('eventCtx')!
       </p>
     </div>
 
-    <div class="event-ended-box" :class="ctx.event?.is_ended ? 'is-ended' : 'is-active'">
-      <div class="event-ended-header">
-        <p class="event-ended-kicker">Event status</p>
+    <div class="event-status-box" :class="`is-${(ctx.event?.status ?? 'ACTIVE').toLowerCase()}`">
+      <div class="event-status-header">
+        <p class="event-status-kicker">Event status</p>
         <AppBadge
-          :variant="ctx.event?.is_ended ? 'muted' : 'ok'"
-          :label="ctx.event?.is_ended ? 'Ended' : 'Active'"
+          :variant="ctx.event?.status === 'ENDED' ? 'muted' : ctx.event?.status === 'DRAFT' ? 'warning' : 'ok'"
+          :label="ctx.event?.status === 'ENDED' ? 'Ended' : ctx.event?.status === 'DRAFT' ? 'Draft' : 'Active'"
         />
       </div>
 
-      <p class="event-ended-copy">
-        {{ ctx.event?.is_ended
-          ? 'This event is ended and no longer visible in the public event listings.'
-          : 'This event is active and visible in the public event listings.' }}
+      <p class="event-status-copy">
+        <template v-if="ctx.event?.status === 'DRAFT'">This event is a draft and is not visible in public listings. Registrations are disabled.</template>
+        <template v-else-if="ctx.event?.status === 'ENDED'">This event has ended. It is visible in public listings under Past Events.</template>
+        <template v-else>This event is active and visible in public listings. Registrations are controlled separately.</template>
       </p>
 
-      <div class="event-ended-actions">
+      <div class="event-status-actions">
         <button
-          :class="ctx.event?.is_ended ? 'btn-primary' : 'btn-warning'"
-          :disabled="ctx.endingEvent"
+          v-if="ctx.event?.status === 'ACTIVE'"
+          class="btn-secondary"
+          :disabled="ctx.updatingEventStatus"
           type="button"
-          @click="ctx.setEventEnded(!ctx.event?.is_ended)"
+          @click="ctx.unpublishEvent()"
         >
-          {{ ctx.endingEvent ? 'Updating...' : (ctx.event?.is_ended ? 'Reopen event' : 'End event') }}
+          {{ ctx.updatingEventStatus ? 'Updating...' : 'Set as Draft' }}
+        </button>
+        <button
+          v-if="ctx.event?.status === 'DRAFT'"
+          class="btn-primary"
+          :disabled="ctx.updatingEventStatus"
+          type="button"
+          @click="ctx.publishEvent()"
+        >
+          {{ ctx.updatingEventStatus ? 'Updating...' : 'Set as Active' }}
+        </button>
+        <button
+          v-if="ctx.event?.status === 'ACTIVE'"
+          class="btn-warning"
+          :disabled="ctx.updatingEventStatus"
+          type="button"
+          @click="ctx.endEvent()"
+        >
+          {{ ctx.updatingEventStatus ? 'Updating...' : 'End event' }}
         </button>
       </div>
 
-      <p class="muted event-ended-note">
-        {{ ctx.event?.is_ended
-          ? 'Reopening will make this event visible again in public listings. You can end it again at any time.'
-          : 'Ending the event hides it from public listings. The event page remains accessible by direct link. You can reopen it at any time.' }}
+      <p class="muted event-status-note">
+        <template v-if="ctx.event?.status === 'DRAFT'">Draft events are invisible to everyone except you. Set to Active when you are ready to go live.</template>
+        <template v-else-if="ctx.event?.status === 'ENDED'">Ended events remain visible in listings under Past Events. This status is permanent.</template>
+        <template v-else>Active events are visible to everyone. End the event when it is over, or move it back to Draft to hide it.</template>
       </p>
     </div>
 
@@ -109,6 +130,40 @@ const ctx = inject<EventCtxType>('eventCtx')!
         <input v-model.number="ctx.editEventMaxPlayers" type="number" min="2" max="99" step="1" />
       </label>
 
+      <fieldset class="event-handle-requirements">
+        <legend class="event-handle-requirements-legend">Signup requirements</legend>
+
+        <label class="event-toggle-row">
+          <span class="event-toggle-row-label"><DiscordIcon class="event-toggle-row-icon" />Require Discord username</span>
+          <span class="event-toggle-row-hint">Submissions without a Discord handle will be rejected</span>
+          <button
+            type="button"
+            role="switch"
+            class="event-toggle-switch"
+            :aria-checked="ctx.editEventRequireDiscord ? 'true' : 'false'"
+            :class="{ 'is-on': ctx.editEventRequireDiscord }"
+            @click="ctx.editEventRequireDiscord = !ctx.editEventRequireDiscord"
+          >
+            <span class="event-toggle-switch-thumb" />
+          </button>
+        </label>
+
+        <label class="event-toggle-row">
+          <span class="event-toggle-row-label"><BnetIcon class="event-toggle-row-icon" />Require Battle.net tag</span>
+          <span class="event-toggle-row-hint">Submissions without a Battle.net tag will be rejected</span>
+          <button
+            type="button"
+            role="switch"
+            class="event-toggle-switch"
+            :aria-checked="ctx.editEventRequireBattletag ? 'true' : 'false'"
+            :class="{ 'is-on': ctx.editEventRequireBattletag }"
+            @click="ctx.editEventRequireBattletag = !ctx.editEventRequireBattletag"
+          >
+            <span class="event-toggle-switch-thumb" />
+          </button>
+        </label>
+      </fieldset>
+
       <div class="event-settings-actions">
         <button class="btn-primary" :disabled="ctx.updatingEvent || !ctx.canSaveEventMeta" type="submit">
           {{ ctx.updatingEvent ? 'Saving...' : 'Save event settings' }}
@@ -135,6 +190,111 @@ const ctx = inject<EventCtxType>('eventCtx')!
 .event-edit-form label {
   display: grid;
   gap: 0.24rem;
+}
+
+.event-handle-requirements {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 0.7rem 0.82rem;
+  display: grid;
+  gap: 0;
+  background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
+}
+
+.event-handle-requirements-legend {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--ink-2) 82%, var(--brand-1) 18%);
+  padding: 0 0.2rem;
+  margin-bottom: 0.55rem;
+}
+
+.event-toggle-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0.08rem 0.75rem;
+  padding: 0.52rem 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+}
+
+.event-toggle-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.event-toggle-row:first-of-type {
+  padding-top: 0;
+}
+
+.event-toggle-row-label {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink-1);
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
+.event-toggle-row-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: var(--ink-2);
+  opacity: 0.75;
+}
+
+.event-toggle-row-hint {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  line-height: 1.4;
+}
+
+.event-toggle-switch {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  width: 2.4rem;
+  height: 1.3rem;
+  border-radius: 999px;
+  background: var(--line);
+  border: none;
+  padding: 0;
+  position: relative;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.18s;
+  align-self: center;
+}
+
+.event-toggle-switch.is-on {
+  background: var(--primary-500, #6366f1);
+}
+
+.event-toggle-switch-thumb {
+  position: absolute;
+  top: 0.14rem;
+  left: 0.14rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  transition: transform 0.18s;
+  display: block;
+  pointer-events: none;
+}
+
+.event-toggle-switch.is-on .event-toggle-switch-thumb {
+  transform: translateX(1.1rem);
 }
 
 .event-settings-section {
@@ -196,7 +356,7 @@ const ctx = inject<EventCtxType>('eventCtx')!
   gap: 0.45rem;
 }
 
-.event-ended-box {
+.event-status-box {
   border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-2) 28%);
   border-radius: var(--radius-lg);
   padding: 0.82rem;
@@ -206,24 +366,29 @@ const ctx = inject<EventCtxType>('eventCtx')!
   margin-top: 0.75rem;
 }
 
-.event-ended-box.is-ended {
+.event-status-box.is-ended {
   border-color: color-mix(in srgb, var(--line) 72%, #555 28%);
   background: color-mix(in srgb, var(--card) 56%, #1e1e1e 44%);
 }
 
-.event-ended-box.is-active {
+.event-status-box.is-active {
+  border-color: color-mix(in srgb, #4ca84c 22%, var(--line) 78%);
+  background: color-mix(in srgb, var(--card) 72%, #0e1f0e 28%);
+}
+
+.event-status-box.is-draft {
   border-color: color-mix(in srgb, #e09c2a 22%, var(--line) 78%);
   background: color-mix(in srgb, var(--card) 72%, #27200a 28%);
 }
 
-.event-ended-header {
+.event-status-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
 }
 
-.event-ended-kicker {
+.event-status-kicker {
   margin: 0;
   font-size: 0.78rem;
   text-transform: uppercase;
@@ -232,18 +397,19 @@ const ctx = inject<EventCtxType>('eventCtx')!
   color: color-mix(in srgb, var(--ink-2) 82%, var(--brand-1) 18%);
 }
 
-.event-ended-copy {
+.event-status-copy {
   margin: 0;
   font-size: 0.9rem;
   color: var(--ink-1);
 }
 
-.event-ended-actions {
+.event-status-actions {
   display: flex;
-  justify-content: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
-.event-ended-note {
+.event-status-note {
   margin: 0;
   font-size: 0.84rem;
   line-height: 1.35;
@@ -269,13 +435,13 @@ const ctx = inject<EventCtxType>('eventCtx')!
     width: 100%;
   }
 
-  .event-ended-header {
+  .event-status-header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .event-ended-actions,
-  .event-ended-actions button {
+  .event-status-actions,
+  .event-status-actions button {
     width: 100%;
   }
 }

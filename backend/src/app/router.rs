@@ -3,7 +3,7 @@ use axum::{
         header::{AUTHORIZATION, CONTENT_TYPE},
         HeaderName, HeaderValue, Method, Request,
     },
-    routing::{delete, get, post, put},
+    routing::{delete, get, patch, post, put},
     Router,
 };
 use tower_http::cors::{Any, CorsLayer};
@@ -19,7 +19,8 @@ use crate::{
 pub fn build_app(state: AppState) -> Router {
     let request_id_header = HeaderName::from_static("x-request-id");
 
-    let allow_any = state.config.cors_allowed_origins.iter().any(|origin| origin == "*");
+    let allow_any = state.config.cors_allowed_origins.iter().any(|origin| origin == "*")
+        || state.config.cors_allowed_origins.is_empty();
     let parsed_allowed_origins: Vec<HeaderValue> = state
         .config
         .cors_allowed_origins
@@ -27,15 +28,44 @@ pub fn build_app(state: AppState) -> Router {
         .filter_map(|origin| origin.parse::<HeaderValue>().ok())
         .collect();
 
-    let cors = if allow_any || parsed_allowed_origins.is_empty() {
+    // Wildcard/empty CORS is incompatible with the OAuth connect-init cookie flow.
+    // The connect-init endpoints respond with Set-Cookie (nonce) and the
+    // frontend calls them with credentials:'include'. Browsers reject
+    // credentialed responses when the server returns Access-Control-Allow-Origin: *,
+    // silently dropping the nonce cookie and breaking the callback verification.
+    //
+    // Two failure modes must be caught:
+    // 1. allow_any is true (config contains "*" or is empty).
+    // 2. allow_any is false but every configured origin failed HeaderValue parsing,
+    //    leaving parsed_allowed_origins empty — the CorsLayer then falls back to
+    //    allow_origin(Any), which has the same credential-blocking effect.
+    //
+    // OAuth is considered configured when at least one OAuth client_id is present.
+    // Redirect URIs alone cannot be used because main.rs supplies non-empty
+    // defaults for them regardless of whether credentials are configured.
+    let oauth_configured = !state.config.battlenet_client_id.trim().is_empty()
+        || !state.config.discord_client_id.trim().is_empty();
+    let will_use_any_origin = allow_any || parsed_allowed_origins.is_empty();
+    if will_use_any_origin && oauth_configured {
+        panic!(
+            "CORS wildcard ('*'), empty CORS_ALLOWED_ORIGINS, or all-unparseable origins are \
+             incompatible with the OAuth cookie-nonce flow. Set CORS_ALLOWED_ORIGINS to the \
+             explicit frontend origin (e.g. 'http://localhost:5173') with valid syntax."
+        );
+    }
+
+    let cors = if will_use_any_origin {
         CorsLayer::new().allow_origin(Any)
     } else {
-        CorsLayer::new().allow_origin(parsed_allowed_origins)
+        CorsLayer::new()
+            .allow_origin(parsed_allowed_origins)
+            .allow_credentials(true)
     }
         .allow_methods([
             Method::GET,
             Method::POST,
             Method::PUT,
+            Method::PATCH,
             Method::DELETE,
             Method::OPTIONS,
         ])
@@ -54,6 +84,10 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/auth/battlenet/complete", post(auth::battlenet_complete_signup))
         .route("/api/auth/battlenet/connect-init", get(auth::battlenet_connect_init))
         .route("/api/auth/battlenet/disconnect", delete(auth::battlenet_disconnect))
+        .route("/api/auth/discord/authorize", get(auth::discord_authorize))
+        .route("/api/auth/discord/callback", get(auth::discord_callback))
+        .route("/api/auth/discord/connect-init", get(auth::discord_connect_init))
+        .route("/api/auth/discord/disconnect", delete(auth::discord_disconnect))
         .route(
             "/api/users",
             get(users::search_users),
@@ -63,6 +97,14 @@ pub fn build_app(state: AppState) -> Router {
             get(users::get_user_profile)
                 .put(users::update_user_profile)
                 .delete(users::delete_user_account),
+        )
+        .route(
+            "/api/users/{user_id}/avatar",
+            patch(users::update_user_avatar),
+        )
+        .route(
+            "/api/users/{user_id}/participated-events",
+            get(users::get_participated_events),
         )
         .route(
             "/api/events",
@@ -155,8 +197,16 @@ pub fn build_app(state: AppState) -> Router {
             put(events::set_event_featured),
         )
         .route(
-            "/api/events/{event_id}/ended",
-            put(events::set_event_ended),
+            "/api/events/{event_id}/publish",
+            post(events::publish_event),
+        )
+        .route(
+            "/api/events/{event_id}/unpublish",
+            post(events::unpublish_event),
+        )
+        .route(
+            "/api/events/{event_id}/end",
+            post(events::end_event),
         )
         .route(
             "/api/events/{event_id}/signup-requests",

@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
+import BnetIcon from '../components/ui/BnetIcon.vue'
+import DiscordIcon from '../components/ui/DiscordIcon.vue'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
 import { getRoleIcon } from '../lib/roles'
 import { useAuthStore } from '../stores/auth'
@@ -12,7 +14,9 @@ import ProfileHeroCard from '../components/profile/ProfileHeroCard.vue'
 import ProfileGamesCard from '../components/profile/ProfileGamesCard.vue'
 import EventListItem from '../components/events/EventListItem.vue'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
-import type { AuthUser, Event } from '../types'
+import AppBadge from '../components/ui/AppBadge.vue'
+import { formatDayMonthYear } from '../lib/dates'
+import type { AuthUser, Event, ParticipatedEventSummary } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,7 +27,11 @@ const loadingProfile = ref(false)
 const savingProfile = ref(false)
 const connectingBnet = ref(false)
 const disconnectingBnet = ref(false)
+const connectingDiscord = ref(false)
+const disconnectingDiscord = ref(false)
+const connectingOAuth = ref<'bnet' | 'discord' | null>(null)
 const deletingAccount = ref(false)
+const savingAvatar = ref(false)
 const error = ref('')
 const notice = ref('')
 const profileFormTouched = ref(false)
@@ -39,8 +47,10 @@ const editRankSupport = ref('Unranked')
 const editPassword = ref('')
 const editPasswordConfirm = ref('')
 
-const userEvents = ref<Event[]>([])
-const loadingUserEvents = ref(false)
+const createdEvents = ref<Event[]>([])
+const loadingCreatedEvents = ref(false)
+const participatedEvents = ref<ParticipatedEventSummary[]>([])
+const loadingParticipatedEvents = ref(false)
 
 const alertsStore = useAlertsStore()
 const confirm = useConfirm()
@@ -292,13 +302,39 @@ function goToEvents() {
   router.push({ name: 'events' })
 }
 
+async function handleUpdateAvatar(avatarUrl: string | null) {
+  if (savingAvatar.value || !profile.value) return
+  savingAvatar.value = true
+  try {
+    const updated = await apiCall<AuthUser>(`/api/users/${profileId.value}/avatar`, {
+      method: 'PATCH',
+      body: JSON.stringify({ avatar_url: avatarUrl }),
+    })
+    profile.value = updated
+    if (viewerId.value === profileId.value) {
+      authStore.user = updated
+    }
+  } catch (err) {
+    alertsStore.push({
+      type: 'error',
+      message: err instanceof Error ? err.message : 'Failed to update avatar',
+      duration: 5000,
+    })
+  } finally {
+    savingAvatar.value = false
+  }
+}
+
 async function connectBnetAccount() {
   if (connectingBnet.value) return
   connectingBnet.value = true
+  connectingOAuth.value = 'bnet'
+  sessionStorage.setItem('oauth_return_path', window.location.pathname)
   try {
     await authStore.connectBnetInit()
     // connectBnetInit normally navigates away immediately.
   } catch (err) {
+    connectingOAuth.value = null
     setError(err instanceof Error ? err.message : 'Failed to initiate Battle.net connection')
   } finally {
     connectingBnet.value = false
@@ -307,6 +343,13 @@ async function connectBnetAccount() {
 
 async function disconnectBnetAccount() {
   if (disconnectingBnet.value) return
+  const confirmed = await confirm.ask({
+    title: 'Disconnect Battle.net',
+    message: 'Are you sure you want to disconnect your Battle.net account?',
+    confirmText: 'Disconnect',
+    tone: 'danger',
+  })
+  if (!confirmed) return
   disconnectingBnet.value = true
   try {
     await authStore.disconnectBnet()
@@ -320,6 +363,47 @@ async function disconnectBnetAccount() {
     })
   } finally {
     disconnectingBnet.value = false
+  }
+}
+
+async function connectDiscordAccount() {
+  if (connectingDiscord.value) return
+  connectingDiscord.value = true
+  connectingOAuth.value = 'discord'
+  sessionStorage.setItem('oauth_return_path', window.location.pathname)
+  try {
+    await authStore.connectDiscordInit()
+    // connectDiscordInit normally navigates away immediately.
+  } catch (err) {
+    connectingOAuth.value = null
+    setError(err instanceof Error ? err.message : 'Failed to initiate Discord connection')
+  } finally {
+    connectingDiscord.value = false
+  }
+}
+
+async function disconnectDiscordAccount() {
+  if (disconnectingDiscord.value) return
+  const confirmed = await confirm.ask({
+    title: 'Disconnect Discord',
+    message: 'Are you sure you want to disconnect your Discord account?',
+    confirmText: 'Disconnect',
+    tone: 'danger',
+  })
+  if (!confirmed) return
+  disconnectingDiscord.value = true
+  try {
+    await authStore.disconnectDiscord()
+    await loadProfile()
+    alertsStore.push({ type: 'success', message: 'Discord account disconnected' })
+  } catch (err) {
+    alertsStore.push({
+      type: 'error',
+      message: err instanceof Error ? err.message : 'Failed to disconnect Discord',
+      duration: 6000,
+    })
+  } finally {
+    disconnectingDiscord.value = false
   }
 }
 
@@ -369,27 +453,50 @@ watch(
 
 onMounted(async () => {
   await loadProfile()
-  loadUserEvents()
+  loadCreatedEvents()
+  loadParticipatedEvents()
 })
 
-async function loadUserEvents() {
+async function loadCreatedEvents() {
   if (!profileId.value) return
-  loadingUserEvents.value = true
+  loadingCreatedEvents.value = true
   try {
     const res = await apiCall<{ items: Event[]; total: number }>(
       `/api/events?owner=${encodeURIComponent(profileId.value)}&per_page=5&sort=newest`
     )
-    userEvents.value = res?.items ?? []
+    createdEvents.value = res?.items ?? []
   } catch {
-    userEvents.value = []
+    createdEvents.value = []
   } finally {
-    loadingUserEvents.value = false
+    loadingCreatedEvents.value = false
+  }
+}
+
+async function loadParticipatedEvents() {
+  if (!profileId.value) return
+  loadingParticipatedEvents.value = true
+  try {
+    participatedEvents.value = await apiCall<ParticipatedEventSummary[]>(
+      `/api/users/${encodeURIComponent(profileId.value)}/participated-events`
+    )
+  } catch {
+    participatedEvents.value = []
+  } finally {
+    loadingParticipatedEvents.value = false
   }
 }
 </script>
 
 <template>
   <main class="app-shell profile-shell">
+    <Teleport to="body">
+      <div v-if="connectingOAuth" class="oauth-redirect-overlay" aria-live="polite">
+        <div class="oauth-redirect-box">
+          <span class="oauth-redirect-spinner" aria-hidden="true"></span>
+          <p>Redirecting to {{ connectingOAuth === 'discord' ? 'Discord' : 'Battle.net' }}…</p>
+        </div>
+      </div>
+    </Teleport>
     <header class="profile-hero-header">
       <p v-if="isVerifiedProfile" class="profile-hero-eyebrow">
         <span class="material-symbols-rounded profile-hero-eyebrow-icon" aria-hidden="true">verified_user</span>
@@ -412,7 +519,9 @@ async function loadUserEvents() {
           :can-edit="canEdit"
           :editing-account="editingAccount"
           :profile-initial="profileInitial"
+          :saving-avatar="savingAvatar"
           @edit-account="startEdit('account')"
+          @update-avatar="handleUpdateAvatar"
         >
           <template v-if="isAdminViewer && profileId !== viewerId" #hero-actions>
             <button
@@ -461,6 +570,80 @@ async function loadUserEvents() {
             </form>
           </template>
         </ProfileHeroCard>
+
+        <section v-if="canEdit" class="card connected-accounts-card">
+          <h2 class="profile-section-title">Connected Accounts</h2>
+
+          <!-- Battle.net -->
+          <div class="connected-account-row">
+            <div class="connected-account-info">
+              <BnetIcon class="connected-account-logo connected-account-logo-bnet" />
+              <div class="connected-account-label-wrap">
+                <span class="connected-account-label">Battle.net</span>
+                <span v-if="profile.battletag" class="connected-account-sublabel">{{ profile.battletag }}</span>
+              </div>
+              <span v-if="!profile.can_edit_battletag" class="connected-account-badge">Connected</span>
+            </div>
+            <div class="connected-account-actions">
+              <p v-if="!profile.can_edit_battletag && !profile.has_password" class="connected-account-warning">
+                Set a password before disconnecting, otherwise you will lose access.
+              </p>
+              <button
+                v-if="!profile.can_edit_battletag"
+                type="button"
+                class="connected-account-btn connected-account-btn-disconnect"
+                :disabled="disconnectingBnet || !profile.has_password"
+                @click="disconnectBnetAccount"
+              >
+                {{ disconnectingBnet ? 'Disconnecting...' : 'Disconnect' }}
+              </button>
+              <button
+                v-else
+                type="button"
+                class="connected-account-btn connected-account-btn-connect"
+                :disabled="connectingBnet"
+                @click="connectBnetAccount"
+              >
+                {{ connectingBnet ? 'Connecting...' : 'Connect' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Discord -->
+          <div class="connected-account-row">
+            <div class="connected-account-info">
+              <DiscordIcon class="connected-account-logo connected-account-logo-discord" />
+              <div class="connected-account-label-wrap">
+                <span class="connected-account-label">Discord</span>
+                <span v-if="profile.discord_username" class="connected-account-sublabel">{{ profile.discord_username }}</span>
+              </div>
+              <span v-if="profile.has_discord_identity" class="connected-account-badge connected-account-badge-discord">Connected</span>
+            </div>
+            <div class="connected-account-actions">
+              <p v-if="profile.has_discord_identity && !profile.has_password" class="connected-account-warning">
+                Set a password before disconnecting, otherwise you will lose access.
+              </p>
+              <button
+                v-if="profile.has_discord_identity"
+                type="button"
+                class="connected-account-btn connected-account-btn-disconnect"
+                :disabled="disconnectingDiscord || !profile.has_password"
+                @click="disconnectDiscordAccount"
+              >
+                {{ disconnectingDiscord ? 'Disconnecting...' : 'Disconnect' }}
+              </button>
+              <button
+                v-else
+                type="button"
+                class="connected-account-btn connected-account-btn-connect connected-account-btn-connect-discord"
+                :disabled="connectingDiscord"
+                @click="connectDiscordAccount"
+              >
+                {{ connectingDiscord ? 'Connecting...' : 'Connect' }}
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
 
       <div class="profile-column profile-column-right">
@@ -470,32 +653,6 @@ async function loadUserEvents() {
           :overwatch-summary-rows="overwatchSummaryRows"
           :overwatch-logo="overwatchLogo"
         >
-          <template #overwatch-bnet-action>
-            <template v-if="canEdit">
-              <p v-if="!profile.can_edit_battletag && !profile.has_password" class="bnet-no-password-warning">
-                Set a password before disconnecting Battle.net, otherwise you will lose access to your account.
-              </p>
-              <button
-                v-if="!profile.can_edit_battletag"
-                type="button"
-                class="battletag-link battletag-link-active"
-                :disabled="disconnectingBnet || !profile.has_password"
-                @click="disconnectBnetAccount"
-              >
-                {{ disconnectingBnet ? 'Disconnecting...' : 'Disconnect Battle.net' }}
-              </button>
-              <button
-                v-else
-                type="button"
-                class="battletag-link battletag-link-active"
-                :disabled="connectingBnet"
-                @click="connectBnetAccount"
-              >
-                {{ connectingBnet ? 'Connecting...' : 'Connect Battle.net Account' }}
-              </button>
-            </template>
-          </template>
-
           <template v-if="canEdit" #overwatch-ranks>
             <template v-if="!editingRanks">
               <div class="rank-tiles-wrap">
@@ -553,27 +710,64 @@ async function loadUserEvents() {
             </form>
           </template>
         </ProfileGamesCard>
+
       </div>
     </section>
 
     <section v-if="profile" class="profile-events-section">
-      <div class="profile-events-header">
-        <h2 class="profile-section-title">{{ profile.display_name }}'s last 5 events</h2>
-        <InlineArrowLink
-          :to="{ name: 'events', query: { owner: profileId } }"
-          label="See all"
-        />
+      <div class="profile-events-columns">
+        <!-- Events organized -->
+        <div class="profile-events-col">
+          <div class="profile-events-header">
+            <h2 class="profile-section-title">Events organized</h2>
+            <InlineArrowLink
+              :to="{ name: 'events', query: { owner: profileId } }"
+              label="See all"
+            />
+          </div>
+          <p v-if="loadingCreatedEvents" class="muted">Loading...</p>
+          <p v-else-if="createdEvents.length === 0" class="muted">No events yet.</p>
+          <ul v-else class="profile-events-list">
+            <EventListItem
+              v-for="event in createdEvents"
+              :key="event.id"
+              :event="event"
+              :compact="true"
+              :to="{ name: 'event', params: { id: event.id } }"
+            />
+          </ul>
+        </div>
+
+        <!-- Events played in -->
+        <div class="profile-events-col">
+          <div class="profile-events-header">
+            <h2 class="profile-section-title">Events played in</h2>
+          </div>
+          <p v-if="loadingParticipatedEvents" class="muted">Loading...</p>
+          <p v-else-if="participatedEvents.length === 0" class="muted">No events yet.</p>
+          <ul v-else class="profile-events-list">
+            <li v-for="event in participatedEvents" :key="event.id" class="participated-event-item">
+              <RouterLink :to="{ name: 'event', params: { id: event.id } }" class="participated-event-link">
+                <div class="participated-event-main">
+                  <span class="material-symbols-rounded participated-event-trophy" aria-hidden="true">trophy</span>
+                  <div class="participated-event-text">
+                    <span class="participated-event-name">{{ event.name }}</span>
+                    <span class="participated-event-meta">
+                      <span>{{ event.event_type }} ({{ event.format }})</span>
+                      <span v-if="event.start_date" aria-hidden="true"> · </span>
+                      <span v-if="event.start_date">{{ formatDayMonthYear(event.start_date) }}</span>
+                    </span>
+                  </div>
+                </div>
+                <AppBadge
+                  :variant="event.status === 'ENDED' ? 'muted' : event.status === 'DRAFT' ? 'warning' : 'ok'"
+                  :label="event.status === 'ENDED' ? 'Ended' : event.status === 'DRAFT' ? 'Draft' : 'Active'"
+                />
+              </RouterLink>
+            </li>
+          </ul>
+        </div>
       </div>
-      <p v-if="loadingUserEvents" class="muted">Loading...</p>
-      <p v-else-if="userEvents.length === 0" class="muted">No events yet.</p>
-      <ul v-else class="profile-events-list">
-        <EventListItem
-          v-for="event in userEvents"
-          :key="event.id"
-          :event="event"
-          :to="{ name: 'event', params: { id: event.id } }"
-        />
-      </ul>
     </section>
 
     <section v-else class="card">
@@ -586,9 +780,25 @@ async function loadUserEvents() {
 
 <style scoped>
 .profile-events-section {
+  margin-top: 0.8rem;
+}
+
+.profile-events-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.6rem;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .profile-events-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.profile-events-col {
   display: grid;
   gap: 0.6rem;
-  margin-top: 0.8rem;
 }
 
 .profile-events-header {
@@ -613,6 +823,74 @@ async function loadUserEvents() {
   padding: 0;
   display: grid;
   gap: 0.4rem;
+}
+
+.participated-event-item {
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
+  background: color-mix(in srgb, var(--card) 62%, var(--bg-1) 38%);
+  border-radius: var(--radius-md);
+}
+
+.participated-event-item:hover {
+  background: color-mix(in srgb, var(--card) 72%, var(--brand-2) 28%);
+  border-color: color-mix(in srgb, var(--line-strong) 42%, var(--brand-1) 28%);
+}
+
+.participated-event-link {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.72rem 0.88rem;
+  text-decoration: none;
+  color: inherit;
+  border-radius: inherit;
+}
+
+.participated-event-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.participated-event-trophy {
+  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
+  font-size: 1.35rem;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 58%, var(--bg-0) 42%);
+  border-radius: var(--radius-md);
+  padding: 0.4rem;
+  background: color-mix(in srgb, var(--bg-1) 66%, var(--card) 34%);
+  flex-shrink: 0;
+}
+
+.participated-event-text {
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.participated-event-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--ink-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.participated-event-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 0.1rem;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+  line-height: 1.35;
 }
 
 .profile-shell {
@@ -666,11 +944,8 @@ async function loadUserEvents() {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 0.85rem;
   animation: profile-card-in 320ms ease-out both;
-}
-
-.profile-column :deep(.card) {
-  flex: 1;
 }
 
 .profile-column-right {
@@ -688,36 +963,6 @@ async function loadUserEvents() {
 .profile-form label {
   display: grid;
   gap: 0.3rem;
-}
-
-/* BNet slot buttons rendered inside ProfileGamesCard */
-:deep(.battletag-link) {
-  justify-self: center;
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 0.86rem;
-  font-weight: 700;
-  text-decoration: none;
-  color: color-mix(in srgb, var(--ink-muted) 82%, transparent 18%);
-  cursor: not-allowed;
-}
-
-:deep(.battletag-link-active) {
-  color: color-mix(in srgb, var(--brand-1) 95%, #ffefbf 5%);
-  cursor: pointer;
-}
-
-:deep(.battletag-link-active:disabled) {
-  opacity: 0.45;
-  cursor: not-allowed;
-  text-decoration: none;
-}
-
-.bnet-no-password-warning {
-  margin: 0 0 0.45rem;
-  font-size: 0.82rem;
-  color: var(--status-warning, #c97c00);
 }
 
 :deep(.hero-icon-btn-danger) {
@@ -747,10 +992,6 @@ async function loadUserEvents() {
 :deep(.hero-icon-btn-danger:disabled) {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-:deep(.battletag-link-active:hover) {
-  text-decoration: underline;
 }
 
 .profile-note {
@@ -899,5 +1140,169 @@ async function loadUserEvents() {
   .rank-tile-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.oauth-redirect-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.oauth-redirect-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 2rem 2.5rem;
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
+.oauth-redirect-box p {
+  margin: 0;
+}
+
+.oauth-redirect-spinner {
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid color-mix(in srgb, var(--brand-1) 25%, transparent);
+  border-top-color: var(--brand-1);
+  border-radius: 50%;
+  animation: oauth-spin 0.7s linear infinite;
+}
+
+@keyframes oauth-spin {
+  to { transform: rotate(360deg); }
+}
+
+.connected-accounts-card {
+  display: grid;
+  gap: 0.85rem;
+  border: none;
+}
+
+.connected-account-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.connected-account-row + .connected-account-row {
+  padding-top: 0.85rem;
+  border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+}
+
+.connected-account-info {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 600;
+}
+
+.connected-account-label-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.connected-account-sublabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--ink-muted);
+}
+
+.connected-account-logo {
+  width: 1.35rem;
+  height: 1.35rem;
+  flex-shrink: 0;
+}
+
+.connected-account-logo-bnet {
+  color: #148eff;
+}
+
+.connected-account-logo-discord {
+  color: #5865f2;
+}
+
+.connected-account-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #148eff;
+  background: color-mix(in srgb, #148eff 12%, transparent);
+  border-radius: var(--radius-pill);
+  padding: 0.15rem 0.55rem;
+}
+
+.connected-account-badge-discord {
+  color: #5865f2;
+  background: color-mix(in srgb, #5865f2 12%, transparent);
+}
+
+.connected-account-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.connected-account-warning {
+  font-size: 0.8rem;
+  color: var(--ink-muted);
+  max-width: 220px;
+  text-align: right;
+  margin: 0;
+}
+
+.connected-account-btn {
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.connected-account-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.connected-account-btn-connect {
+  background: #148eff;
+  color: #fff;
+}
+
+.connected-account-btn-connect:hover:not(:disabled) {
+  background: #1a9aff;
+}
+
+.connected-account-btn-connect-discord {
+  background: #5865f2;
+}
+
+.connected-account-btn-connect-discord:hover:not(:disabled) {
+  background: #6470f3;
+}
+
+.connected-account-btn-disconnect {
+  background: color-mix(in srgb, var(--card) 60%, var(--line));
+  color: var(--ink-1);
+}
+
+.connected-account-btn-disconnect:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--card) 40%, var(--line));
 }
 </style>

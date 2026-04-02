@@ -20,6 +20,9 @@ pub async fn spawn_test_server(pool: PgPool) -> String {
             battlenet_client_id: String::new(),
             battlenet_client_secret: String::new(),
             battlenet_redirect_uri: String::new(),
+            discord_client_id: String::new(),
+            discord_client_secret: String::new(),
+            discord_redirect_uri: String::new(),
             frontend_url: "http://localhost:5173".to_string(),
         },
     };

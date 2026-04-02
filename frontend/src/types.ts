@@ -15,6 +15,25 @@ export type OverwatchRole = 'Tank' | 'DPS' | 'Support' | 'Flex'
 // ── Event domain ───────────────────────────────────────────────────────
 export type EventType = 'PUG' | 'TOURNEY'
 export type EventFormat = '5v5' | '6v6' | '1v1'
+export type EventStatus = 'DRAFT' | 'ACTIVE' | 'ENDED'
+
+export interface LinkedUserInfo {
+  id: string
+  username: string
+  display_name: string
+  discord_username: string | null
+  battletag: string | null
+  avatar_url: string | null
+}
+
+export interface ParticipatedEventSummary {
+  id: string
+  name: string
+  start_date: string | null
+  event_type: EventType
+  format: EventFormat
+  status: EventStatus
+}
 
 export interface RoleRank {
   role: OverwatchRole
@@ -39,6 +58,9 @@ export interface EventPlayer {
   assigned_role: OverwatchRole | null
   assigned_rank: OverwatchRank | null
   roles: RoleRank[]
+  linked_user?: LinkedUserInfo | null
+  reported_discord?: string | null
+  reported_battletag?: string | null
 }
 
 export interface EventMatch {
@@ -73,8 +95,10 @@ export interface Event {
   can_manage: boolean
   public_signup_enabled: boolean
   public_signup_token: string | null
+  require_discord: boolean
+  require_battletag: boolean
   is_featured: boolean
-  is_ended: boolean
+  status: EventStatus
   creator_id?: number | string
   creator_name?: string
   players: EventPlayer[]
@@ -93,12 +117,16 @@ export interface SignupLink {
 }
 
 export interface PublicSignupInfo {
+  event_id?: string | number
   event_name: string
   public_signup_enabled: boolean
   current_players: number
   max_players: number
   current_signup_requests: number
   start_date?: string | null
+  already_joined: boolean
+  require_discord: boolean
+  require_battletag: boolean
   [key: string]: unknown
 }
 
@@ -109,6 +137,9 @@ export interface SignupRequest {
   created_at?: string
   updated_at?: string
   roles?: Array<{ role: string; rank: string }>
+  linked_user?: LinkedUserInfo | null
+  reported_discord?: string | null
+  reported_battletag?: string | null
   [key: string]: unknown
 }
 
@@ -125,6 +156,9 @@ export interface AuthUser {
   rank_support: OverwatchRank
   can_edit_battletag: boolean
   has_password: boolean
+  has_discord_identity: boolean
+  discord_username: string | null
+  avatar_url: string | null
 }
 
 export interface AuthSession {

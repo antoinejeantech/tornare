@@ -251,3 +251,231 @@ async fn admin_delete_of_nonexistent_user_returns_404(pool: PgPool) {
         "deleting a non-existent user must return 404"
     );
 }
+
+#[sqlx::test]
+async fn participated_events_lists_events_joined_via_signup_acceptance(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let owner = register(&client, &base, "owner-participated@test.local", "owner_participated").await;
+    let player = register(&client, &base, "player-participated@test.local", "player_participated").await;
+
+    let owner_token = owner["access_token"]
+        .as_str()
+        .expect("owner response must include access token")
+        .to_string();
+    let player_token = player["access_token"]
+        .as_str()
+        .expect("player response must include access token")
+        .to_string();
+    let player_id = player["user"]["id"]
+        .as_str()
+        .expect("player response must include user id")
+        .to_string();
+
+    let res = client
+        .post(format!("{base}/api/events"))
+        .bearer_auth(&owner_token)
+        .json(&json!({
+            "name": "Participation Test Event",
+            "description": "",
+            "event_type": "PUG",
+            "format": "5v5",
+            "public_signup_enabled": true,
+            "max_players": 10
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "create event should return 200");
+    let event: Value = res.json().await.unwrap();
+    let event_id = event["id"].as_str().expect("event id missing").to_string();
+
+    // Publish so that public signups are accepted.
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/publish"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "publish event should return 200");
+
+    let res = client
+        .get(format!("{base}/api/events/{event_id}/signup-link"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    let link: Value = res.json().await.unwrap();
+    let signup_token = link["signup_token"].as_str().expect("signup_token missing").to_string();
+
+    let res = client
+        .post(format!("{base}/api/public/event-signups/{signup_token}/requests"))
+        .bearer_auth(&player_token)
+        .json(&json!({
+            "name": "Participant",
+            "roles": [{"role": "Tank", "rank": "Gold"}]
+        }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "signup request should be accepted");
+
+    let res = client
+        .get(format!("{base}/api/events/{event_id}/signup-requests"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    let requests: Value = res.json().await.unwrap();
+    let request_id = requests
+        .as_array()
+        .expect("signup requests must be an array")
+        .first()
+        .and_then(|request| request["id"].as_str())
+        .expect("signup request id missing")
+        .to_string();
+
+    let res = client
+        .post(format!("{base}/api/events/{event_id}/signup-requests/{request_id}/accept"))
+        .bearer_auth(&owner_token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "accept signup should return 200");
+
+    let res = client
+        .get(format!("{base}/api/users/{player_id}/participated-events"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "participated events should return 200");
+    let participated: Value = res.json().await.unwrap();
+    let items = participated.as_array().expect("participated events must be an array");
+    assert_eq!(items.len(), 1, "expected exactly one participated event");
+    assert_eq!(items[0]["id"].as_str(), Some(event_id.as_str()));
+    assert_eq!(items[0]["name"].as_str(), Some("Participation Test Event"));
+    assert_eq!(items[0]["event_type"].as_str(), Some("PUG"));
+    assert_eq!(items[0]["format"].as_str(), Some("5v5"));
+    assert_eq!(items[0]["status"].as_str(), Some("ACTIVE"));
+}
+
+// ---------------------------------------------------------------------------
+// Avatar picker
+// ---------------------------------------------------------------------------
+
+/// Updating to a valid preset path must succeed and return the new avatar_url.
+#[sqlx::test]
+async fn set_avatar_to_valid_preset_succeeds(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let user = register(&client, &base, "avatarok@test.local", "avatarok").await;
+    let user_id = user["user"]["id"].as_str().expect("must have id").to_string();
+    let token = user["access_token"].as_str().expect("must have token").to_string();
+
+    let res = client
+        .patch(format!("{base}/api/users/{user_id}/avatar"))
+        .bearer_auth(&token)
+        .json(&json!({ "avatar_url": "/avatars/tracer.webp" }))
+        .send()
+        .await
+        .expect("request must complete");
+    assert_eq!(res.status().as_u16(), 200, "valid preset must return 200");
+
+    let body: Value = res.json().await.expect("must return JSON");
+    assert_eq!(
+        body["avatar_url"].as_str(),
+        Some("/avatars/tracer.webp"),
+        "returned avatar_url must match the preset"
+    );
+}
+
+/// Submitting an arbitrary external URL must be rejected with 400.
+#[sqlx::test]
+async fn set_avatar_to_arbitrary_url_is_rejected(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let user = register(&client, &base, "avatarbad@test.local", "avatarbad").await;
+    let user_id = user["user"]["id"].as_str().expect("must have id").to_string();
+    let token = user["access_token"].as_str().expect("must have token").to_string();
+
+    let res = client
+        .patch(format!("{base}/api/users/{user_id}/avatar"))
+        .bearer_auth(&token)
+        .json(&json!({ "avatar_url": "https://evil.example/steal.png" }))
+        .send()
+        .await
+        .expect("request must complete");
+    assert_eq!(
+        res.status().as_u16(),
+        400,
+        "arbitrary URL must be rejected with 400"
+    );
+}
+
+/// Sending null must reset the avatar_url to null (back to initials fallback).
+#[sqlx::test]
+async fn set_avatar_to_null_resets_avatar(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let user = register(&client, &base, "avatarnull@test.local", "avatarnull").await;
+    let user_id = user["user"]["id"].as_str().expect("must have id").to_string();
+    let token = user["access_token"].as_str().expect("must have token").to_string();
+
+    // First set a preset.
+    client
+        .patch(format!("{base}/api/users/{user_id}/avatar"))
+        .bearer_auth(&token)
+        .json(&json!({ "avatar_url": "/avatars/mercy.webp" }))
+        .send()
+        .await
+        .expect("request must complete");
+
+    // Then reset to null.
+    let res = client
+        .patch(format!("{base}/api/users/{user_id}/avatar"))
+        .bearer_auth(&token)
+        .json(&json!({ "avatar_url": null }))
+        .send()
+        .await
+        .expect("request must complete");
+    assert_eq!(res.status().as_u16(), 200, "null reset must return 200");
+
+    let body: Value = res.json().await.expect("must return JSON");
+    assert!(
+        body["avatar_url"].is_null(),
+        "avatar_url must be null after reset; got: {}",
+        body["avatar_url"]
+    );
+}
+
+/// A user must not be able to change another user's avatar.
+#[sqlx::test]
+async fn user_cannot_set_another_users_avatar(pool: PgPool) {
+    let base = spawn_test_server(pool).await;
+    let client = Client::new();
+
+    let alice = register(&client, &base, "alice_av@test.local", "alice_av").await;
+    let bob = register(&client, &base, "bob_av@test.local", "bob_av").await;
+
+    let bob_id = bob["user"]["id"].as_str().expect("must have id").to_string();
+    let alice_token = alice["access_token"].as_str().expect("must have token").to_string();
+
+    let res = client
+        .patch(format!("{base}/api/users/{bob_id}/avatar"))
+        .bearer_auth(&alice_token)
+        .json(&json!({ "avatar_url": "/avatars/genji.webp" }))
+        .send()
+        .await
+        .expect("request must complete");
+    assert_eq!(
+        res.status().as_u16(),
+        403,
+        "changing another user's avatar must return 403"
+    );
+}

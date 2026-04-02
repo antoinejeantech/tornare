@@ -3,9 +3,10 @@ use uuid::Uuid;
 use crate::{
     app::state::AppState,
     features::{
+        auth::service::maybe_authenticated_user_id,
         events::models::{
             CreateEventSignupRequestInput, Event, EventSignupLinkResponse,
-            EventSignupRequest, PublicEventSignupInfo, SignupStatus,
+            EventSignupRequest, EventStatus, PublicEventSignupInfo, SignupStatus,
         },
         permissions::require_event_owner_access,
     },
@@ -14,6 +15,8 @@ use crate::{
         models::MessageResponse,
     },
 };
+
+use axum::http::HeaderMap;
 
 use super::{ensure_event_exists, ensure_event_has_capacity_for_new_player, repo};
 use super::validation::validate_signup_request_input;
@@ -87,9 +90,10 @@ pub async fn set_event_public_signup_for_user(
 pub async fn get_public_signup_info(
     state: &AppState,
     signup_token: &str,
+    viewer_user_id: Option<Uuid>,
 ) -> Result<PublicEventSignupInfo, ApiError> {
     let token = signup_token.trim();
-    let Some(info) = repo::event_signup_info_by_token(&state.pool, token).await? else {
+    let Some(info) = repo::event_signup_info_by_token(&state.pool, token, viewer_user_id).await? else {
         return Err(not_found("Signup link not found"));
     };
 
@@ -100,30 +104,91 @@ pub async fn create_public_signup_request(
     state: &AppState,
     signup_token: &str,
     payload: CreateEventSignupRequestInput,
+    headers: &HeaderMap,
 ) -> Result<MessageResponse, ApiError> {
     validate_signup_request_input(&payload)?;
 
+    let submitter_user_id = maybe_authenticated_user_id(state, headers);
+
     let token = signup_token.trim();
-    let Some(info) = repo::event_signup_info_by_token(&state.pool, token).await? else {
+    let Some(info) = repo::event_signup_info_by_token(&state.pool, token, submitter_user_id).await? else {
         return Err(not_found("Signup link not found"));
     };
+
+    if info.status != EventStatus::Active {
+        return Err(bad_request("Signups are not open for this event"));
+    }
+
+    if let Some(uid) = submitter_user_id {
+        if repo::is_user_already_a_player(&state.pool, info.event_id, uid).await? {
+            return Err(bad_request("You are already registered as a player in this event"));
+        }
+    }
 
     if info.current_signup_requests >= MAX_SIGNUP_REQUESTS_PER_EVENT {
         return Err(bad_request("Signup request limit reached for this event"));
     }
 
     let clean_name = payload.name.trim();
-    if repo::has_pending_signup_request_with_name(&state.pool, info.event_id, clean_name).await? {
-        return Err(bad_request(
-            "A signup request with this name is already pending",
-        ));
+
+    if let Some(uid) = submitter_user_id {
+        if repo::has_pending_signup_request_with_user_id(&state.pool, info.event_id, uid).await? {
+            return Err(bad_request(
+                "You already have a pending signup request for this event",
+            ));
+        }
+    }
+
+    let clean_discord = payload.discord_username.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let clean_battletag = payload.battletag.as_deref().map(str::trim).filter(|s| !s.is_empty());
+
+    // If the event requires Discord, the submitter must either supply it manually
+    // or have a verified Discord identity linked to their account.
+    if info.require_discord && clean_discord.is_none() {
+        let satisfied_by_linked = match submitter_user_id {
+            Some(uid) => repo::user_has_identity_for_provider(&state.pool, uid, "discord").await?,
+            None => false,
+        };
+        if !satisfied_by_linked {
+            return Err(bad_request("A Discord username is required to sign up for this event"));
+        }
+    }
+
+    // Same for Battle.net.
+    if info.require_battletag && clean_battletag.is_none() {
+        let satisfied_by_linked = match submitter_user_id {
+            Some(uid) => repo::user_has_identity_for_provider(&state.pool, uid, "battlenet").await?,
+            None => false,
+        };
+        if !satisfied_by_linked {
+            return Err(bad_request("A Battle.net tag is required to sign up for this event"));
+        }
+    }
+
+    if let Some(discord) = clean_discord {
+        if repo::has_pending_signup_request_with_discord(&state.pool, info.event_id, discord).await? {
+            return Err(bad_request(
+                "A signup request with this Discord username is already pending",
+            ));
+        }
+    }
+
+    if let Some(battletag) = clean_battletag {
+        if repo::has_pending_signup_request_with_battletag(&state.pool, info.event_id, battletag).await? {
+            return Err(bad_request(
+                "A signup request with this Battle.net tag is already pending",
+            ));
+        }
     }
 
     repo::create_signup_request(
         &state.pool,
         info.event_id,
         clean_name,
+        submitter_user_id,
         &payload.roles,
+        clean_discord,
+        clean_battletag,
     )
     .await?;
 
@@ -193,6 +258,7 @@ pub async fn accept_signup_request_for_user(
         primary.role.as_db_value(),
         primary.rank.as_db_value(),
         Some(request_id),
+        request.submitter_user_id,
         &role_pairs,
     )
     .await?;

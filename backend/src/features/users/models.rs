@@ -13,6 +13,47 @@ pub const OVERWATCH_RANKS: [&str; 9] = [
     "Champion",
 ];
 
+pub fn random_preset_avatar() -> &'static str {
+    use rand::Rng;
+    let idx = rand::rng().random_range(0..ALLOWED_PRESET_AVATARS.len());
+    ALLOWED_PRESET_AVATARS[idx]
+}
+
+pub const ALLOWED_PRESET_AVATARS: &[&str] = &[
+    "/avatars/ana.webp",
+    "/avatars/ashe.webp",
+    "/avatars/baptiste.webp",
+    "/avatars/bastion.webp",
+    "/avatars/brigitte.webp",
+    "/avatars/cassidy.webp",
+    "/avatars/echo.webp",
+    "/avatars/freja.webp",
+    "/avatars/genji.webp",
+    "/avatars/hanzo.webp",
+    "/avatars/illari.webp",
+    "/avatars/junkrat.webp",
+    "/avatars/kiriko.webp",
+    "/avatars/lifeweaver.webp",
+    "/avatars/lucio.webp",
+    "/avatars/mei.webp",
+    "/avatars/mercy.webp",
+    "/avatars/moira.webp",
+    "/avatars/sojourn.webp",
+    "/avatars/soldier76.webp",
+    "/avatars/symmetra.webp",
+    "/avatars/torbjorn.webp",
+    "/avatars/tracer.webp",
+    "/avatars/venture.webp",
+    "/avatars/widowmaker.webp",
+    "/avatars/wuyang.webp",
+    "/avatars/zenyatta.webp",
+];
+
+#[derive(Deserialize)]
+pub struct UpdateAvatarInput {
+    pub avatar_url: Option<String>,
+}
+
 #[derive(Deserialize)]
 pub struct UpdateUserProfileInput {
     pub username: String,
@@ -36,4 +77,14 @@ pub struct UserSearchResult {
     pub id: Uuid,
     pub username: String,
     pub display_name: String,
+}
+
+#[derive(Serialize)]
+pub struct ParticipatedEventSummary {
+    pub id: Uuid,
+    pub name: String,
+    pub start_date: Option<String>,
+    pub event_type: String,
+    pub format: String,
+    pub status: String,
 }

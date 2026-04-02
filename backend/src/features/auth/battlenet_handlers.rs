@@ -4,13 +4,16 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     Json,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
 
 use crate::{
     app::{security::enforce_rate_limit, state::AppState},
     features::auth::models::{AuthResponse, BnetCompleteInput},
-    shared::{errors::ApiResult, models::MessageResponse},
+    shared::{
+        errors::{internal_error, ApiError, ApiResult},
+        models::MessageResponse,
+    },
 };
 
 use super::{battlenet_service, service};
@@ -202,69 +205,21 @@ pub async fn battlenet_complete_signup(
         .map(Json)
 }
 
-#[derive(Deserialize)]
-pub struct ConnectInitParams {
-    pub token: Option<String>,
-}
-
 pub async fn battlenet_connect_init(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Query(params): Query<ConnectInitParams>,
-) -> Response {
-    let frontend_url = &state.config.frontend_url;
-
-    if enforce_rate_limit(&state.rate_limiter, &headers, "bnet_connect_init", 20, 60)
-        .await
-        .is_err()
-    {
-        warn!("battlenet connect-init rate limited");
-        return Redirect::to(&format!(
-            "{}/auth/callback?error=rate_limited",
-            frontend_url,
-        ))
-        .into_response();
-    }
-
-    let token = match params.token.as_deref().filter(|t| !t.trim().is_empty()) {
-        Some(t) => t,
-        None => {
-            return Redirect::to(&format!(
-                "{}/auth/callback?error=unauthorized",
-                frontend_url,
-            ))
-            .into_response();
-        }
-    };
-
-    let user_id = match service::verify_access_token_str(&state, token) {
-        Ok(id) => id,
-        Err(_) => {
-            return Redirect::to(&format!(
-                "{}/auth/callback?error=unauthorized",
-                frontend_url,
-            ))
-            .into_response();
-        }
-    };
-
-    let (url, nonce) = match battlenet_service::battlenet_connect_init_url(&state, user_id).await {
-        Ok(result) => result,
-        Err(_) => {
-            return Redirect::to(&format!(
-                "{}/auth/callback?error=connect_init_failed",
-                frontend_url,
-            ))
-            .into_response();
-        }
-    };
-
+) -> Result<impl IntoResponse, ApiError> {
+    enforce_rate_limit(&state.rate_limiter, &headers, "bnet_connect_init", 20, 60).await?;
+    let user_id = service::require_authenticated_user_id(&state, &headers)?;
+    let (url, nonce) = battlenet_service::battlenet_connect_init_url(&state, user_id).await?;
     let cookie = nonce_cookie(&nonce, &state.config.battlenet_redirect_uri, 600);
-    let mut response = Redirect::to(&url).into_response();
-    if let Ok(val) = HeaderValue::from_str(&cookie) {
-        response.headers_mut().insert(header::SET_COOKIE, val);
-    }
-    response
+    let cookie_val = HeaderValue::from_str(&cookie).map_err(internal_error)?;
+    #[derive(Serialize)]
+    struct ConnectInitResponse { redirect_url: String }
+    Ok((
+        [(header::SET_COOKIE, cookie_val)],
+        Json(ConnectInitResponse { redirect_url: url }),
+    ))
 }
 
 pub async fn battlenet_disconnect(

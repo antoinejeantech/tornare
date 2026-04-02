@@ -34,7 +34,7 @@ struct AccessClaims {
 pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<AuthResponse, ApiError> {
     validate_register_input(&payload)?;
 
-    let normalized_email = normalize_email(&payload.email);
+    let normalized_email = normalize_email(&payload.email)?;
     if repo::email_exists(&state.pool, &normalized_email).await? {
         return Err(bad_request("Email is already registered"));
     }
@@ -46,6 +46,7 @@ pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<A
 
     let password_hash = hash_password(&payload.password)?;
     let user_id = Uuid::new_v4();
+    let avatar_url = crate::features::users::models::random_preset_avatar();
 
     repo::insert_user(
         &state.pool,
@@ -54,6 +55,7 @@ pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<A
         &password_hash,
         &normalized_username,
         payload.display_name.trim(),
+        avatar_url,
     )
     .await?;
     repo::insert_local_identity(&state.pool, user_id, &normalized_email).await?;
@@ -64,9 +66,9 @@ pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<A
 }
 
 pub async fn login_user(state: &AppState, payload: LoginInput) -> Result<AuthResponse, ApiError> {
-    let normalized_email = normalize_email(&payload.email);
+    let normalized_email = normalize_email(&payload.email)?;
 
-    if normalized_email.is_empty() || payload.password.is_empty() {
+    if payload.password.is_empty() {
         return Err(bad_request("Email and password are required"));
     }
 
@@ -189,14 +191,14 @@ pub async fn get_auth_user_by_id(state: &AppState, user_id: Uuid) -> Result<Auth
         rank_support: row.rank_support,
         can_edit_battletag: !row.has_battlenet_identity,
         has_password: row.has_password,
+        has_discord_identity: row.has_discord_identity,
+        discord_username: row.discord_username,
+        avatar_url: row.avatar_url,
     })
 }
 
 fn validate_register_input(payload: &RegisterInput) -> Result<(), ApiError> {
-    let email = normalize_email(&payload.email);
-    if email.is_empty() || !email.contains('@') {
-        return Err(bad_request("A valid email is required"));
-    }
+    normalize_email(&payload.email)?;
 
     if payload.password.len() < 8 {
         return Err(bad_request("Password must be at least 8 characters long"));

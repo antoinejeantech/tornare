@@ -34,6 +34,7 @@ pub async fn add_event_player_for_user(
         payload.name.trim(),
         payload.role.trim(),
         payload.rank.trim(),
+        None,
     )
     .await?;
 

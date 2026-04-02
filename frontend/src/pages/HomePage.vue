@@ -3,11 +3,10 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { apiCall } from '../lib/api'
 import torbjornImage from '../assets/branding/torbjorn.webp'
-import { formatEventStartDate, formatShortMonthDay, getDateTimestamp } from '../lib/dates'
+import { formatEventStartDate, getDateTimestamp } from '../lib/dates'
 import EventListItem from '../components/events/EventListItem.vue'
 import SpotlightEventCard from '../components/events/SpotlightEventCard.vue'
 import ActionCtaButton from '../components/ui/ActionCtaButton.vue'
-import AppBadge from '../components/ui/AppBadge.vue'
 import AppButton from '../components/ui/AppButton.vue'
 import InlineArrowLink from '../components/ui/InlineArrowLink.vue'
 import type { Event } from '../types'
@@ -72,14 +71,6 @@ const fallbackFeaturedEvent = computed(() => {
 
 const featuredEvent = computed(() => featuredEventFromApi.value || fallbackFeaturedEvent.value)
 
-const latestEvents = computed(() => {
-  if (!featuredEvent.value) {
-    return sortedEvents.value.slice(0, 4)
-  }
-
-  return sortedEvents.value.filter((event) => event.id !== featuredEvent.value.id).slice(0, 4)
-})
-
 const totalEvents = computed(() => Number(kpis.value.total_events) || 0)
 const totalSignups = computed(() => Number(kpis.value.total_signups) || 0)
 const upcomingThisWeek = computed(() => Number(kpis.value.upcoming_events_this_week) || 0)
@@ -92,44 +83,6 @@ const countdownEvents = computed(() => {
       return start !== null && start > now
     })
     .slice(0, 2)
-})
-
-const activityRows = computed(() => {
-  return sortedEvents.value.slice(0, 6).map((event) => {
-    const players = Array.isArray(event?.players) ? event.players.length : 0
-    const maxPlayers = Number(event?.max_players) || 0
-
-    return {
-      id: event.id,
-      date: formatShortDate(event?.start_date),
-      name: event?.name || 'Untitled event',
-      format: String(event?.format || '5v5'),
-      players,
-      maxPlayers,
-      status: eventStatusForDashboard(event, players, maxPlayers),
-    }
-  })
-})
-
-const activityDisplayRows = computed(() => {
-  const targetCount = 8
-  const filledRows = activityRows.value.map((row) => ({
-    ...row,
-    placeholder: false,
-  }))
-
-  const placeholders = Array.from({ length: Math.max(0, targetCount - filledRows.length) }, (_, index) => ({
-    id: `placeholder-${index}`,
-    date: '--',
-    name: '',
-    format: '--',
-    players: 0,
-    maxPlayers: 0,
-    status: '',
-    placeholder: true,
-  }))
-
-  return [...filledRows, ...placeholders]
 })
 
 function normalizeDate(value: unknown): number | null {
@@ -152,31 +105,6 @@ function countdownLabel(startDate: unknown): string {
   }
 
   return `${hours}h`
-}
-
-function formatShortDate(value: unknown): string {
-  return formatShortMonthDay(value, '--')
-}
-
-function eventStatusForDashboard(event: Event, players: number, maxPlayers: number): string {
-  if (maxPlayers > 0 && players >= maxPlayers) {
-    return 'Full'
-  }
-
-  const startAt = normalizeDate(event?.start_date)
-  if (startAt !== null && startAt <= Date.now()) {
-    return 'Ongoing'
-  }
-
-  return 'Open'
-}
-
-function activityPlayersFill(players: number, maxPlayers: number): { width: string } {
-  const max = Math.max(1, Number(maxPlayers) || 1)
-  const ratio = Math.max(0, Math.min(1, players / max))
-  return {
-    width: `${Math.round(ratio * 100)}%`,
-  }
 }
 
 async function loadLatestEvents() {
@@ -265,37 +193,20 @@ onMounted(async () => {
     <section class="home-dashboard-grid">
       <section class="home-ticker reveal-block reveal-1">
         <div class="home-ticker-head">
-          <span class="material-symbols-rounded home-ticker-icon" aria-hidden="true">bolt</span>
-          <h2>LIVE ACTIVITY</h2>
+          <span class="material-symbols-rounded home-ticker-icon" aria-hidden="true">event</span>
+          <h2>LATEST EVENTS</h2>
+          <InlineArrowLink to="/events" label="View all" class="home-ticker-view-all" />
         </div>
-        <p v-if="activityRows.length === 0" class="muted">No activity yet. Create an event to kick things off.</p>
-        <div class="home-activity-table-wrap">
-          <div class="home-activity-table-head">
-            <span>Date</span>
-            <span>Event</span>
-            <span>Format</span>
-            <span>Players</span>
-            <span>Status</span>
-          </div>
-          <div class="home-activity-table-body">
-            <article
-              v-for="row in activityDisplayRows"
-              :key="`activity-${row.id}`"
-              :class="['home-activity-row', { 'is-empty': row.placeholder }]"
-            >
-              <span class="home-activity-time">{{ row.date }}</span>
-              <span class="home-activity-event" :title="row.name">{{ row.placeholder ? '\u00A0' : row.name }}</span>
-              <span class="home-activity-format">{{ row.format }}</span>
-              <span class="home-activity-players">
-                <span v-if="!row.placeholder" class="home-activity-players-bar" aria-hidden="true">
-                  <span class="home-activity-players-fill" :class="{ 'is-full': row.maxPlayers > 0 && row.players >= row.maxPlayers }" :style="activityPlayersFill(row.players, row.maxPlayers)"></span>
-                </span>
-                <span class="home-activity-players-value">{{ row.placeholder ? '\u00A0' : row.players }}</span>
-              </span>
-              <AppBadge v-if="!row.placeholder" :variant="{ Open: 'ok', Full: 'danger', Ongoing: 'info' }[row.status] || 'neutral'" :label="row.status" />
-            </article>
-          </div>
-        </div>
+        <p v-if="loadingEvents" class="muted home-ticker-empty">Loading events&hellip;</p>
+        <p v-else-if="sortedEvents.length === 0" class="muted home-ticker-empty">No events yet. <RouterLink to="/events">Create one</RouterLink> to get started.</p>
+        <ul v-else class="home-ticker-list">
+          <EventListItem
+            v-for="event in sortedEvents.slice(0, 6)"
+            :key="event.id"
+            :event="event"
+            :to="{ name: 'event', params: { id: event.id } }"
+          />
+        </ul>
       </section>
 
       <aside class="home-dashboard-side reveal-block reveal-2">
@@ -367,26 +278,6 @@ onMounted(async () => {
       </RouterLink>
     </section>
 
-    <section class="home-latest reveal-block reveal-6">
-      <div class="home-latest-head">
-        <div class="home-latest-title-wrap">
-          <p class="home-latest-kicker">UPCOMING ROSTER</p>
-          <h2>LATEST EVENTS</h2>
-        </div>
-        <InlineArrowLink to="/events" label="View all events" />
-      </div>
-      <p v-if="loadingEvents" class="muted">Loading events...</p>
-      <p v-else-if="latestEvents.length === 0" class="muted">No additional events yet. Open Event Hub to create one.</p>
-      <ul v-else class="home-latest-list">
-        <EventListItem
-          v-for="event in latestEvents"
-          :key="event.id"
-          :event="event"
-          :to="{ name: 'event', params: { id: event.id } }"
-        />
-      </ul>
-    </section>
-
     <section class="home-banner card reveal-block reveal-7">
       <div class="home-banner-copy">
         <h2>Command Center For Captains And Organizers</h2>
@@ -440,6 +331,7 @@ onMounted(async () => {
   flex-direction: column;
   gap: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 .home-dashboard-grid {
@@ -490,10 +382,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.56rem 0.72rem 1.5rem 0.72rem;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  border-bottom: 1px solid var(--line-strong);
-  background: color-mix(in srgb, var(--grey-900) 58%, black 42%);
+  padding: 0.6rem 0.72rem;
 }
 
 .home-ticker-head h2 {
@@ -501,113 +390,34 @@ onMounted(async () => {
 }
 
 .home-ticker-icon {
-  color: var(--ink-muted);
   font-size: 1rem;
+  font-variation-settings: 'FILL' 1;
+  color: var(--brand-1);
 }
 
-.home-activity-table-wrap {
+.home-ticker-view-all {
+  margin-left: auto;
+}
+
+.home-ticker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem 0;
+  display: grid;
+  gap: 0.62rem;
   flex: 1;
-  overflow: hidden;
-  border-radius: 0 0 12px 12px;
-  border: none;
-  background: transparent;
-  box-shadow: none;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.home-ticker-head + .home-activity-table-wrap {
-  margin-top: 0;
+.home-ticker-list :deep(.event-list-item) {
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
 }
 
-.home-activity-table-head,
-.home-activity-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2.6fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 0.4fr);
-  gap: 0.52rem;
-  align-items: center;
-}
-
-.home-activity-table-head {
-  padding: 0.56rem 0.72rem;
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--grey-300);
-  border-bottom: 1px solid var(--line-strong);
-  background: color-mix(in srgb, var(--grey-900) 66%, black 34%);
-}
-
-.home-activity-table-body {
-  display: grid;
-}
-
-.home-activity-row {
-  padding: 0.52rem 0.7rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 92%, var(--bg-1) 8%);
-  color: var(--ink-muted);
-  transition: background 0.16s ease;
-}
-
-.home-activity-row:last-child {
-  border-bottom: 0;
-}
-
-.home-activity-row:hover {
-  background: color-mix(in srgb, var(--brand-2) 8%, var(--card) 92%);
-}
-
-.home-activity-row.is-empty {
-  opacity: 0.42;
-}
-
-.home-activity-row.is-empty:hover {
-  background: transparent;
-}
-
-.home-activity-time,
-.home-activity-format,
-.home-activity-players-value {
-  font-family: var(--font-body);
-  font-size: 0.78rem;
-}
-
-.home-activity-time,
-.home-activity-format {
-  color: var(--ink-muted);
-}
-
-.home-activity-event {
-  font-size: 0.86rem;
-  font-weight: 700;
-  color: var(--ink-1);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.home-activity-players {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.home-activity-players-bar {
-  position: relative;
-  width: 66px;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--line) 85%, var(--bg-1) 15%);
-  overflow: hidden;
-}
-
-.home-activity-players-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-}
-
-.home-activity-players-fill.is-full {
-  background: linear-gradient(90deg, color-mix(in srgb, var(--danger-soft) 90%, var(--bg-1) 10%), color-mix(in srgb, var(--danger-bg) 88%, var(--bg-1) 12%));
+.home-ticker-empty {
+  padding: 1rem 0.72rem;
+  font-size: 0.88rem;
 }
 
 .home-eyebrow {
@@ -891,59 +701,8 @@ onMounted(async () => {
   text-decoration: none;
 }
 
-.home-latest {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0.8rem 0;
-}
-
 .home-shell :deep(.spotlight-event-card) {
   margin-block: var(--space-2);
-}
-
-.home-latest-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 0.7rem;
-  padding-bottom: var(--space-2);
-  margin-bottom: var(--space-2);
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 86%, transparent 14%);
-}
-
-.home-latest-title-wrap {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.home-latest-kicker {
-  margin: 0;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--brand-1) 82%, white 18%);
-}
-
-.home-latest-head h2 {
-  margin: 0;
-}
-
-.home-latest-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.62rem;
-}
-
-.home-latest-list :deep(.event-list-item) {
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
-}
-
-.home-latest-list :deep(.event-list-main .muted) {
-  line-height: 1.35;
 }
 
 .home-banner p {
@@ -1091,12 +850,6 @@ onMounted(async () => {
     flex-direction: column;
     align-items: flex-start;
   }
-
-  .home-activity-table-head,
-  .home-activity-row {
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.9fr) minmax(0, 0.9fr) minmax(0, 1.1fr) minmax(0, 0.42fr);
-    gap: 0.4rem;
-  }
 }
 
 @media (max-width: 640px) {
@@ -1107,22 +860,6 @@ onMounted(async () => {
   }
 
   .home-hero-art {
-    display: none;
-  }
-
-  /* Activity table: drop Format column and hide the progress bar */
-  .home-activity-table-head,
-  .home-activity-row {
-    grid-template-columns: minmax(0, 0.95fr) minmax(0, 2fr) minmax(0, 0.75fr) minmax(0, 0.8fr);
-    gap: 0.36rem;
-  }
-
-  .home-activity-table-head > span:nth-child(3),
-  .home-activity-format {
-    display: none;
-  }
-
-  .home-activity-players-bar {
     display: none;
   }
 }

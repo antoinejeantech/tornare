@@ -34,7 +34,7 @@ export interface EventCtxType {
   updatingSignupVisibility: boolean
   rotatingSignupLink: boolean
   loadingSignupRequests: boolean
-  endingEvent: boolean
+  updatingEventStatus: boolean
 
   // ── Derived flags ──
   isTourneyEvent: boolean
@@ -75,6 +75,8 @@ export interface EventCtxType {
   editEventStartDate: string
   editEventFormat: string
   editEventMaxPlayers: number
+  editEventRequireDiscord: boolean
+  editEventRequireBattletag: boolean
 
   // ── Matchup selections ──
   matchupSelections: Record<string, { teamAId: string; teamBId: string }>
@@ -108,7 +110,8 @@ export interface EventCtxType {
   removePlayer: (player: EventPlayer) => Promise<void>
 
   // ── Match actions ──
-  createMatch: () => Promise<void>
+  initializeNewMatchDraft: () => void
+  createMatch: () => Promise<boolean>
   updateMatchStartDate: (matchId: string, startDate: string) => Promise<void>
   generateTourneyBracket: (mode?: string) => Promise<void>
   clearTourneyBracket: () => Promise<void>
@@ -126,7 +129,9 @@ export interface EventCtxType {
   copySignupLink: () => Promise<void>
   rotateSignupLink: () => Promise<void>
   setSignupVisibility: (enabled: boolean) => Promise<void>
-  setEventEnded: (ended: boolean) => Promise<void>
+  publishEvent: () => Promise<void>
+  unpublishEvent: () => Promise<void>
+  endEvent: () => Promise<void>
   acceptSignupRequest: (requestId: string) => Promise<void>
   declineSignupRequest: (requestId: string) => Promise<void>
 }

@@ -43,23 +43,6 @@ withDefaults(defineProps<{
       </div>
 
       <div class="game-summary-shell animated-panel">
-        <div class="battletag-state" :class="{ missing: !profile.battletag }">
-          <p v-if="profile.battletag && !profile.can_edit_battletag" class="battletag-copy">
-            Connected as <strong>{{ profile.battletag }}</strong>
-          </p>
-          <p v-else-if="profile.battletag" class="battletag-copy">
-            <strong>{{ profile.battletag }}</strong>
-          </p>
-          <p v-else class="battletag-copy">
-            No battletag linked yet.
-          </p>
-          <slot name="overwatch-bnet-action">
-            <button class="battletag-link battletag-link-disabled" type="button" disabled>
-              Connect Battle.net Account
-            </button>
-          </slot>
-        </div>
-
         <slot name="overwatch-ranks">
           <div class="rank-tile-grid">
             <article v-for="entry in overwatchSummaryRows" :key="entry.role" class="rank-tile">

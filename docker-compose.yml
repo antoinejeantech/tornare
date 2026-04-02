@@ -41,8 +41,6 @@ services:
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
     ports:
       - "5173:5173"
-    depends_on:
-      - backend
 
   rust-dev:
     image: rust:1.89-bookworm
@@ -51,8 +49,30 @@ services:
       - .:/workspace
       - cargo-registry:/usr/local/cargo/registry
       - cargo-git:/usr/local/cargo/git
+      - cargo-bin:/usr/local/cargo/bin
       - rust-target:/workspace/backend/target
     command: sleep infinity
+
+  backend-dev:
+    image: rust:1.89-bookworm
+    working_dir: /workspace/backend
+    volumes:
+      - .:/workspace
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - cargo-bin:/usr/local/cargo/bin
+      - rust-target:/workspace/backend/target
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/tornare
+      - SKIP_MIGRATIONS=${SKIP_MIGRATIONS:-false}
+    ports:
+      - "8000:8000"
+    command: sh -c "cargo install cargo-watch --locked 2>/dev/null; cargo watch -x run"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   node-dev:
     image: node:20-bookworm
@@ -65,4 +85,5 @@ volumes:
   postgres-data:
   cargo-registry:
   cargo-git:
+  cargo-bin:
   rust-target:

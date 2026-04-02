@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { getApiBase } from '../lib/api'
-import battlenetLogo from '../assets/branding/bnet-logo.png'
+import BnetIcon from '../components/ui/BnetIcon.vue'
+import DiscordIcon from '../components/ui/DiscordIcon.vue'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const mode = ref('login')
+const mode = computed(() => route.name === 'register' ? 'register' : 'login')
+watch(mode, () => { error.value = '' })
 const email = ref('')
 const password = ref('')
 const passwordConfirm = ref('')
@@ -82,16 +84,12 @@ async function submit() {
   }
 }
 
-function switchMode(nextMode: string) {
-  mode.value = nextMode
-  error.value = ''
-  if (nextMode !== 'register') {
-    passwordConfirm.value = ''
-  }
-}
-
 function loginWithBnet() {
   window.location.href = `${getApiBase()}/api/auth/battlenet/authorize`
+}
+
+function loginWithDiscord() {
+  window.location.href = `${getApiBase()}/api/auth/discord/authorize`
 }
 </script>
 
@@ -107,13 +105,17 @@ function loginWithBnet() {
 
       <div class="auth-bnet">
         <button type="button" class="btn-bnet" @click="loginWithBnet">
-          <img class="btn-bnet-logo" :src="battlenetLogo" alt="" aria-hidden="true" />
+          <BnetIcon class="btn-bnet-logo" />
           <span class="btn-bnet-label">Sign in with Battle.net</span>
+        </button>
+        <button type="button" class="btn-discord" @click="loginWithDiscord">
+          <DiscordIcon class="btn-discord-logo" />
+          <span class="btn-discord-label">Sign in with Discord</span>
         </button>
       </div>
 
       <div class="auth-divider" aria-hidden="true">
-        <span>or sign in with email</span>
+        <span>{{ mode === 'register' ? 'or create account with email' : 'or sign in with email' }}</span>
       </div>
 
       <form class="grid-form" @submit.prevent="submit">
@@ -140,24 +142,16 @@ function loginWithBnet() {
         <button type="submit" class="btn-primary" :disabled="!canSubmit || submitting">{{ submitLabel }}</button>
       </form>
 
-      <div class="auth-switch-row">
-        <button
-          class="btn-secondary"
-          :disabled="mode === 'login'"
-          @click="switchMode('login')"
-          type="button"
-        >
-          Login
-        </button>
-        <button
-          class="btn-secondary"
-          :disabled="mode === 'register'"
-          @click="switchMode('register')"
-          type="button"
-        >
-          Register
-        </button>
-      </div>
+      <p class="auth-switch-hint">
+        <template v-if="mode === 'login'">
+          No account yet?
+          <RouterLink :to="{ name: 'register', query: route.query }">Create one</RouterLink>
+        </template>
+        <template v-else>
+          Already have an account?
+          <RouterLink :to="{ name: 'login', query: route.query }">Sign in</RouterLink>
+        </template>
+      </p>
     </section>
   </main>
 </template>
@@ -185,14 +179,26 @@ function loginWithBnet() {
   margin: 0;
 }
 
-.auth-switch-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+.auth-switch-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--ink-muted);
+}
+
+.auth-switch-hint a {
+  color: var(--brand-1);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-switch-hint a:hover {
+  text-decoration: underline;
 }
 
 .auth-bnet {
   display: grid;
+  gap: 0.5rem;
 }
 
 .auth-divider {
@@ -241,10 +247,8 @@ function loginWithBnet() {
   width: 1.55rem;
   height: 1.55rem;
   display: block;
-  border-radius: var(--radius-pill);
   flex-shrink: 0;
-  background: #fff;
-  padding: 0.18rem;
+  color: white;
 }
 
 .btn-bnet-label {
@@ -253,7 +257,45 @@ function loginWithBnet() {
   letter-spacing: 0.01em;
 }
 
+.btn-discord {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 0.72rem 1.1rem;
+  background: #5865f2;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  transition: background 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 2px 8px rgb(88 101 242 / 32%);
+}
+
+.btn-discord:hover {
+  background: #6470f3;
+  box-shadow: 0 3px 12px rgb(88 101 242 / 44%);
+}
+
+.btn-discord:active {
+  background: #4752c4;
+  box-shadow: 0 1px 4px rgb(88 101 242 / 24%);
+}
+
+.btn-discord-logo {
+  width: 1.45rem;
+  height: 1.45rem;
+  flex-shrink: 0;
+}
+
+.btn-discord-label {
+  font-weight: 700;
+  font-size: 0.97rem;
+  letter-spacing: 0.01em;
+}
+
 @media (prefers-color-scheme: dark) {
-  /* BNet blue works on both light and dark — no override needed */
+  /* BNet and Discord brand colors work on both light and dark — no override needed */
 }
 </style>

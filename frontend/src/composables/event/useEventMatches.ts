@@ -1,6 +1,11 @@
 import { computed, nextTick, ref } from 'vue'
 import type { EventMatchesCtx } from './event-ctx'
-import { normalizeDatetimeLocalInput } from '../../lib/dates'
+import { isoToDatetimeLocalValue, normalizeDatetimeLocalInput } from '../../lib/dates'
+
+function defaultStartDate(): string {
+  const d = new Date(Date.now() + 5 * 60 * 1000)
+  return isoToDatetimeLocalValue(d.toISOString())
+}
 
 export function useEventMatches({
   event, eventId, isTourneyEvent, ensureOwnerAction, setError, setNotice, hydrateSelections, matchupSelections, eventStore, matchStore, confirm,
@@ -16,6 +21,36 @@ export function useEventMatches({
   const newMatchTeamAId = ref('')
   const newMatchTeamBId = ref('')
   const newMatchStartDate = ref('')
+
+  function nextDefaultMatchTitle(): string {
+    const matches = event.value?.matches ?? []
+    const highestIndexedMatch = matches.reduce((highest, match) => {
+      const found = String(match.title || '').trim().match(/^match\s+(\d+)$/i)
+      if (!found) return highest
+      return Math.max(highest, Number(found[1]) || 0)
+    }, 0)
+
+    const nextNumber = Math.max(matches.length, highestIndexedMatch) + 1
+    return `Match ${nextNumber}`
+  }
+
+  function initializeNewMatchDraft() {
+    newMatchTitle.value = nextDefaultMatchTitle()
+    newMatchMap.value = ''
+    newMatchStartDate.value = defaultStartDate()
+
+    const teams = event.value?.teams ?? []
+    if (!isTourneyEvent.value && teams.length === 2) {
+      newMatchTeamAId.value = String(teams[0]?.id || '')
+      newMatchTeamBId.value = String(teams[1]?.id || '')
+      return
+    }
+
+    newMatchTeamAId.value = ''
+    newMatchTeamBId.value = ''
+  }
+
+  initializeNewMatchDraft()
 
   const canCreateMatch = computed(
     () => Boolean(event.value) && newMatchTitle.value.trim().length > 0 && newMatchMap.value.trim().length > 0
@@ -44,14 +79,14 @@ export function useEventMatches({
   }
 
   async function createMatch() {
-    if (!ensureOwnerAction() || !eventId.value || !canCreateMatch.value || creatingMatch.value) return
+    if (!ensureOwnerAction() || !eventId.value || !canCreateMatch.value || creatingMatch.value) return false
 
     let normalizedStartDate = null
     try {
       normalizedStartDate = normalizeDatetimeLocalInput(newMatchStartDate.value, 'match start date')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid match start date')
-      return
+      return false
     }
 
     creatingMatch.value = true
@@ -79,14 +114,12 @@ export function useEventMatches({
           }
         }
       }
-      newMatchTitle.value = ''
-      newMatchMap.value = ''
-      newMatchTeamAId.value = ''
-      newMatchTeamBId.value = ''
-      newMatchStartDate.value = ''
+      initializeNewMatchDraft()
       setNotice('Match created in event')
+      return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create match')
+      return false
     } finally {
       creatingMatch.value = false
     }
@@ -247,6 +280,7 @@ export function useEventMatches({
   return {
     creatingMatch, clearingBracket, deletingMatchId, savingMatchups, reportingWinners, cancellingWinners,
     newMatchTitle, newMatchMap, newMatchTeamAId, newMatchTeamBId, newMatchStartDate, canCreateMatch,
+    initializeNewMatchDraft,
     saveMatchup, createMatch, updateMatchStartDate, generateTourneyBracket, clearTourneyBracket,
     reportMatchWinner, cancelMatchWinner, deleteMatch,
   }

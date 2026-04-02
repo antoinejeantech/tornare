@@ -20,7 +20,10 @@ pub struct UserProfileRow {
     pub rank_support: String,
     pub is_active: bool,
     pub has_battlenet_identity: bool,
+    pub has_discord_identity: bool,
+    pub discord_username: Option<String>,
     pub has_password: bool,
+    pub avatar_url: Option<String>,
 }
 
 /// Active session looked up by refresh-token hash.
@@ -78,13 +81,15 @@ pub async fn insert_user(
     password_hash: &str,
     username: &str,
     display_name: &str,
+    avatar_url: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("INSERT INTO users (id, email, password_hash, username, display_name) VALUES ($1, $2, $3, $4, $5)")
+    sqlx::query("INSERT INTO users (id, email, password_hash, username, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5, $6)")
         .bind(user_id)
         .bind(email)
         .bind(password_hash)
         .bind(username)
         .bind(display_name)
+        .bind(avatar_url)
         .execute(pool)
         .await
         .map_err(internal_error)?;
@@ -159,7 +164,19 @@ pub async fn find_user_profile_by_id(
                         WHERE ai.user_id = u.id
                           AND ai.provider = 'battlenet'
                     ) AS has_battlenet_identity,
-                    (u.password_hash IS NOT NULL) AS has_password
+                    EXISTS(
+                        SELECT 1
+                        FROM auth_identities ai
+                        WHERE ai.user_id = u.id
+                          AND ai.provider = 'discord'
+                    ) AS has_discord_identity,
+                    (SELECT ai.provider_username
+                     FROM auth_identities ai
+                     WHERE ai.user_id = u.id
+                       AND ai.provider = 'discord'
+                     LIMIT 1) AS discord_username,
+                    (u.password_hash IS NOT NULL) AS has_password,
+                    u.avatar_url
                  FROM users u
                  LEFT JOIN user_game_profiles ugp
                      ON ugp.user_id = u.id
@@ -185,7 +202,10 @@ pub async fn find_user_profile_by_id(
         rank_support: r.get("rank_support"),
         is_active: r.get("is_active"),
         has_battlenet_identity: r.get("has_battlenet_identity"),
+        has_discord_identity: r.get("has_discord_identity"),
+        discord_username: r.get("discord_username"),
         has_password: r.get("has_password"),
+        avatar_url: r.get("avatar_url"),
     }))
 }
 
@@ -321,14 +341,16 @@ pub async fn insert_bnet_user(
     email: &str,
     username: &str,
     display_name: &str,
+    avatar_url: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO users (id, email, username, display_name) VALUES ($1, $2, $3, $4)",
+        "INSERT INTO users (id, email, username, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5)",
     )
     .bind(user_id)
     .bind(email)
     .bind(username)
     .bind(display_name)
+    .bind(avatar_url)
     .execute(pool)
     .await
     .map_err(internal_error)?;
@@ -339,15 +361,18 @@ pub async fn ensure_bnet_identity(
     pool: &PgPool,
     user_id: Uuid,
     sub: &str,
+    battletag: &str,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO auth_identities (id, user_id, provider, provider_user_id)
-         VALUES ($1, $2, 'battlenet', $3)
-         ON CONFLICT (provider, provider_user_id) DO NOTHING",
+        "INSERT INTO auth_identities (id, user_id, provider, provider_user_id, provider_username)
+         VALUES ($1, $2, 'battlenet', $3, $4)
+         ON CONFLICT (provider, provider_user_id)
+         DO UPDATE SET provider_username = EXCLUDED.provider_username",
     )
     .bind(Uuid::new_v4())
     .bind(user_id)
     .bind(sub)
+    .bind(battletag)
     .execute(pool)
     .await
     .map_err(internal_error)?;
@@ -407,6 +432,102 @@ pub async fn unlock_bnet_game_profile(
          SET handle = NULL, provider = 'manual', provider_user_id = NULL, is_handle_locked = false,
              updated_at = NOW()
          WHERE user_id = $1 AND game_code = 'overwatch'",
+    )
+    .bind(user_id)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Discord OAuth helpers
+// ---------------------------------------------------------------------------
+
+pub async fn find_user_id_by_discord_sub(
+    pool: &PgPool,
+    sub: &str,
+) -> Result<Option<Uuid>, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT user_id
+         FROM auth_identities
+         WHERE provider = 'discord'
+           AND provider_user_id = $1
+         LIMIT 1",
+    )
+    .bind(sub)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.map(|r| r.get("user_id")))
+}
+
+pub async fn insert_discord_user(
+    pool: &PgPool,
+    user_id: Uuid,
+    email: &str,
+    username: &str,
+    display_name: &str,
+    avatar_url: Option<&str>,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO users (id, email, username, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5)",
+    )
+    .bind(user_id)
+    .bind(email)
+    .bind(username)
+    .bind(display_name)
+    .bind(avatar_url)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(())
+}
+
+pub async fn update_user_avatar_url(
+    pool: &PgPool,
+    user_id: Uuid,
+    avatar_url: Option<&str>,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("UPDATE users SET avatar_url = $1 WHERE id = $2")
+        .bind(avatar_url)
+        .bind(user_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+    Ok(())
+}
+
+pub async fn ensure_discord_identity(
+    pool: &PgPool,
+    user_id: Uuid,
+    sub: &str,
+    username: &str,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "INSERT INTO auth_identities (id, user_id, provider, provider_user_id, provider_username)
+         VALUES ($1, $2, 'discord', $3, $4)
+         ON CONFLICT (provider, provider_user_id)
+         DO UPDATE SET provider_username = EXCLUDED.provider_username",
+    )
+    .bind(Uuid::new_v4())
+    .bind(user_id)
+    .bind(sub)
+    .bind(username)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(())
+}
+
+pub async fn remove_discord_identity(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query(
+        "DELETE FROM auth_identities
+         WHERE user_id = $1 AND provider = 'discord'",
     )
     .bind(user_id)
     .execute(pool)

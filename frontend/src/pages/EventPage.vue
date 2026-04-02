@@ -123,16 +123,17 @@ const matches = useEventMatches({ ...sharedCtx, isTourneyEvent, matchupSelection
 // ── Destructure composable returns ─────────────────────────────────────
 const {
   editEventName, editEventDescription, editEventStartDate, editEventFormat, editEventMaxPlayers,
+  editEventRequireDiscord, editEventRequireBattletag,
   updatingEvent, deletingEvent, canSaveEventMeta,
   syncEventEditDraftFromEvent, saveEventEdit, deleteEvent,
 } = settings
 
 const {
   signupToken, signupRequests, loadingSignupRequests, reviewingSignupRequests,
-  rotatingSignupLink, updatingSignupVisibility, updatingFeaturedEvent, endingEvent,
+  rotatingSignupLink, updatingSignupVisibility, updatingFeaturedEvent, updatingEventStatus,
   signupShareUrl, pendingSignupRequestCount,
   loadOwnerSignupData, clearSignupData, copySignupLink, rotateSignupLink, setSignupVisibility,
-  setFeaturedEvent, setEventEnded, acceptSignupRequest, declineSignupRequest,
+  setFeaturedEvent, publishEvent, unpublishEvent, endEvent, acceptSignupRequest, declineSignupRequest,
 } = signup
 
 const {
@@ -154,6 +155,7 @@ const {
 const {
   creatingMatch, clearingBracket, deletingMatchId, savingMatchups, reportingWinners, cancellingWinners,
   newMatchTitle, newMatchMap, newMatchTeamAId, newMatchTeamBId, newMatchStartDate, canCreateMatch,
+  initializeNewMatchDraft,
   saveMatchup, createMatch, updateMatchStartDate, generateTourneyBracket, clearTourneyBracket,
   reportMatchWinner, cancelMatchWinner, deleteMatch,
 } = matches
@@ -329,7 +331,7 @@ provide('eventCtx', proxyRefs({
   rotatingSignupLink,
   updatingSignupVisibility,
   updatingEvent,
-  endingEvent,
+  updatingEventStatus,
   signupShareUrl,
   signupToken,
   lastBalanceSummary,
@@ -339,11 +341,14 @@ provide('eventCtx', proxyRefs({
   editEventStartDate,
   editEventFormat,
   editEventMaxPlayers,
+  editEventRequireDiscord,
+  editEventRequireBattletag,
   canSaveEventMeta,
   openSection,
   createTeam,
   autoCreateSoloTeams,
   autoBalanceTeams,
+  initializeNewMatchDraft,
   createMatch,
   updateMatchStartDate,
   generateTourneyBracket,
@@ -366,7 +371,9 @@ provide('eventCtx', proxyRefs({
   setSignupVisibility,
   syncEventEditDraftFromEvent,
   saveEventEdit,
-  setEventEnded,
+  publishEvent,
+  unpublishEvent,
+  endEvent,
   acceptSignupRequest,
   declineSignupRequest,
   getRankIcon,
@@ -425,44 +432,74 @@ provide('eventCtx', proxyRefs({
           </button>
         </aside>
 
+        <!-- Mobile bottom tab bar -->
+        <nav class="event-bottom-nav" aria-label="Event sections">
+          <button class="bottom-nav-item" :class="{ active: activeSection === 'overview' }" @click="openSection('overview')">
+            <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">dashboard</span>
+            <span class="bottom-nav-label">Overview</span>
+          </button>
+          <button class="bottom-nav-item" :class="{ active: activeSection === 'roster' }" @click="openSection('roster')">
+            <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">group</span>
+            <span class="bottom-nav-label">Players</span>
+          </button>
+          <button class="bottom-nav-item" :class="{ active: activeSection === 'teams' }" @click="openSection('teams')">
+            <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">verified_user</span>
+            <span class="bottom-nav-label">Teams</span>
+          </button>
+          <button class="bottom-nav-item" :class="{ active: activeSection === 'matches' }" @click="openSection('matches')">
+            <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">swords</span>
+            <span class="bottom-nav-label">Matches</span>
+          </button>
+          <button v-if="canManageEvent" class="bottom-nav-item" :class="{ active: activeSection === 'requests' }" @click="openSection('requests')">
+            <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">mail</span>
+            <span class="bottom-nav-label">Requests</span>
+            <span v-if="pendingSignupRequestCount > 0" class="bottom-nav-badge" aria-hidden="true">{{ pendingSignupRequestCount }}</span>
+          </button>
+          <button v-if="canManageEvent" class="bottom-nav-item" :class="{ active: activeSection === 'settings' }" @click="openSection('settings')">
+            <span class="material-symbols-rounded bottom-nav-icon" aria-hidden="true">settings</span>
+            <span class="bottom-nav-label">Settings</span>
+          </button>
+        </nav>
+
         <section class="event-main-column">
-          <div class="card event-header-row event-header-card">
-            <div class="event-title-stack">
+          <div class="card event-header-card">
+            <div class="event-header-top">
               <span class="event-logo" aria-hidden="true">
                 <span class="material-symbols-rounded event-logo-icon" aria-hidden="true">trophy</span>
               </span>
               <div class="event-title-row">
                 <div class="event-title-name-row">
                   <h2>{{ event.name }}</h2>
-                  <AppBadge v-if="event.is_ended" variant="muted" label="Ended" />
+                  <AppBadge v-if="event.status === 'ENDED'" variant="muted" label="Ended" />
+                  <AppBadge v-else-if="event.status === 'DRAFT'" variant="warning" label="Draft" />
                 </div>
                 <div v-if="eventStartsInLabel || eventStartDateTimeLabel" class="event-starts-in muted">
-                  <span v-if="eventStartsInLabel" class="event-start-meta">
+                  <span v-if="eventStartsInLabel" class="event-start-meta event-starts-in-countdown">
                     <span class="material-symbols-rounded" aria-hidden="true">timer</span>
                     <span>{{ eventStartsInLabel }}</span>
                   </span>
-                  <span v-if="eventStartsInLabel && eventStartDateTimeLabel" class="event-start-separator" aria-hidden="true">|</span>
+                  <span v-if="eventStartsInLabel && eventStartDateTimeLabel" class="event-start-separator event-starts-in-countdown" aria-hidden="true">|</span>
                   <span v-if="eventStartDateTimeLabel" class="event-start-meta">
                     <span class="material-symbols-rounded" aria-hidden="true">calendar_month</span>
                     <span>{{ eventStartDateTimeLabel }}</span>
                   </span>
                 </div>
               </div>
-            </div>
-            <div class="event-header-actions">
-              <AppButton
-                v-if="hasEventAdminAccess"
-                :disabled="updatingFeaturedEvent"
-                :full-width="false"
-                :with-top-spacing="false"
-                @click="setFeaturedEvent(!event.is_featured)"
-              >
-                {{ updatingFeaturedEvent ? 'Updating...' : (event.is_featured ? 'Remove spotlight' : 'Set as spotlight') }}
-              </AppButton>
-              <ActionCtaButton v-if="headerJoinRoute && !event.is_ended" :to="headerJoinRoute">
-                <span class="material-symbols-rounded" aria-hidden="true">how_to_reg</span>
-                Join event
-              </ActionCtaButton>
+              <div v-if="hasEventAdminAccess || (headerJoinRoute && event.status === 'ACTIVE')" class="event-header-actions">
+                <AppButton
+                  v-if="hasEventAdminAccess"
+                  :disabled="updatingFeaturedEvent"
+                  :full-width="false"
+                  :with-top-spacing="false"
+                  @click="setFeaturedEvent(!event.is_featured)"
+                >
+                  {{ updatingFeaturedEvent ? 'Updating...' : (event.is_featured ? 'Remove spotlight' : 'Set as spotlight') }}
+                </AppButton>
+                <ActionCtaButton v-if="headerJoinRoute && event.status === 'ACTIVE'" :to="headerJoinRoute">
+                  <span class="material-symbols-rounded" aria-hidden="true">how_to_reg</span>
+                  Join event
+                </ActionCtaButton>
+              </div>
             </div>
           </div>
 
@@ -489,16 +526,15 @@ provide('eventCtx', proxyRefs({
 </template>
 
 <style scoped>
-.event-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0;
-}
-
 .event-header-card {
   padding: 1.35rem 1.15rem;
+}
+
+.event-header-top {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
 }
 
 .event-shell {
@@ -515,11 +551,6 @@ provide('eventCtx', proxyRefs({
   padding: 0.2rem 0;
 }
 
-.event-header-row h2 {
-  margin: 0;
-  text-transform: capitalize;
-}
-
 .event-title-name-row {
   display: flex;
   align-items: center;
@@ -527,29 +558,20 @@ provide('eventCtx', proxyRefs({
   flex-wrap: wrap;
 }
 
-.event-title-stack {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto;
-  gap: 0.42rem 0.6rem;
-  min-width: 0;
-}
-
 .event-title-row {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: 0.65rem;
+  gap: 0.5rem;
   min-width: 0;
-  grid-column: 2;
-  grid-row: 1;
+  flex: 1;
 }
 
 .event-title-row h2 {
   margin: 0;
-  font-size: clamp(2rem, 1.3vw + 1.3rem, 2.8rem);
-  line-height: 1.05;
+  font-size: clamp(1.35rem, 1.3vw + 1rem, 2.4rem);
+  line-height: 1.1;
 }
 
 .event-starts-in {
@@ -579,8 +601,9 @@ provide('eventCtx', proxyRefs({
 }
 
 .event-logo {
-  width: 5.35rem;
-  height: 5.35rem;
+  width: 4.2rem;
+  height: 4.2rem;
+  flex-shrink: 0;
   border-radius: var(--radius-md);
   display: inline-flex;
   align-items: center;
@@ -588,14 +611,11 @@ provide('eventCtx', proxyRefs({
   border: 1px solid color-mix(in srgb, var(--brand-1) 72%, #ffd869 28%);
   background: color-mix(in srgb, var(--brand-1) 14%, transparent 86%);
   box-shadow: none;
-  padding: 0.5rem;
-  grid-column: 1;
-  grid-row: 1;
-  align-self: stretch;
+  padding: 0.4rem;
 }
 
 .event-logo-icon {
-  font-size: 3.15rem;
+  font-size: 2.5rem;
   line-height: 1;
   color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
 }
@@ -604,8 +624,10 @@ provide('eventCtx', proxyRefs({
   display: flex;
   gap: 0.35rem;
   align-items: center;
-  align-self: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .event-layout {
@@ -775,9 +797,14 @@ provide('eventCtx', proxyRefs({
   padding: 1.85rem;
 }
 
+.event-bottom-nav {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .event-shell {
-    padding: 1rem;
+    padding: 0.75rem 0.85rem;
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .event-workspace-card {
@@ -789,40 +816,102 @@ provide('eventCtx', proxyRefs({
   }
 
   .event-left-nav {
-    position: static;
-    top: auto;
-  }
-
-  .event-header-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .event-header-actions {
-    align-self: flex-end;
-  }
-
-  .event-title-stack {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
-    gap: 0.35rem;
+    display: none;
   }
 
   .event-logo {
-    width: 4.2rem;
-    height: 4.2rem;
-    grid-column: 1;
-    grid-row: 1;
-    align-self: start;
+    width: 3.4rem;
+    height: 3.4rem;
   }
 
   .event-logo-icon {
-    font-size: 2.45rem;
+    font-size: 1.9rem;
   }
 
-  .event-title-row {
-    grid-column: 1;
-    grid-row: 2;
+  .event-header-top {
+    flex-wrap: wrap;
+  }
+
+  .event-header-actions {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+  }
+
+  .event-starts-in-countdown {
+    display: none;
+  }
+
+  /* Mobile bottom tab bar */
+  .event-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: var(--bg-0, #111);
+    border-top: 1px solid var(--line);
+    padding: 0.35rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    gap: 0;
+    align-items: stretch;
+  }
+
+  .bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.18rem;
+    border: none;
+    background: transparent;
+    color: var(--ink-3);
+    cursor: pointer;
+    padding: 0.3rem 0.2rem;
+    border-radius: var(--radius-sm);
+    transition: color 0.14s;
+    position: relative;
+    min-width: 0;
+  }
+
+  .bottom-nav-item.active {
+    color: color-mix(in srgb, var(--brand-1) 92%, #ffe08f 8%);
+  }
+
+  .bottom-nav-icon {
+    font-size: 1.45rem;
+    line-height: 1;
+  }
+
+  .bottom-nav-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  .bottom-nav-badge {
+    position: absolute;
+    top: 0.15rem;
+    right: calc(50% - 0.95rem);
+    min-width: 1.1rem;
+    height: 1.1rem;
+    padding: 0 0.25rem;
+    border-radius: var(--radius-pill);
+    background: #ff5a3d;
+    color: white;
+    font-size: 0.62rem;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
   }
 
   .event-panel {

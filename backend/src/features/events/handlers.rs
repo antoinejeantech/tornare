@@ -15,7 +15,7 @@ use crate::{
             CreateEventSignupRequestInput, CreateEventTeamInput, Event, EventSignupLinkResponse,
             EventSignupRequest, EventsKpiResponse, GenerateTourneyBracketInput, ListEventsQuery,
             Match, PaginatedEventsResponse, PublicEventSignupInfo, ReportMatchWinnerInput,
-            SetEventFeaturedInput, SetEventPublicSignupInput, SetEventEndedInput, SetMatchupInput, UpdateEventInput,
+            SetEventFeaturedInput, SetEventPublicSignupInput, SetMatchupInput, UpdateEventInput,
             UpdateEventPlayerInput, UpdateEventTeamInput, UpdateMatchStartDateInput,
         },
     },
@@ -333,14 +333,35 @@ pub async fn set_event_featured(
         .map(Json)
 }
 
-pub async fn set_event_ended(
+pub async fn publish_event(
     Path(event_id): Path<Uuid>,
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(payload): Json<SetEventEndedInput>,
 ) -> ApiResult<Event> {
     let user_id = require_authenticated_user_id(&state, &headers)?;
-    service::set_event_ended_for_user(&state, user_id, event_id, payload.ended)
+    service::publish_event_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
+pub async fn unpublish_event(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Event> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::unpublish_event_for_user(&state, user_id, event_id)
+        .await
+        .map(Json)
+}
+
+pub async fn end_event(
+    Path(event_id): Path<Uuid>,
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Event> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::end_event_for_user(&state, user_id, event_id)
         .await
         .map(Json)
 }
@@ -381,8 +402,10 @@ pub async fn decline_event_signup_request(
 pub async fn get_public_signup_info(
     Path(signup_token): Path<String>,
     State(state): State<AppState>,
+    headers: HeaderMap,
 ) -> ApiResult<PublicEventSignupInfo> {
-    service::get_public_signup_info(&state, &signup_token)
+    let viewer_user_id = maybe_authenticated_user_id(&state, &headers);
+    service::get_public_signup_info(&state, &signup_token, viewer_user_id)
         .await
         .map(Json)
 }
@@ -402,7 +425,7 @@ pub async fn create_public_signup_request(
     )
     .await?;
 
-    service::create_public_signup_request(&state, &signup_token, payload)
+    service::create_public_signup_request(&state, &signup_token, payload, &headers)
         .await
         .map(Json)
 }

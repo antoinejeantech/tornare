@@ -3,6 +3,8 @@ import { computed, inject } from 'vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
 import { getRoleIcon } from '../../lib/roles'
+import DiscordIcon from '../ui/DiscordIcon.vue'
+import BnetIcon from '../ui/BnetIcon.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 import type { SignupRequest } from '../../types'
 
@@ -107,6 +109,33 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
                   <span class="req-role-rank">{{ rp.rank }}</span>
                 </span>
               </div>
+              <div
+                v-if="request.linked_user?.discord_username || request.linked_user?.battletag || request.reported_discord || request.reported_battletag"
+                class="req-accounts-row"
+              >
+                <span v-if="request.linked_user?.discord_username" class="req-account-chip req-account-chip--discord req-account-chip--verified">
+                  <DiscordIcon class="req-account-icon" />
+                  {{ request.linked_user.discord_username }}
+                  <span class="req-account-verified" aria-label="Verified connected account">
+                    <span class="material-symbols-rounded" aria-hidden="true">verified</span>
+                  </span>
+                </span>
+                <span v-else-if="request.reported_discord" class="req-account-chip req-account-chip--discord">
+                  <DiscordIcon class="req-account-icon" />
+                  {{ request.reported_discord }}
+                </span>
+                <span v-if="request.linked_user?.battletag" class="req-account-chip req-account-chip--bnet req-account-chip--verified">
+                  <BnetIcon class="req-account-icon" />
+                  {{ request.linked_user.battletag }}
+                  <span class="req-account-verified" aria-label="Verified connected account">
+                    <span class="material-symbols-rounded" aria-hidden="true">verified</span>
+                  </span>
+                </span>
+                <span v-else-if="request.reported_battletag" class="req-account-chip req-account-chip--bnet">
+                  <BnetIcon class="req-account-icon" />
+                  {{ request.reported_battletag }}
+                </span>
+              </div>
             </div>
             <div class="signup-request-actions">
               <button
@@ -150,6 +179,33 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
                   <span class="req-role-label">{{ rp.role }}</span>
                   <span class="req-role-sep" aria-hidden="true">·</span>
                   <span class="req-role-rank">{{ rp.rank }}</span>
+                </span>
+              </div>
+              <div
+                v-if="request.linked_user?.discord_username || request.linked_user?.battletag || request.reported_discord || request.reported_battletag"
+                class="req-accounts-row"
+              >
+                <span v-if="request.linked_user?.discord_username" class="req-account-chip req-account-chip--discord req-account-chip--verified">
+                  <DiscordIcon class="req-account-icon" />
+                  {{ request.linked_user.discord_username }}
+                  <span class="req-account-verified" aria-label="Verified connected account">
+                    <span class="material-symbols-rounded" aria-hidden="true">verified</span>
+                  </span>
+                </span>
+                <span v-else-if="request.reported_discord" class="req-account-chip req-account-chip--discord">
+                  <DiscordIcon class="req-account-icon" />
+                  {{ request.reported_discord }}
+                </span>
+                <span v-if="request.linked_user?.battletag" class="req-account-chip req-account-chip--bnet req-account-chip--verified">
+                  <BnetIcon class="req-account-icon" />
+                  {{ request.linked_user.battletag }}
+                  <span class="req-account-verified" aria-label="Verified connected account">
+                    <span class="material-symbols-rounded" aria-hidden="true">verified</span>
+                  </span>
+                </span>
+                <span v-else-if="request.reported_battletag" class="req-account-chip req-account-chip--bnet">
+                  <BnetIcon class="req-account-icon" />
+                  {{ request.reported_battletag }}
                 </span>
               </div>
             </div>
@@ -336,5 +392,59 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+.req-accounts-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.26rem;
+  margin-top: 0.1rem;
+}
+
+.req-account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.4rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: 1px solid;
+}
+
+.req-account-chip--discord {
+  border-color: color-mix(in srgb, #5865f2 42%, var(--line) 58%);
+  color: color-mix(in srgb, #adb3ff 85%, white 15%);
+  background: color-mix(in srgb, #5865f2 8%, transparent 92%);
+}
+
+.req-account-chip--bnet {
+  border-color: color-mix(in srgb, #148eff 42%, var(--line) 58%);
+  color: color-mix(in srgb, #74bbff 85%, white 15%);
+  background: color-mix(in srgb, #148eff 8%, transparent 92%);
+}
+
+.req-account-chip--verified {
+  border-color: color-mix(in srgb, currentColor 55%, var(--line) 45%);
+}
+
+.req-account-icon {
+  width: 0.68rem;
+  height: 0.68rem;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.req-account-verified {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.9;
+}
+
+.req-account-verified .material-symbols-rounded {
+  font-size: 0.76rem;
+  line-height: 1;
+  font-variation-settings: 'FILL' 1, 'wght' 700, 'GRAD' 0, 'opsz' 24;
 }
 </style>

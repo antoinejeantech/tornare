@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, ref } from 'vue'
+import AppModal from '../ui/AppModal.vue'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
 import ActionCtaButton from '../ui/ActionCtaButton.vue'
@@ -22,6 +23,7 @@ function startEditPlayer(player: EventPlayer) {
 }
 
 function cancelEditPlayer() {
+  showEditModal.value = false
   ctx.editingPlayerId = null
   ctx.editPlayerName = ''
   ctx.editPlayerRole = 'DPS'
@@ -43,6 +45,7 @@ function openPlayerEditModal(player: EventPlayer) {
   }
 
   startEditPlayer(player)
+  showEditModal.value = true
 }
 
 async function removePlayerFromModal() {
@@ -124,6 +127,7 @@ function removeNewRole(index: number) {
 }
 
 const showAddPlayerForm = ref(false)
+const showEditModal = ref(false)
 
 function openAddPlayerModal() {
   ctx.newPlayerName = ''
@@ -152,7 +156,7 @@ const canSavePlayerEdit = computed(() => {
 
 <template>
   <section>
-    <EventSectionHeader icon="groups" title="Roster Management">
+    <EventSectionHeader icon="groups" title="Roster">
       <div class="header-right">
         <p class="section-total muted">
           <span class="section-total-value">{{ padRosterCount(ctx.event?.players?.length || 0) }}/{{ padRosterCount(ctx.event?.max_players || 0) }}</span>
@@ -167,27 +171,17 @@ const canSavePlayerEdit = computed(() => {
           @click="openAddPlayerModal"
         >
           <span class="material-symbols-rounded" aria-hidden="true">add</span>
-          Add player
+          <span class="cta-add-player-label">Add player</span>
         </ActionCtaButton>
       </div>
     </EventSectionHeader>
 
-    <Teleport to="body">
-      <div
-        v-if="ctx.canManageEvent && showAddPlayerForm"
-        class="player-modal-backdrop"
-        @click.self="closeAddPlayerModal"
-      >
-        <section class="player-modal" role="dialog" aria-modal="true" aria-label="Add player">
-          <div class="player-modal-header">
-            <h4>Add player</h4>
-            <button class="btn-secondary icon-btn" title="Close" @click="closeAddPlayerModal">
-              <span class="material-symbols-rounded" aria-hidden="true">close</span>
-              <span class="sr-only">Close</span>
-            </button>
-          </div>
-
-          <form class="player-modal-form" @submit.prevent="submitAddPlayer">
+    <AppModal
+      v-model:open="showAddPlayerForm"
+      title="Add player"
+      max-width="min(520px, 100%)"
+    >
+      <form class="player-modal-form" @submit.prevent="submitAddPlayer">
             <label>
               Player name
               <input v-model="ctx.newPlayerName" placeholder="Player123" autofocus />
@@ -259,29 +253,27 @@ const canSavePlayerEdit = computed(() => {
                 {{ ctx.addingPlayer ? 'Adding...' : 'Add player' }}
               </button>
             </div>
-          </form>
-        </section>
-      </div>
-    </Teleport>
+      </form>
+    </AppModal>
 
     <p v-if="(ctx.event?.players.length ?? 0) === 0" class="muted">Add players before creating matchups.</p>
     <ul v-else class="roster-list">
       <li v-for="player in ctx.event?.players" :key="player.id" class="roster-list-item">
-        <PlayerCard :player="player" :clickable="ctx.canManageEvent" @select="openPlayerEditModal" />
+        <PlayerCard :player="player" :clickable="ctx.canManageEvent" :show-socials="ctx.canManageEvent" @select="openPlayerEditModal" />
       </li>
     </ul>
 
-    <div v-if="ctx.canManageEvent && activeEditPlayer" class="player-modal-backdrop" @click.self="cancelEditPlayer">
-      <section class="player-modal" role="dialog" aria-modal="true" :aria-label="`Edit ${activeEditPlayer.name}`">
-        <div class="player-modal-header">
-          <h4>Edit player</h4>
-          <button class="btn-secondary icon-btn" title="Close player editor" @click="cancelEditPlayer">
-            <span class="material-symbols-rounded" aria-hidden="true">close</span>
-            <span class="sr-only">Close player editor</span>
-          </button>
-        </div>
-
-        <form class="player-modal-form" @submit.prevent="ctx.savePlayerEdit(activeEditPlayer.id)">
+    <AppModal
+      :open="ctx.canManageEvent && showEditModal"
+      :title="activeEditPlayer ? `Edit ${activeEditPlayer.name}` : ''"
+      max-width="min(520px, 100%)"
+      @update:open="!$event && cancelEditPlayer()"
+    >
+      <form
+        v-if="activeEditPlayer"
+        class="player-modal-form"
+        @submit.prevent="ctx.savePlayerEdit(activeEditPlayer.id)"
+      >
           <label>
             Player name
             <input v-model="ctx.editPlayerName" placeholder="Player name" />
@@ -363,8 +355,7 @@ const canSavePlayerEdit = computed(() => {
             </button>
           </div>
         </form>
-      </section>
-    </div>
+    </AppModal>
   </section>
 </template>
 
@@ -389,6 +380,7 @@ const canSavePlayerEdit = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  flex-shrink: 0;
 }
 
 .cta-add-player {
@@ -419,37 +411,6 @@ const canSavePlayerEdit = computed(() => {
   .roster-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
-
-.player-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: color-mix(in srgb, #02040a 72%, transparent 28%);
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-}
-
-.player-modal {
-  width: min(520px, 100%);
-  border: 1px solid var(--surface-card-border);
-  background: var(--surface-card-bg);
-  border-radius: var(--radius-md);
-  padding: 0.92rem;
-  display: grid;
-  gap: 0.72rem;
-}
-
-.player-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-}
-
-.player-modal-header h4 {
-  margin: 0;
 }
 
 .player-modal-form {
@@ -620,7 +581,8 @@ const canSavePlayerEdit = computed(() => {
   .roster-list {
     grid-template-columns: 1fr;
     max-height: 56vh;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding-right: 0.15rem;
   }
 
@@ -637,6 +599,15 @@ const canSavePlayerEdit = computed(() => {
   .player-modal-actions .btn-secondary,
   .player-modal-actions .btn-primary {
     width: 100%;
+  }
+
+  /* On mobile, hide the text label so only the + icon shows */
+  .cta-add-player-label {
+    display: none;
+  }
+
+  .cta-add-player {
+    padding: 0.42rem 0.62rem;
   }
 }
 </style>

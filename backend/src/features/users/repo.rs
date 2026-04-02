@@ -19,7 +19,10 @@ pub struct UserProfileRow {
     pub rank_support: String,
     pub is_active: bool,
     pub has_battlenet_identity: bool,
+    pub has_discord_identity: bool,
+    pub discord_username: Option<String>,
     pub has_password: bool,
+    pub avatar_url: Option<String>,
 }
 
 pub async fn find_user_profile_by_id(
@@ -59,7 +62,19 @@ pub async fn find_user_profile_by_id(
                         WHERE ai.user_id = u.id
                           AND ai.provider = 'battlenet'
                     ) AS has_battlenet_identity,
-                    (u.password_hash IS NOT NULL) AS has_password
+                    EXISTS(
+                        SELECT 1
+                        FROM auth_identities ai
+                        WHERE ai.user_id = u.id
+                          AND ai.provider = 'discord'
+                    ) AS has_discord_identity,
+                    (SELECT ai.provider_username
+                     FROM auth_identities ai
+                     WHERE ai.user_id = u.id
+                       AND ai.provider = 'discord'
+                     LIMIT 1) AS discord_username,
+                    (u.password_hash IS NOT NULL) AS has_password,
+                    u.avatar_url
                  FROM users u
                  LEFT JOIN user_game_profiles ugp
                      ON ugp.user_id = u.id
@@ -85,7 +100,10 @@ pub async fn find_user_profile_by_id(
         rank_support: r.get("rank_support"),
         is_active: r.get("is_active"),
         has_battlenet_identity: r.get("has_battlenet_identity"),
+        has_discord_identity: r.get("has_discord_identity"),
+        discord_username: r.get("discord_username"),
         has_password: r.get("has_password"),
+        avatar_url: r.get("avatar_url"),
     }))
 }
 
@@ -162,6 +180,20 @@ pub async fn update_local_identity_email(
     .await
     .map_err(internal_error)?;
 
+    Ok(())
+}
+
+pub async fn update_user_avatar_url(
+    pool: &PgPool,
+    user_id: Uuid,
+    avatar_url: Option<&str>,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("UPDATE users SET avatar_url = $1 WHERE id = $2")
+        .bind(avatar_url)
+        .bind(user_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
     Ok(())
 }
 
