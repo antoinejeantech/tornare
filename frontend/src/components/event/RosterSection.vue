@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject, ref } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppModal from '../ui/AppModal.vue'
 import PlayerCard from '../player/PlayerCard.vue'
@@ -130,6 +130,13 @@ function removeNewRole(index: number) {
 
 const showAddPlayerForm = ref(false)
 const showEditModal = ref(false)
+
+// Close the modal when savePlayerEdit succeeds (it clears editingPlayerId)
+watch(() => ctx.editingPlayerId, (newId) => {
+  if (!newId && showEditModal.value) {
+    showEditModal.value = false
+  }
+})
 
 function openAddPlayerModal() {
   ctx.newPlayerName = ''
@@ -346,7 +353,8 @@ const canSavePlayerEdit = computed(() => {
             <button class="btn-secondary" type="button" @click="cancelEditPlayer">
               <span class="material-symbols-rounded" aria-hidden="true">close</span>
               {{ t('roster.cancel') }}
-            >
+            </button>
+            <button class="btn-primary" type="submit" :disabled="!canSavePlayerEdit || Boolean(ctx.savingPlayerEdits[activeEditPlayer.id])">
               <span class="material-symbols-rounded" aria-hidden="true">{{ ctx.savingPlayerEdits[activeEditPlayer.id] ? 'hourglass_empty' : 'save' }}</span>
               {{ ctx.savingPlayerEdits[activeEditPlayer.id] ? t('roster.saving') : t('roster.save') }}
             </button>
