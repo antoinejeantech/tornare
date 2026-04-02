@@ -19,10 +19,22 @@ use super::{discord_service, service};
 use super::discord_service::DiscordCallbackResult;
 
 fn nonce_cookie(nonce: &str, redirect_uri: &str, max_age: u32) -> String {
-    let secure = if redirect_uri.starts_with("https") { "; Secure" } else { "" };
+    // The connect-init endpoint sets this cookie via a cross-origin fetch
+    // (frontend origin → API). When the OAuth provider redirects back to the
+    // callback the browser treats the request as cross-site (provider → API),
+    // so SameSite=Lax does NOT reliably send the cookie (especially under
+    // Chrome's third-party cookie blocking and Safari ITP).
+    // SameSite=None;Secure is required for cookies that must be sent in
+    // cross-site contexts. Secure is mandatory with SameSite=None per spec;
+    // fall back to Lax in non-HTTPS (local dev) where None would be rejected.
+    let (samesite, secure) = if redirect_uri.starts_with("https") {
+        ("None", "; Secure")
+    } else {
+        ("Lax", "")
+    };
     format!(
-        "discord_nonce={}; HttpOnly; SameSite=Lax{}; Path=/api/auth/discord/callback; Max-Age={}",
-        nonce, secure, max_age
+        "discord_nonce={}; HttpOnly; SameSite={}{}; Path=/api/auth/discord/callback; Max-Age={}",
+        nonce, samesite, secure, max_age
     )
 }
 
