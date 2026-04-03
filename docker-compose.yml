@@ -31,6 +31,20 @@ services:
       postgres:
         condition: service_healthy
 
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    image: tornare-bot:latest
+    container_name: tornare-bot
+    env_file:
+      - ./bot/.env
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/tornare
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   frontend:
     image: node:20-bookworm
     working_dir: /app

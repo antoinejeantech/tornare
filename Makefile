@@ -23,7 +23,7 @@ help:
 	@echo "  make bot-shell      - Open bash shell in bot-dev container"
 	@echo "  make bot-check      - Run cargo check on the bot crate"
 	@echo "  make status         - Show compose service status"
-	@echo "  make restart        - Restart backend + frontend + postgres"
+	@echo "  make restart        - Restart backend + bot + frontend + postgres"
 	@echo "  make down           - Stop and remove compose services"
 
 bootstrap:
@@ -32,7 +32,7 @@ bootstrap:
 	@test -f bot/.env || cp bot/.env.example bot/.env
 
 up:
-	docker compose up --build backend frontend
+	docker compose up --build backend bot frontend
 
 dev:
 	docker compose stop backend 2>/dev/null || true
@@ -82,7 +82,7 @@ status:
 	docker compose ps
 
 restart:
-	docker compose up -d --build postgres backend frontend
+	docker compose up -d --build postgres backend bot frontend
 
 down:
 	docker compose down --remove-orphans
