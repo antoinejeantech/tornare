@@ -1,56 +1,61 @@
 <script setup lang="ts">
-const channels = [
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+const channels = computed(() => [
   {
     id: 'discord',
     icon: 'forum',
-    title: 'Community Discord',
-    description: 'Fastest path to help. Post in #support and the community or a maintainer will respond.',
-    label: 'Open Discord',
+    title: t('support.discordTitle'),
+    description: t('support.discordDesc'),
+    label: t('support.discordBtn'),
     href: 'https://discord.gg/tornare',
     primary: true
   },
   {
     id: 'github',
     icon: 'bug_report',
-    title: 'Bug Reports',
-    description: 'Found a reproducible issue? Open a GitHub issue with steps and any visible error message.',
-    label: 'Open Issue',
-    href: 'https://github.com/tornare/tornare/issues',
+    title: t('support.bugsTitle'),
+    description: t('support.bugsDesc'),
+    label: t('support.bugsBtn'),
+    href: 'https://github.com/antoinejeantech/tornare/issues',
     primary: false
   },
   {
     id: 'email',
     icon: 'mail',
-    title: 'Direct Contact',
-    description: 'For account, privacy, or data requests that require private handling.',
-    label: 'support@tornare.gg',
+    title: t('support.contactTitle'),
+    description: t('support.contactDesc'),
+    label: t('support.contactBtn'),
     href: 'mailto:support@tornare.gg',
     primary: false
   }
-]
+])
 
-const topics = [
+const topics = computed(() => [
   {
     icon: 'event',
-    title: 'Event Setup',
-    tip: 'Make sure the event is published (status ACTIVE) and "Public Registration" is enabled in the Settings tab before sharing the signup link. Players cannot submit requests while the event is a Draft or after it has Ended.'
+    title: t('support.topic1Title'),
+    tip: t('support.topic1Desc')
   },
   {
     icon: 'group_add',
-    title: 'Signup Issues',
-    tip: 'If a player cannot submit a request, verify the event is public and the link is current. Reject + re-invite resets their request.'
+    title: t('support.topic2Title'),
+    tip: t('support.topic2Desc')
   },
   {
     icon: 'shuffle',
-    title: 'Team Balancing',
-    tip: 'Balancing uses rank ELO and role targets. Ensure all players have a rank set before running auto-balance for best results.'
+    title: t('support.topic3Title'),
+    tip: t('support.topic3Desc')
   },
   {
     icon: 'manage_accounts',
-    title: 'Account & Identity',
-    tip: 'Linking Discord or Battle.net requires completing the OAuth flow from your Profile settings page. Check browser pop-up blockers if it fails.'
+    title: t('support.topic4Title'),
+    tip: t('support.topic4Desc')
   }
-]
+])
 </script>
 
 <template>
@@ -59,8 +64,8 @@ const topics = [
     <header class="support-header">
       <span class="material-symbols-rounded support-header-icon" aria-hidden="true">support_agent</span>
       <div>
-        <h1 class="support-title">Support</h1>
-        <p class="support-subtitle">Get help with events, accounts, and platform issues.</p>
+        <h1 class="support-title">{{ t('support.title') }}</h1>
+        <p class="support-subtitle">{{ t('support.subtitle') }}</p>
       </div>
     </header>
 
@@ -86,13 +91,13 @@ const topics = [
 
     <!-- Common topics -->
     <section class="card support-topics">
-      <h2 class="support-section-title">Common Topics</h2>
+      <h2 class="support-section-title">{{ t('support.topicsTitle') }}</h2>
       <div class="support-topics-grid">
-        <div v-for="t in topics" :key="t.icon" class="support-topic">
-          <span class="material-symbols-rounded support-topic-icon" aria-hidden="true">{{ t.icon }}</span>
+        <div v-for="topic in topics" :key="topic.icon" class="support-topic">
+          <span class="material-symbols-rounded support-topic-icon" aria-hidden="true">{{ topic.icon }}</span>
           <div>
-            <strong>{{ t.title }}</strong>
-            <p>{{ t.tip }}</p>
+            <strong>{{ topic.title }}</strong>
+            <p>{{ topic.tip }}</p>
           </div>
         </div>
       </div>
@@ -102,15 +107,15 @@ const topics = [
     <section class="card support-bug">
       <div class="support-bug-head">
         <span class="material-symbols-rounded support-bug-icon" aria-hidden="true">checklist</span>
-        <h2>Ideal Bug Report</h2>
+        <h2>{{ t('support.bugReportTitle') }}</h2>
       </div>
-      <p class="muted support-bug-intro">Include all of the following to get the fastest resolution:</p>
+      <p class="muted support-bug-intro">{{ t('support.bugReportIntro') }}</p>
       <ol class="support-bug-list">
-        <li><strong>What you were trying to do</strong> &mdash; a one-sentence description of the intended action.</li>
-        <li><strong>Steps to reproduce</strong> &mdash; a numbered, repeatable sequence from a clean state.</li>
-        <li><strong>What actually happened</strong> &mdash; the result, including any error text shown on screen.</li>
-        <li><strong>Event ID or URL</strong> &mdash; copy-paste from the browser address bar.</li>
-        <li><strong>Browser &amp; device</strong> &mdash; e.g. Chrome 124 on macOS 14.</li>
+        <li><strong>{{ t('support.bugItem1Strong') }}</strong>{{ t('support.bugItem1') }}</li>
+        <li><strong>{{ t('support.bugItem2Strong') }}</strong>{{ t('support.bugItem2') }}</li>
+        <li><strong>{{ t('support.bugItem3Strong') }}</strong>{{ t('support.bugItem3') }}</li>
+        <li><strong>{{ t('support.bugItem4Strong') }}</strong>{{ t('support.bugItem4') }}</li>
+        <li><strong>{{ t('support.bugItem5Strong') }}</strong>{{ t('support.bugItem5') }}</li>
       </ol>
     </section>
 
@@ -118,18 +123,18 @@ const topics = [
     <section class="support-response-grid">
       <div class="card support-response-item">
         <span class="material-symbols-rounded support-response-icon" aria-hidden="true">schedule</span>
-        <strong>Community Discord</strong>
-        <p class="muted">Usually a few hours during active community times. Best for general questions.</p>
+        <strong>{{ t('support.responseDiscordTitle') }}</strong>
+        <p class="muted">{{ t('support.responseDiscordDesc') }}</p>
       </div>
       <div class="card support-response-item">
         <span class="material-symbols-rounded support-response-icon" aria-hidden="true">policy</span>
-        <strong>Privacy &amp; Data Requests</strong>
-        <p class="muted">We respond within 30 days as required by applicable law. Email preferred for privacy matters.</p>
+        <strong>{{ t('support.responsePrivacyTitle') }}</strong>
+        <p class="muted">{{ t('support.responsePrivacyDesc') }}</p>
       </div>
       <div class="card support-response-item">
         <span class="material-symbols-rounded support-response-icon" aria-hidden="true">construction</span>
-        <strong>Bug &amp; Feature Backlog</strong>
-        <p class="muted">Tracked on GitHub. High-impact bugs are prioritised in the next release cycle.</p>
+        <strong>{{ t('support.responseBugTitle') }}</strong>
+        <p class="muted">{{ t('support.responseBugDesc') }}</p>
       </div>
     </section>
 

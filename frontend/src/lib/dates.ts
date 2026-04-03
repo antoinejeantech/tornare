@@ -1,28 +1,4 @@
-const eventStartDateFormatter = new Intl.DateTimeFormat('en-GB', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-})
-
-const shortMonthDayFormatter = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: '2-digit',
-})
-
-const mediumDateFormatter = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: '2-digit',
-  year: 'numeric',
-})
-
-const time24Formatter = new Intl.DateTimeFormat(undefined, {
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-})
+import { getLocale } from '../i18n'
 
 function padDatePart(value: number): string {
   return String(value).padStart(2, '0')
@@ -95,32 +71,35 @@ export function formatEventStartDate(value: unknown): string {
     return String(value || '').trim()
   }
 
-  return eventStartDateFormatter.format(parsed)
+  return new Intl.DateTimeFormat(getLocale(), {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(parsed)
 }
 
 export function formatShortMonthDay(value: unknown, fallback = ''): string {
   const parsed = parseDateValue(value)
-  return parsed ? shortMonthDayFormatter.format(parsed) : fallback
+  if (!parsed) return fallback
+  return new Intl.DateTimeFormat(getLocale(), { month: 'short', day: '2-digit' }).format(parsed)
 }
 
 export function formatMediumDate(value: unknown, fallback = ''): string {
   const parsed = parseDateValue(value)
-  return parsed ? mediumDateFormatter.format(parsed) : fallback
+  if (!parsed) return fallback
+  return new Intl.DateTimeFormat(getLocale(), { month: 'short', day: '2-digit', year: 'numeric' }).format(parsed)
 }
 
-export function formatTime24(value: unknown, fallback = ''): string {
+export function formatTime(value: unknown, fallback = ''): string {
   const parsed = parseDateValue(value)
-  return parsed ? time24Formatter.format(parsed) : fallback
+  if (!parsed) return fallback
+  return new Intl.DateTimeFormat(getLocale(), { hour: '2-digit', minute: '2-digit' }).format(parsed)
 }
 
 export function formatDayMonthYear(value: unknown, fallback = ''): string {
   const parsed = parseDateValue(value)
-  if (!parsed) {
-    return fallback
-  }
-
-  const day = padDatePart(parsed.getDate())
-  const month = padDatePart(parsed.getMonth() + 1)
-  const year = String(parsed.getFullYear())
-  return `${day}/${month}/${year}`
+  if (!parsed) return fallback
+  return new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'numeric', year: 'numeric' }).format(parsed)
 }

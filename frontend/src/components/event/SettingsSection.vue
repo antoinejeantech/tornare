@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { inject } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { formatOptionsForType } from '../../lib/event-format'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
@@ -8,27 +9,28 @@ import BnetIcon from '../ui/BnetIcon.vue'
 import type { EventCtxType } from '../../composables/event/event-inject'
 
 const ctx = inject<EventCtxType>('eventCtx')!
+const { t } = useI18n()
 </script>
 
 <template>
   <section class="event-settings-section">
     <div class="section-heading-block">
-      <EventSectionHeader icon="settings" title="Settings" />
+      <EventSectionHeader icon="settings" :title="t('settings.sectionTitle')" />
     </div>
 
     <div class="event-registration-toggle-box" :class="ctx.event?.public_signup_enabled ? 'is-public' : 'is-private'">
       <div class="event-registration-header">
-        <p class="event-registration-kicker">Event registration</p>
+        <p class="event-registration-kicker">{{ t('settings.registrationKicker') }}</p>
         <AppBadge
           :variant="ctx.event?.public_signup_enabled ? 'ok' : 'danger'"
-          :label="ctx.event?.public_signup_enabled ? 'Public' : 'Private'"
+          :label="ctx.event?.public_signup_enabled ? t('settings.publicLabel') : t('settings.privateLabel')"
         />
       </div>
 
       <p class="event-registration-copy">
         {{ ctx.event?.public_signup_enabled
-          ? 'Anyone can discover this event and use the Join button from event surfaces.'
-          : 'Only people with a direct invite link can submit a signup request.' }}
+          ? t('settings.publicDesc')
+          : t('settings.privateDesc') }}
       </p>
 
       <div class="event-registration-toggle-actions">
@@ -37,30 +39,30 @@ const ctx = inject<EventCtxType>('eventCtx')!
           :disabled="ctx.updatingSignupVisibility"
           @click="ctx.setSignupVisibility(!ctx.event?.public_signup_enabled)"
         >
-          {{ ctx.updatingSignupVisibility ? 'Updating...' : (ctx.event?.public_signup_enabled ? 'Make private' : 'Make public') }}
+          {{ ctx.updatingSignupVisibility ? t('settings.updatingVisibility') : (ctx.event?.public_signup_enabled ? t('settings.makePrivate') : t('settings.makePublic')) }}
         </button>
       </div>
 
       <p class="muted event-registration-note">
         {{ ctx.event?.public_signup_enabled
-          ? 'Switching to private hides the public Join button and rotates the signup token. Existing shared links stop working.'
-          : 'Switch to public to show the Join button to everyone.' }}
+          ? t('settings.switchToPrivateHint')
+          : t('settings.switchToPublicHint') }}
       </p>
     </div>
 
     <div class="event-status-box" :class="`is-${(ctx.event?.status ?? 'ACTIVE').toLowerCase()}`">
       <div class="event-status-header">
-        <p class="event-status-kicker">Event status</p>
+        <p class="event-status-kicker">{{ t('settings.statusKicker') }}</p>
         <AppBadge
           :variant="ctx.event?.status === 'ENDED' ? 'muted' : ctx.event?.status === 'DRAFT' ? 'warning' : 'ok'"
-          :label="ctx.event?.status === 'ENDED' ? 'Ended' : ctx.event?.status === 'DRAFT' ? 'Draft' : 'Active'"
+          :label="ctx.event?.status === 'ENDED' ? t('common.statusEnded') : ctx.event?.status === 'DRAFT' ? t('common.statusDraft') : t('common.statusActive')"
         />
       </div>
 
       <p class="event-status-copy">
-        <template v-if="ctx.event?.status === 'DRAFT'">This event is a draft and is not visible in public listings. Registrations are disabled.</template>
-        <template v-else-if="ctx.event?.status === 'ENDED'">This event has ended. It is visible in public listings under Past Events.</template>
-        <template v-else>This event is active and visible in public listings. Registrations are controlled separately.</template>
+        <template v-if="ctx.event?.status === 'DRAFT'">{{ t('settings.draftDesc') }}</template>
+        <template v-else-if="ctx.event?.status === 'ENDED'">{{ t('settings.endedDesc') }}</template>
+        <template v-else>{{ t('settings.activeDesc') }}</template>
       </p>
 
       <div class="event-status-actions">
@@ -71,7 +73,7 @@ const ctx = inject<EventCtxType>('eventCtx')!
           type="button"
           @click="ctx.unpublishEvent()"
         >
-          {{ ctx.updatingEventStatus ? 'Updating...' : 'Set as Draft' }}
+          {{ ctx.updatingEventStatus ? t('settings.updating') : t('settings.setDraft') }}
         </button>
         <button
           v-if="ctx.event?.status === 'DRAFT'"
@@ -80,7 +82,7 @@ const ctx = inject<EventCtxType>('eventCtx')!
           type="button"
           @click="ctx.publishEvent()"
         >
-          {{ ctx.updatingEventStatus ? 'Updating...' : 'Set as Active' }}
+          {{ ctx.updatingEventStatus ? t('settings.updating') : t('settings.setActive') }}
         </button>
         <button
           v-if="ctx.event?.status === 'ACTIVE'"
@@ -89,32 +91,32 @@ const ctx = inject<EventCtxType>('eventCtx')!
           type="button"
           @click="ctx.endEvent()"
         >
-          {{ ctx.updatingEventStatus ? 'Updating...' : 'End event' }}
+          {{ ctx.updatingEventStatus ? t('settings.updating') : t('settings.endEvent') }}
         </button>
       </div>
 
       <p class="muted event-status-note">
-        <template v-if="ctx.event?.status === 'DRAFT'">Draft events are invisible to everyone except you. Set to Active when you are ready to go live.</template>
-        <template v-else-if="ctx.event?.status === 'ENDED'">Ended events remain visible in listings under Past Events. This status is permanent.</template>
-        <template v-else>Active events are visible to everyone. End the event when it is over, or move it back to Draft to hide it.</template>
+        <template v-if="ctx.event?.status === 'DRAFT'">{{ t('settings.draftNote') }}</template>
+        <template v-else-if="ctx.event?.status === 'ENDED'">{{ t('settings.endedNote') }}</template>
+        <template v-else>{{ t('settings.activeNote') }}</template>
       </p>
     </div>
 
     <form class="event-edit-form" @submit.prevent="ctx.saveEventEdit">
       <label>
-        Event name
-        <input v-model="ctx.editEventName" placeholder="Event name" />
+        {{ t('settings.eventName') }}
+        <input v-model="ctx.editEventName" :placeholder="t('settings.eventNamePlaceholder')" />
       </label>
       <label>
-        Description
-        <textarea v-model="ctx.editEventDescription" rows="4" placeholder="Rules, cashprize, check-in info..." />
+        {{ t('settings.description') }}
+        <textarea v-model="ctx.editEventDescription" rows="4" :placeholder="t('settings.descriptionPlaceholder')" />
       </label>
       <label>
-        Start date
+        {{ t('settings.startDate') }}
         <input v-model="ctx.editEventStartDate" type="datetime-local" />
       </label>
       <label>
-        Format
+        {{ t('settings.formatLabel') }}
         <select v-model="ctx.editEventFormat">
           <option
             v-for="format in formatOptionsForType(ctx.event?.event_type || 'PUG')"
@@ -126,16 +128,16 @@ const ctx = inject<EventCtxType>('eventCtx')!
         </select>
       </label>
       <label>
-        Max players
+        {{ t('settings.maxPlayers') }}
         <input v-model.number="ctx.editEventMaxPlayers" type="number" min="2" max="99" step="1" />
       </label>
 
       <fieldset class="event-handle-requirements">
-        <legend class="event-handle-requirements-legend">Signup requirements</legend>
+        <legend class="event-handle-requirements-legend">{{ t('settings.signupRequirements') }}</legend>
 
         <label class="event-toggle-row">
-          <span class="event-toggle-row-label"><DiscordIcon class="event-toggle-row-icon" />Require Discord username</span>
-          <span class="event-toggle-row-hint">Submissions without a Discord handle will be rejected</span>
+          <span class="event-toggle-row-label"><DiscordIcon class="event-toggle-row-icon" />{{ t('settings.requireDiscord') }}</span>
+          <span class="event-toggle-row-hint">{{ t('settings.requireDiscordHint') }}</span>
           <button
             type="button"
             role="switch"
@@ -149,8 +151,8 @@ const ctx = inject<EventCtxType>('eventCtx')!
         </label>
 
         <label class="event-toggle-row">
-          <span class="event-toggle-row-label"><BnetIcon class="event-toggle-row-icon" />Require Battle.net tag</span>
-          <span class="event-toggle-row-hint">Submissions without a Battle.net tag will be rejected</span>
+          <span class="event-toggle-row-label"><BnetIcon class="event-toggle-row-icon" />{{ t('settings.requireBnet') }}</span>
+          <span class="event-toggle-row-hint">{{ t('settings.requireBnetHint') }}</span>
           <button
             type="button"
             role="switch"
@@ -166,13 +168,13 @@ const ctx = inject<EventCtxType>('eventCtx')!
 
       <div class="event-settings-actions">
         <button class="btn-primary" :disabled="ctx.updatingEvent || !ctx.canSaveEventMeta" type="submit">
-          {{ ctx.updatingEvent ? 'Saving...' : 'Save event settings' }}
+          {{ ctx.updatingEvent ? t('settings.savingSettings') : t('settings.saveSettings') }}
         </button>
         <button class="btn-secondary" :disabled="ctx.updatingEvent" type="button" @click="ctx.syncEventEditDraftFromEvent">
-          Reset changes
+          {{ t('settings.resetChanges') }}
         </button>
         <button class="btn-danger" :disabled="ctx.deletingEvent || ctx.updatingEvent" type="button" @click="ctx.deleteEvent">
-          {{ ctx.deletingEvent ? 'Deleting event...' : 'Delete event' }}
+          {{ ctx.deletingEvent ? t('settings.deletingEvent') : t('settings.deleteEvent') }}
         </button>
       </div>
     </form>

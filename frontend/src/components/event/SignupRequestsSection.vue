@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue'
+import { useI18n } from 'vue-i18n'
 import EventSectionHeader from './EventSectionHeader.vue'
 import AppBadge from '../ui/AppBadge.vue'
 import { getRoleIcon } from '../../lib/roles'
@@ -9,6 +10,7 @@ import type { EventCtxType } from '../../composables/event/event-inject'
 import type { SignupRequest } from '../../types'
 
 const ctx = inject<EventCtxType>('eventCtx')!
+const { t } = useI18n()
 const isPublicRegistration = computed(() => Boolean(ctx.event?.public_signup_enabled))
 
 function toTimestamp(value: unknown): number | null {
@@ -55,43 +57,43 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
 
 <template>
   <section>
-    <EventSectionHeader icon="mail" title="Signup Requests" />
+    <EventSectionHeader icon="mail" :title="t('requests.sectionTitle')" />
 
     <div class="signup-link-box">
       <div class="signup-visibility-row">
         <p class="muted signup-visibility-label">
-          Registration is currently
-          <strong>{{ isPublicRegistration ? 'Public' : 'Private' }}</strong>.
+          {{ t('requests.registrationPublicLabel') }}
+          <strong>{{ isPublicRegistration ? t('requests.registrationPublic') : t('requests.registrationPrivate') }}</strong>.
         </p>
         <button class="btn-secondary" type="button" @click="ctx.openSection('settings')">
-          Go to settings
+          {{ t('requests.goToSettings') }}
         </button>
       </div>
 
       <p class="muted signup-settings-hint">
-        If you want to change event registration visibility, go to Settings.
+        {{ t('requests.settingsHint') }}
       </p>
 
       <p class="muted">
-        {{ isPublicRegistration ? 'Share this public link so players can request to join this event.' : 'You can still copy and share the current direct link while private. The public Join button is hidden.' }}
+        {{ isPublicRegistration ? t('requests.sharePublicHint') : t('requests.sharePrivateHint') }}
       </p>
 
       <div class="signup-link-row">
-        <input :value="ctx.signupShareUrl || ''" readonly placeholder="Loading signup link..." />
+        <input :value="ctx.signupShareUrl || ''" readonly :placeholder="t('requests.loadingLink')" />
         <button class="btn-secondary" :disabled="!ctx.signupShareUrl || ctx.rotatingSignupLink" @click="ctx.copySignupLink">
-          Copy link
+          {{ t('requests.copyLink') }}
         </button>
         <button class="btn-danger" :disabled="ctx.rotatingSignupLink" @click="ctx.rotateSignupLink">
-          {{ ctx.rotatingSignupLink ? 'Rotating...' : 'Rotate link' }}
+          {{ ctx.rotatingSignupLink ? t('requests.rotating') : t('requests.rotateLink') }}
         </button>
       </div>
     </div>
 
     <div class="signup-request-groups">
       <article class="signup-request-card">
-        <h4>Pending</h4>
-        <p v-if="ctx.loadingSignupRequests" class="muted">Loading signup requests...</p>
-        <p v-else-if="pendingRequests.length === 0" class="muted">No pending requests yet.</p>
+        <h4>{{ t('requests.pendingTitle') }}</h4>
+        <p v-if="ctx.loadingSignupRequests" class="muted">{{ t('requests.loadingRequests') }}</p>
+        <p v-else-if="pendingRequests.length === 0" class="muted">{{ t('requests.noRequests') }}</p>
         <ul v-else class="signup-request-list">
           <li v-for="request in pendingRequests" :key="request.id" class="signup-request-item">
             <div class="signup-request-identity">
@@ -116,7 +118,7 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
                 <span v-if="request.linked_user?.discord_username" class="req-account-chip req-account-chip--discord req-account-chip--verified">
                   <DiscordIcon class="req-account-icon" />
                   {{ request.linked_user.discord_username }}
-                  <span class="req-account-verified" aria-label="Verified connected account">
+                  <span class="req-account-verified" :aria-label="t('requests.verifiedAria')">
                     <span class="material-symbols-rounded" aria-hidden="true">verified</span>
                   </span>
                 </span>
@@ -127,7 +129,7 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
                 <span v-if="request.linked_user?.battletag" class="req-account-chip req-account-chip--bnet req-account-chip--verified">
                   <BnetIcon class="req-account-icon" />
                   {{ request.linked_user.battletag }}
-                  <span class="req-account-verified" aria-label="Verified connected account">
+                  <span class="req-account-verified" :aria-label="t('requests.verifiedAria')">
                     <span class="material-symbols-rounded" aria-hidden="true">verified</span>
                   </span>
                 </span>
@@ -146,7 +148,7 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
                 <span class="material-symbols-rounded" aria-hidden="true">
                   {{ ctx.reviewingSignupRequests[request.id] ? 'hourglass_top' : 'check_circle' }}
                 </span>
-                {{ ctx.reviewingSignupRequests[request.id] ? 'Saving…' : 'Accept' }}
+                {{ ctx.reviewingSignupRequests[request.id] ? t('requests.savingRequest') : t('requests.accept') }}
               </button>
               <button
                 class="btn-secondary signup-action-btn signup-decline-btn"
@@ -154,7 +156,7 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
                 @click="ctx.declineSignupRequest(request.id)"
               >
                 <span class="material-symbols-rounded" aria-hidden="true">cancel</span>
-                Decline
+                {{ t('requests.decline') }}
               </button>
             </div>
           </li>
@@ -162,8 +164,8 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
       </article>
 
       <article class="signup-request-card">
-        <h4>Reviewed</h4>
-        <p v-if="reviewedRequests.length === 0" class="muted">No reviewed requests yet.</p>
+        <h4>{{ t('requests.reviewedTitle') }}</h4>
+        <p v-if="reviewedRequests.length === 0" class="muted">{{ t('requests.noReviewed') }}</p>
         <ul v-else class="signup-request-list">
           <li v-for="request in reviewedRequests" :key="request.id" class="signup-request-item reviewed">
             <div class="signup-request-identity">
@@ -188,7 +190,7 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
                 <span v-if="request.linked_user?.discord_username" class="req-account-chip req-account-chip--discord req-account-chip--verified">
                   <DiscordIcon class="req-account-icon" />
                   {{ request.linked_user.discord_username }}
-                  <span class="req-account-verified" aria-label="Verified connected account">
+                  <span class="req-account-verified" :aria-label="t('requests.verifiedAria')">
                     <span class="material-symbols-rounded" aria-hidden="true">verified</span>
                   </span>
                 </span>
@@ -199,7 +201,7 @@ function getRequestRoles(request: SignupRequest): Array<{ role: string; rank: st
                 <span v-if="request.linked_user?.battletag" class="req-account-chip req-account-chip--bnet req-account-chip--verified">
                   <BnetIcon class="req-account-icon" />
                   {{ request.linked_user.battletag }}
-                  <span class="req-account-verified" aria-label="Verified connected account">
+                  <span class="req-account-verified" :aria-label="t('requests.verifiedAria')">
                     <span class="material-symbols-rounded" aria-hidden="true">verified</span>
                   </span>
                 </span>

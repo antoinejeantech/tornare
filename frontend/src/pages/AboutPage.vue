@@ -1,47 +1,51 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 
-const pillars = [
+const { t } = useI18n()
+
+const pillars = computed(() => [
   {
     id: 'clarity',
     icon: 'grid_view',
-    title: 'Operational Clarity',
-    text: 'Every event phase should be visible: setup, signup, balancing, and final match execution without tab-switching.'
+    title: t('about.pillar1Title'),
+    text: t('about.pillar1Text')
   },
   {
     id: 'speed',
     icon: 'bolt',
-    title: 'Fast Organizer Loops',
-    text: 'Common actions should take seconds, not context switches across spreadsheets and chat threads.'
+    title: t('about.pillar2Title'),
+    text: t('about.pillar2Text')
   },
   {
     id: 'community',
     icon: 'groups',
-    title: 'Community-First',
-    text: 'Tools should support captains, hosts, and players equally with transparent and accessible event data.'
+    title: t('about.pillar3Title'),
+    text: t('about.pillar3Text')
   }
-]
+])
 
-const roadmap = [
+const roadmap = computed(() => [
   {
     id: 'now',
-    phase: 'Now',
+    phase: t('about.roadmapNow'),
     tag: 'now',
-    items: 'Event setup, profile system, role-aware team management, and polished list experiences.'
+    items: t('about.roadmapNowItems')
   },
   {
     id: 'next',
-    phase: 'Next',
+    phase: t('about.roadmapNext'),
     tag: 'next',
-    items: 'OAuth identity linking, richer player analytics, and deeper organizer automation flows.'
+    items: t('about.roadmapNextItems')
   },
   {
     id: 'later',
-    phase: 'Later',
+    phase: t('about.roadmapLater'),
     tag: 'later',
-    items: 'League-level tooling, historical performance dashboards, and expanded ecosystem integrations.'
+    items: t('about.roadmapLaterItems')
   }
-]
+])
 </script>
 
 <template>
@@ -51,28 +55,27 @@ const roadmap = [
     <section class="about-hero">
       <div class="about-hero-inner">
         <div class="about-hero-content reveal-1">
-          <span class="about-badge">Platform Mission</span>
+          <span class="about-badge">{{ t('about.badge') }}</span>
           <h1 class="about-headline">
-            Operations<br>
-            <span class="about-headline-accent">Cockpit</span> for<br>
-            Match Nights.
+            {{ t('about.headline1') }}<br>
+            <span class="about-headline-accent">{{ t('about.headlineAccent') }}</span> {{ t('about.headline3') }}<br>
+            {{ t('about.headline4') }}
           </h1>
           <p class="about-hero-sub">
-            Tornare started from a simple friction point: community organizers
-            spending more time on admin than on the game itself.
+            {{ t('about.heroSub') }}
           </p>
           <div class="about-hero-actions">
             <RouterLink class="btn btn-primary about-hero-btn" to="/events">
-              Open Event Hub
+              {{ t('about.openHub') }}
               <span class="material-symbols-rounded" aria-hidden="true">arrow_outward</span>
             </RouterLink>
-            <RouterLink class="btn btn-secondary about-hero-btn" to="/news">Updates</RouterLink>
+            <RouterLink class="btn btn-secondary about-hero-btn" to="/news">{{ t('about.updates') }}</RouterLink>
           </div>
         </div>
 
         <div class="about-hero-widget reveal-2">
           <div class="widget-header">
-            <span class="widget-label">Live Monitoring</span>
+            <span class="widget-label">{{ t('about.liveMonitoring') }}</span>
             <span class="material-symbols-rounded widget-gear" aria-hidden="true">settings</span>
           </div>
           <div class="widget-bar-wrap">
@@ -80,15 +83,15 @@ const roadmap = [
           </div>
           <div class="widget-stats">
             <div class="widget-stat">
-              <span class="widget-stat-label">Signup Rate</span>
+              <span class="widget-stat-label">{{ t('about.signupRate') }}</span>
               <strong class="widget-stat-value">142/hr</strong>
             </div>
             <div class="widget-stat">
-              <span class="widget-stat-label">Active Lobbies</span>
+              <span class="widget-stat-label">{{ t('about.activeLobbies') }}</span>
               <strong class="widget-stat-value">24</strong>
             </div>
           </div>
-          <p class="widget-quote">"The focus is on practical execution, from first signup to final match handoff."</p>
+          <p class="widget-quote">{{ t('about.quote') }}</p>
         </div>
       </div>
     </section>
@@ -96,27 +99,27 @@ const roadmap = [
     <!-- ── KPI strip ──────────────────────────────────────────── -->
     <section class="about-kpi-strip reveal-3">
       <article class="card about-kpi">
-        <span class="about-kpi-label">Focus</span>
-        <strong>Organizer Efficiency</strong>
-        <p class="muted">Reduce setup friction from signup to lobby handoff. We automate the repetitive tasks so you can focus on the community.</p>
+        <span class="about-kpi-label">{{ t('about.focusLabel') }}</span>
+        <strong>{{ t('about.focusTitle') }}</strong>
+        <p class="muted">{{ t('about.focusDesc') }}</p>
       </article>
       <article class="card about-kpi">
-        <span class="about-kpi-label">Approach</span>
-        <strong>Visible Workflow</strong>
-        <p class="muted">Clear states for roster, teams, and match progression. Never guess where a tournament stands again.</p>
+        <span class="about-kpi-label">{{ t('about.approachLabel') }}</span>
+        <strong>{{ t('about.approachTitle') }}</strong>
+        <p class="muted">{{ t('about.approachDesc') }}</p>
       </article>
       <article class="card about-kpi">
-        <span class="about-kpi-label">Outcome</span>
-        <strong>Better Match Nights</strong>
-        <p class="muted">Less admin overhead, more energy on gameplay quality. Higher player retention and smoother execution.</p>
+        <span class="about-kpi-label">{{ t('about.outcomeLabel') }}</span>
+        <strong>{{ t('about.outcomeTitle') }}</strong>
+        <p class="muted">{{ t('about.outcomeDesc') }}</p>
       </article>
     </section>
 
     <!-- ── Pillars ────────────────────────────────────────────── -->
     <section class="about-section reveal-4">
       <div class="about-section-head">
-        <h2 class="about-section-title">Operational Integrity</h2>
-        <p class="muted">Built for organizers who run serious community game nights. We handle the heavy lifting of tournament logistics.</p>
+        <h2 class="about-section-title">{{ t('about.integrityTitle') }}</h2>
+        <p class="muted">{{ t('about.integrityDesc') }}</p>
       </div>
       <div class="about-pillars">
         <article v-for="pillar in pillars" :key="pillar.id" class="card about-pillar">
@@ -134,13 +137,13 @@ const roadmap = [
     <!-- ── Roadmap ────────────────────────────────────────────── -->
     <section class="about-roadmap-section reveal-5">
       <div class="card about-roadmap-left">
-        <h2>Roadmap Snapshot</h2>
-        <p class="muted">We are building the future of community tournament management. Here is what we are working on right now and what is coming next.</p>
+        <h2>{{ t('about.roadmapTitle') }}</h2>
+        <p class="muted">{{ t('about.roadmapDesc') }}</p>
         <div class="about-roadmap-doc">
           <span class="material-symbols-rounded about-roadmap-doc-icon" aria-hidden="true">description</span>
           <div>
-            <strong>Ecosystem Strategy</strong>
-            <span class="muted about-roadmap-doc-sub">Updated Bi-Weekly · Q4 2024</span>
+            <strong>{{ t('about.ecosystemStrategy') }}</strong>
+            <span class="muted about-roadmap-doc-sub">{{ t('about.ecosystemSub') }}</span>
           </div>
         </div>
       </div>
@@ -155,17 +158,17 @@ const roadmap = [
     <!-- ── Design Principles ──────────────────────────────────── -->
     <section class="about-section reveal-6">
       <div class="about-section-head">
-        <h2 class="about-section-title">Design Principles</h2>
+        <h2 class="about-section-title">{{ t('about.principlesTitle') }}</h2>
       </div>
       <div class="about-principles-body">
         <ul class="about-principles-list">
-          <li>Prefer obvious workflows over hidden controls.</li>
-          <li>Make ownership boundaries explicit for safe collaboration.</li>
-          <li>Expose useful status signals early so organizers can act quickly.</li>
+          <li>{{ t('about.principle1') }}</li>
+          <li>{{ t('about.principle2') }}</li>
+          <li>{{ t('about.principle3') }}</li>
         </ul>
         <div class="card about-principles-quote">
           <span class="material-symbols-rounded about-principles-shield" aria-hidden="true">verified_user</span>
-          <p>"Simplicity is the ultimate sophistication in operations management."</p>
+          <p>{{ t('about.principlesQuote') }}</p>
         </div>
       </div>
     </section>

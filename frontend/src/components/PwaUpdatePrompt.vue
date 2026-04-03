@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { needRefresh, applyUpdate as doUpdate } from '@/lib/pwa'
 
+const { t } = useI18n()
 const updating = ref(false)
 
 async function applyUpdate() {
@@ -18,9 +20,9 @@ async function applyUpdate() {
   <Transition name="pwa-prompt">
     <div v-if="needRefresh" class="pwa-prompt" role="status" aria-live="polite">
       <span class="material-symbols-rounded pwa-prompt-icon" aria-hidden="true">system_update</span>
-      <span class="pwa-prompt-text">A new version is available.</span>
+      <span class="pwa-prompt-text">{{ t('pwa.newVersion') }}</span>
       <button class="pwa-prompt-btn" :disabled="updating" @click="applyUpdate">
-        {{ updating ? 'Updating…' : 'Update now' }}
+        {{ updating ? t('pwa.updating') : t('pwa.updateNow') }}
       </button>
     </div>
   </Transition>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { overwatchRanks } from '../lib/ranks'
 import { formatEventStartDate } from '../lib/dates'
@@ -11,6 +12,7 @@ import BnetIcon from '../components/ui/BnetIcon.vue'
 import DiscordIcon from '../components/ui/DiscordIcon.vue'
 import type { PublicSignupInfo } from '../types'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const eventStore = useEventStore()
@@ -114,7 +116,7 @@ function setNotice(message: string) {
 
 async function loadSignupInfo() {
   if (!signupToken.value) {
-    setError('Invalid signup link')
+    setError(t('joinEvent.invalidLink'))
     return
   }
 
@@ -123,7 +125,7 @@ async function loadSignupInfo() {
     signupInfo.value = await eventStore.fetchPublicSignupInfo(signupToken.value)
   } catch (err) {
     signupInfo.value = null
-    setError(err instanceof Error ? err.message : 'Failed to load signup link')
+    setError(err instanceof Error ? err.message : t('joinEvent.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -158,9 +160,9 @@ async function submitRequest() {
 
     playerName.value = ''
     playerRoles.value = [{ role: '', rank: '' }]
-    setNotice('Request sent. The event owner will review it soon.')
+    setNotice(t('joinEvent.requestSent'))
   } catch (err) {
-    setError(err instanceof Error ? err.message : 'Failed to submit request')
+    setError(err instanceof Error ? err.message : t('joinEvent.submitFailed'))
   } finally {
     submitting.value = false
   }
@@ -191,17 +193,17 @@ onMounted(async () => {
 <template>
   <main class="app-shell join-shell">
     <header class="page-header">
-      <InlineArrowLink class="join-back-link" to="/events" label="Return to events list" arrow-side="left" />
-      <h1 class="page-title">Join Event</h1>
+      <InlineArrowLink class="join-back-link" to="/events" :label="t('joinEvent.backToEvents')" arrow-side="left" />
+      <h1 class="page-title">{{ t('joinEvent.title') }}</h1>
     </header>
 
     <section class="card join-card">
-      <p v-if="loading" class="join-loading">Loading signup page...</p>
+      <p v-if="loading" class="join-loading">{{ t('joinEvent.loading') }}</p>
 
       <template v-else-if="signupInfo">
         <div class="join-head">
           <AppBadge
-            label="Public Signup"
+            :label="t('joinEvent.publicSignup')"
             radius="pill"
             bg="color-mix(in srgb, var(--primary-700) 22%, transparent 78%)"
             color="var(--primary-300)"
@@ -212,7 +214,7 @@ onMounted(async () => {
           <div class="join-event-meta-row">
             <span class="join-event-meta-item">
               <span class="material-symbols-rounded" aria-hidden="true">trophy</span>
-              <span>{{ signupInfo.event_type }}</span>
+              <span>{{ signupInfo.event_type === 'TOURNEY' ? t('events.typeTourney') : t('events.typePug') }}</span>
             </span>
             <span class="material-symbols-rounded join-event-meta-dot" aria-hidden="true">fiber_manual_record</span>
             <span class="join-event-meta-item join-event-meta-item-format">
@@ -224,8 +226,8 @@ onMounted(async () => {
             <div class="join-full-state">
               <span class="material-symbols-rounded join-full-state-icon" aria-hidden="true">info</span>
               <div class="join-full-state-copy">
-                <p class="join-full-state-title">Event is currently full</p>
-                <p class="join-full-state-text">You can still send a request to join. The tournament organizer may increase slots or approve pending requests manually.</p>
+                <p class="join-full-state-title">{{ t('joinEvent.eventFull') }}</p>
+                <p class="join-full-state-text">{{ t('joinEvent.eventFullHint') }}</p>
               </div>
             </div>
             <div class="join-separator" aria-hidden="true"></div>
@@ -236,10 +238,10 @@ onMounted(async () => {
                 <span class="material-symbols-rounded join-stat-icon">groups</span>
               </span>
               <div class="join-stat-copy">
-                <span class="join-stat-label">Registered players</span>
+                <span class="join-stat-label">{{ t('joinEvent.registeredPlayers') }}</span>
                 <strong class="join-stat-value">
                   {{ signupInfo.current_players }}/{{ signupInfo.max_players }}
-                  <span v-if="rosterFull">(Full)</span>
+                  <span v-if="rosterFull">{{ t('joinEvent.full') }}</span>
                 </strong>
               </div>
             </article>
@@ -248,7 +250,7 @@ onMounted(async () => {
                 <span class="material-symbols-rounded join-stat-icon">calendar_month</span>
               </span>
               <div class="join-stat-copy">
-                <span class="join-stat-label">{{ signupInfo.event_type === 'TOURNEY' ? 'Tournament start' : 'Event start' }}</span>
+                <span class="join-stat-label">{{ signupInfo.event_type === 'TOURNEY' ? t('joinEvent.tournamentStart') : t('joinEvent.eventStart') }}</span>
                 <strong class="join-stat-value">{{ formattedStartDate }}</strong>
               </div>
             </article>
@@ -258,72 +260,71 @@ onMounted(async () => {
         <p v-if="error" class="status status-error">{{ error }}</p>
         <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
-        <p v-if="signupRequestsFull" class="status status-blocked">Signup is currently unavailable because this event reached the request limit.</p>
+        <p v-if="signupRequestsFull" class="status status-blocked">{{ t('joinEvent.signupUnavailable') }}</p>
 
         <div v-if="signupInfo.already_joined" class="join-already-joined">
           <span class="material-symbols-rounded join-already-joined-icon" aria-hidden="true">how_to_reg</span>
           <div>
-            <p class="join-already-joined-title">You're already in this event</p>
-            <p class="join-already-joined-text">Your account is registered as a player. You cannot submit another request.</p>
+            <p class="join-already-joined-title">{{ t('joinEvent.alreadyJoinedTitle') }}</p>
+            <p class="join-already-joined-text">{{ t('joinEvent.alreadyJoinedText') }}</p>
           </div>
         </div>
 
         <template v-else>
           <div v-if="!authStore.isAuthenticated" class="join-auth-hint">
             <span class="material-symbols-rounded" aria-hidden="true">account_circle</span>
-            <p><RouterLink to="/auth">Sign in</RouterLink> to automatically prefill your name and ranks.</p>
+            <p><RouterLink to="/auth">{{ t('nav.signIn') }}</RouterLink> {{ t('joinEvent.signInHint') }}</p>
           </div>
 
           <div v-else class="join-auth-banner">
             <span class="material-symbols-rounded" aria-hidden="true">verified_user</span>
-            <p>Signing up as <strong>{{ authStore.user?.display_name }}</strong> (@{{ authStore.user?.username }}). Your request will be linked to your account.</p>
+            <p>{{ t('joinEvent.signingUpAs', { name: authStore.user?.display_name, username: authStore.user?.username }) }}</p>
           </div>
 
           <form class="join-form" @submit.prevent="submitRequest">
           <label class="join-field join-field-full">
-            <span class="join-field-label">YOUR DISPLAY NAME</span>
+            <span class="join-field-label">{{ t('joinEvent.yourDisplayName') }}</span>
             <div class="join-input-leading-icon">
               <span class="material-symbols-rounded" aria-hidden="true">sports_esports</span>
-              <input v-model="playerName" placeholder="Your display or nickname" />
+              <input v-model="playerName" :placeholder="t('joinEvent.displayNamePlaceholder')" />
             </div>
           </label>
 
-          <!-- Discord -->
           <div class="join-field">
-            <span class="join-field-label">DISCORD <span :class="signupInfo.require_discord ? 'join-field-required' : 'join-field-optional'">{{ signupInfo.require_discord ? 'required' : 'optional' }}</span></span>
+            <span class="join-field-label">{{ t('joinEvent.discordLabel') }} <span :class="signupInfo.require_discord ? 'join-field-required' : 'join-field-optional'">{{ signupInfo.require_discord ? t('joinEvent.required') : t('joinEvent.optional') }}</span></span>
             <div v-if="authStore.user?.discord_username" class="join-verified-chip">
               <DiscordIcon class="join-verified-icon" />
               <span class="join-verified-value">{{ authStore.user.discord_username }}</span>
               <span class="join-verified-badge">
                 <span class="material-symbols-rounded" aria-hidden="true">verified</span>
-                Verified
+                {{ t('joinEvent.verified') }}
               </span>
             </div>
             <div v-else class="join-input-leading-icon">
               <DiscordIcon class="join-platform-icon" />
-              <input v-model="playerDiscord" placeholder="Your Discord username" maxlength="100" />
+              <input v-model="playerDiscord" :placeholder="t('joinEvent.discordPlaceholder')" maxlength="100" />
             </div>
           </div>
 
           <!-- Battle.net -->
           <div class="join-field">
-            <span class="join-field-label">BATTLE.NET <span :class="signupInfo.require_battletag ? 'join-field-required' : 'join-field-optional'">{{ signupInfo.require_battletag ? 'required' : 'optional' }}</span></span>
+            <span class="join-field-label">{{ t('joinEvent.bnetLabel') }} <span :class="signupInfo.require_battletag ? 'join-field-required' : 'join-field-optional'">{{ signupInfo.require_battletag ? t('joinEvent.required') : t('joinEvent.optional') }}</span></span>
             <div v-if="authStore.user?.battletag" class="join-verified-chip">
               <BnetIcon class="join-verified-icon join-verified-icon--bnet" />
               <span class="join-verified-value">{{ authStore.user.battletag }}</span>
               <span class="join-verified-badge join-verified-badge--bnet">
                 <span class="material-symbols-rounded" aria-hidden="true">verified</span>
-                Verified
+                {{ t('joinEvent.verified') }}
               </span>
             </div>
             <div v-else class="join-input-leading-icon">
               <BnetIcon class="join-platform-icon join-platform-icon--bnet" />
-              <input v-model="playerBattletag" placeholder="YourName#1234" maxlength="100" />
+              <input v-model="playerBattletag" :placeholder="t('joinEvent.bnetPlaceholder')" maxlength="100" />
             </div>
           </div>
 
           <div class="join-field-full join-roles-section">
-            <span class="join-roles-label">ROLE PREFERENCES</span>
+            <span class="join-roles-label">{{ t('joinEvent.rolePrefs') }}</span>
             <ul class="join-roles-list">
               <li
                 v-for="(entry, index) in playerRoles"
@@ -332,7 +333,7 @@ onMounted(async () => {
                 :class="{ 'join-role-row--removable': playerRoles.length > 1 }"
               >
                 <label class="join-field">
-                  <span class="join-role-field-lbl">Role<span v-if="index === 0" class="join-role-pref-hint">preferred</span></span>
+                  <span class="join-role-field-lbl">{{ t('joinEvent.roleLabel') }}<span v-if="index === 0" class="join-role-pref-hint">{{ t('joinEvent.preferred') }}</span></span>
                   <select v-model="entry.role">
                     <option value="" disabled hidden></option>
                     <option value="Tank" :disabled="isRoleTaken('Tank', index)">Tank</option>
@@ -341,7 +342,7 @@ onMounted(async () => {
                   </select>
                 </label>
                 <label class="join-field">
-                  Rank
+                  {{ t('joinEvent.rankLabel') }}
                   <select v-model="entry.rank">
                     <option value="" disabled hidden></option>
                     <option v-for="rank in overwatchRanks" :key="rank" :value="rank">{{ rank }}</option>
@@ -352,7 +353,7 @@ onMounted(async () => {
                   <button
                     type="button"
                     class="join-role-remove"
-                    :aria-label="`Remove role preference ${index + 1}`"
+                    :aria-label="t('joinEvent.removeRoleAria', { n: index + 1 })"
                     @click="removeRole(index)"
                   >
                     <span class="material-symbols-rounded" aria-hidden="true">delete</span>
@@ -367,15 +368,15 @@ onMounted(async () => {
               @click="addRole"
             >
               <span class="material-symbols-rounded" aria-hidden="true">add</span>
-              Add role
+              {{ t('joinEvent.addRole') }}
             </button>
           </div>
 
           <div class="join-actions">
             <button type="submit" class="btn-primary" :disabled="!canSubmit">
-              {{ submitting ? 'Submitting...' : 'Request to join' }}
+              {{ submitting ? t('joinEvent.submitting') : t('joinEvent.submitBtn') }}
             </button>
-            <p class="join-actions-note">By requesting to join, you agree to our Tournament Fair Play Guidelines.</p>
+            <p class="join-actions-note">{{ t('joinEvent.submitNote') }}</p>
           </div>
         </form>
         </template>
@@ -383,8 +384,8 @@ onMounted(async () => {
 
       <template v-else>
         <div class="join-unavailable">
-          <h2>Signup link unavailable</h2>
-          <p class="muted">This link may be invalid or has expired.</p>
+          <h2>{{ t('joinEvent.linkUnavailable') }}</h2>
+          <p class="muted">{{ t('joinEvent.linkExpired') }}</p>
         </div>
       </template>
     </section>

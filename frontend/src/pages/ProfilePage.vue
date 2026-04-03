@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { apiCall } from '../lib/api'
 import overwatchLogo from '../assets/branding/overwatch-logo-gold.png'
@@ -18,6 +19,7 @@ import AppBadge from '../components/ui/AppBadge.vue'
 import { formatDayMonthYear } from '../lib/dates'
 import type { AuthUser, Event, ParticipatedEventSummary } from '../types'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -195,7 +197,7 @@ function setNotice(message: string) {
 async function loadProfile() {
   if (!profileId.value) {
     profile.value = null
-    setError('Profile id is missing')
+    setError(t('profile.profileIdMissing'))
     return
   }
 
@@ -210,7 +212,7 @@ async function loadProfile() {
     editingRanks.value = false
   } catch (err) {
     profile.value = null
-    setError(err instanceof Error ? err.message : 'Failed to load profile')
+    setError(err instanceof Error ? err.message : t('profile.loadFailed'))
   } finally {
     loadingProfile.value = false
   }
@@ -227,27 +229,27 @@ async function saveProfile() {
   const nextBattletag = String(editBattletag.value ?? '').trim()
 
   if (!nextUsername) {
-    setError('Username is required')
+    setError(t('profile.usernameRequired'))
     return
   }
 
   if (nextUsername.length < 3 || nextUsername.length > 24) {
-    setError('Username must be 3-24 characters long')
+    setError(t('profile.usernameLength'))
     return
   }
 
   if (!/^[a-z0-9_]+$/.test(nextUsername)) {
-    setError('Username can only use lowercase letters, numbers, and underscores')
+    setError(t('profile.usernameFormat'))
     return
   }
 
   if (!nextDisplayName) {
-    setError('Display name is required')
+    setError(t('profile.displayNameRequired'))
     return
   }
 
   if (!nextEmail || !/@/.test(nextEmail)) {
-    setError('A valid email is required')
+    setError(t('profile.emailRequired'))
     return
   }
 
@@ -257,12 +259,12 @@ async function saveProfile() {
 
   if (hasPasswordUpdate) {
     if (nextPassword.length < 8) {
-      setError('Password must be at least 8 characters long')
+      setError(t('profile.passwordLength'))
       return
     }
 
     if (nextPassword !== nextPasswordConfirm) {
-      setError('Passwords do not match')
+      setError(t('profile.passwordMismatch'))
       return
     }
   }
@@ -290,9 +292,9 @@ async function saveProfile() {
     }
     editingAccount.value = false
     editingRanks.value = false
-    setNotice('Profile updated')
+    setNotice(t('profile.profileUpdated'))
   } catch (err) {
-    setError(err instanceof Error ? err.message : 'Failed to update profile')
+    setError(err instanceof Error ? err.message : t('profile.updateFailed'))
   } finally {
     savingProfile.value = false
   }
@@ -317,7 +319,7 @@ async function handleUpdateAvatar(avatarUrl: string | null) {
   } catch (err) {
     alertsStore.push({
       type: 'error',
-      message: err instanceof Error ? err.message : 'Failed to update avatar',
+      message: err instanceof Error ? err.message : t('profile.avatarFailed'),
       duration: 5000,
     })
   } finally {
@@ -335,7 +337,7 @@ async function connectBnetAccount() {
     // connectBnetInit normally navigates away immediately.
   } catch (err) {
     connectingOAuth.value = null
-    setError(err instanceof Error ? err.message : 'Failed to initiate Battle.net connection')
+    setError(err instanceof Error ? err.message : t('profile.bnetConnectFailed'))
   } finally {
     connectingBnet.value = false
   }
@@ -344,9 +346,9 @@ async function connectBnetAccount() {
 async function disconnectBnetAccount() {
   if (disconnectingBnet.value) return
   const confirmed = await confirm.ask({
-    title: 'Disconnect Battle.net',
-    message: 'Are you sure you want to disconnect your Battle.net account?',
-    confirmText: 'Disconnect',
+    title: t('profile.confirmDisconnectBnet'),
+    message: t('profile.confirmDisconnectBnetMsg'),
+    confirmText: t('profile.disconnect_label'),
     tone: 'danger',
   })
   if (!confirmed) return
@@ -354,11 +356,11 @@ async function disconnectBnetAccount() {
   try {
     await authStore.disconnectBnet()
     await loadProfile()
-    alertsStore.push({ type: 'success', message: 'Battle.net account disconnected' })
+    alertsStore.push({ type: 'success', message: t('profile.bnetDisconnected') })
   } catch (err) {
     alertsStore.push({
       type: 'error',
-      message: err instanceof Error ? err.message : 'Failed to disconnect Battle.net',
+      message: err instanceof Error ? err.message : t('profile.bnetDisconnectFailed'),
       duration: 6000,
     })
   } finally {
@@ -376,7 +378,7 @@ async function connectDiscordAccount() {
     // connectDiscordInit normally navigates away immediately.
   } catch (err) {
     connectingOAuth.value = null
-    setError(err instanceof Error ? err.message : 'Failed to initiate Discord connection')
+    setError(err instanceof Error ? err.message : t('profile.discordConnectFailed'))
   } finally {
     connectingDiscord.value = false
   }
@@ -385,9 +387,9 @@ async function connectDiscordAccount() {
 async function disconnectDiscordAccount() {
   if (disconnectingDiscord.value) return
   const confirmed = await confirm.ask({
-    title: 'Disconnect Discord',
-    message: 'Are you sure you want to disconnect your Discord account?',
-    confirmText: 'Disconnect',
+    title: t('profile.confirmDisconnectDiscord'),
+    message: t('profile.confirmDisconnectDiscordMsg'),
+    confirmText: t('profile.disconnect_label'),
     tone: 'danger',
   })
   if (!confirmed) return
@@ -395,11 +397,11 @@ async function disconnectDiscordAccount() {
   try {
     await authStore.disconnectDiscord()
     await loadProfile()
-    alertsStore.push({ type: 'success', message: 'Discord account disconnected' })
+    alertsStore.push({ type: 'success', message: t('profile.discordDisconnected') })
   } catch (err) {
     alertsStore.push({
       type: 'error',
-      message: err instanceof Error ? err.message : 'Failed to disconnect Discord',
+      message: err instanceof Error ? err.message : t('profile.discordDisconnectFailed'),
       duration: 6000,
     })
   } finally {
@@ -410,21 +412,21 @@ async function disconnectDiscordAccount() {
 async function deleteUserAccount() {
   if (deletingAccount.value || !profile.value) return
   const confirmed = await confirm.ask({
-    title: 'Delete account',
-    message: `Permanently delete ${profile.value.display_name}'s account? This cannot be undone.`,
-    confirmText: 'Delete account',
+    title: t('profile.confirmDeleteAccount'),
+    message: t('profile.confirmDeleteMsg', { name: profile.value.display_name }),
+    confirmText: t('profile.confirmDeleteBtn'),
     tone: 'danger',
   })
   if (!confirmed) return
   deletingAccount.value = true
   try {
     await apiCall(`/api/users/${profile.value.id}`, { method: 'DELETE' })
-    alertsStore.push({ type: 'success', message: 'Account deleted' })
+    alertsStore.push({ type: 'success', message: t('profile.accountDeleted') })
     router.push('/events')
   } catch (err) {
     alertsStore.push({
       type: 'error',
-      message: err instanceof Error ? err.message : 'Failed to delete account',
+      message: err instanceof Error ? err.message : t('profile.accountDeleteFailed'),
       duration: 6000,
     })
   } finally {
@@ -493,23 +495,23 @@ async function loadParticipatedEvents() {
       <div v-if="connectingOAuth" class="oauth-redirect-overlay" aria-live="polite">
         <div class="oauth-redirect-box">
           <span class="oauth-redirect-spinner" aria-hidden="true"></span>
-          <p>Redirecting to {{ connectingOAuth === 'discord' ? 'Discord' : 'Battle.net' }}…</p>
+          <p>{{ t('profile.redirecting', { provider: connectingOAuth === 'discord' ? 'Discord' : 'Battle.net' }) }}</p>
         </div>
       </div>
     </Teleport>
     <header class="profile-hero-header">
       <p v-if="isVerifiedProfile" class="profile-hero-eyebrow">
         <span class="material-symbols-rounded profile-hero-eyebrow-icon" aria-hidden="true">verified_user</span>
-        <span>Verified Profile</span>
+        <span>{{ t('profile.verifiedProfile') }}</span>
       </p>
-      <h1 class="profile-hero-title">Profile</h1>
+      <h1 class="profile-hero-title">{{ t('profile.title') }}</h1>
     </header>
 
     <p v-if="error" class="status status-error">{{ error }}</p>
     <p v-else-if="notice" class="status status-ok">{{ notice }}</p>
 
     <section v-if="loadingProfile" class="card">
-      <p>Loading profile...</p>
+      <p>{{ t('profile.loading') }}</p>
     </section>
 
     <section v-else-if="profile" class="profile-layout">
@@ -538,33 +540,33 @@ async function loadParticipatedEvents() {
           <template #account-edit>
             <form class="profile-form" @submit.prevent="saveProfile">
               <label>
-                Username
-                <input v-model="editUsername" placeholder="username" @input="markProfileFormTouched" />
+                {{ t('profile.usernameLabel') }}
+                <input v-model="editUsername" :placeholder="t('profile.usernamePlaceholder')" @input="markProfileFormTouched" />
               </label>
               <label>
-                Display name
-                <input v-model="editDisplayName" placeholder="Your display name" @input="markProfileFormTouched" />
+                {{ t('profile.displayNameLabel') }}
+                <input v-model="editDisplayName" :placeholder="t('profile.displayNamePlaceholder')" @input="markProfileFormTouched" />
               </label>
               <label>
-                Email
-                <input v-model="editEmail" type="email" placeholder="you@example.com" @input="markProfileFormTouched" />
+                {{ t('profile.emailLabel') }}
+                <input v-model="editEmail" type="email" :placeholder="t('profile.emailPlaceholder')" @input="markProfileFormTouched" />
               </label>
               <label>
-                New password
-                <input v-model="editPassword" type="password" placeholder="Leave blank to keep current password" @input="markProfileFormTouched" />
+                {{ t('profile.newPasswordLabel') }}
+                <input v-model="editPassword" type="password" :placeholder="t('profile.newPasswordPlaceholder')" @input="markProfileFormTouched" />
               </label>
               <label>
-                Confirm new password
-                <input v-model="editPasswordConfirm" type="password" placeholder="Repeat new password" @input="markProfileFormTouched" />
+                {{ t('profile.confirmPasswordLabel') }}
+                <input v-model="editPasswordConfirm" type="password" :placeholder="t('profile.confirmPasswordPlaceholder')" @input="markProfileFormTouched" />
               </label>
               <div class="form-actions">
                 <button type="submit" class="btn-primary" :disabled="!canSaveAccountSection">
                   <span class="material-symbols-rounded" aria-hidden="true">{{ savingProfile ? 'hourglass_empty' : 'save' }}</span>
-                  <span>{{ savingProfile ? 'Saving...' : 'Save account' }}</span>
+                  <span>{{ savingProfile ? t('profile.saving') : t('profile.saveAccount') }}</span>
                 </button>
                 <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditSection('account')">
                   <span class="material-symbols-rounded" aria-hidden="true">close</span>
-                  <span>Cancel</span>
+                  <span>{{ t('profile.cancel') }}</span>
                 </button>
               </div>
             </form>
@@ -572,21 +574,21 @@ async function loadParticipatedEvents() {
         </ProfileHeroCard>
 
         <section v-if="canEdit" class="card connected-accounts-card">
-          <h2 class="profile-section-title">Connected Accounts</h2>
+          <h2 class="profile-section-title">{{ t('profile.connectedAccounts') }}</h2>
 
           <!-- Battle.net -->
           <div class="connected-account-row">
             <div class="connected-account-info">
               <BnetIcon class="connected-account-logo connected-account-logo-bnet" />
               <div class="connected-account-label-wrap">
-                <span class="connected-account-label">Battle.net</span>
+                <span class="connected-account-label">{{ t('profile.bnet') }}</span>
                 <span v-if="profile.battletag" class="connected-account-sublabel">{{ profile.battletag }}</span>
               </div>
-              <span v-if="!profile.can_edit_battletag" class="connected-account-badge">Connected</span>
+              <span v-if="!profile.can_edit_battletag" class="connected-account-badge">{{ t('profile.connected') }}</span>
             </div>
             <div class="connected-account-actions">
               <p v-if="!profile.can_edit_battletag && !profile.has_password" class="connected-account-warning">
-                Set a password before disconnecting, otherwise you will lose access.
+                {{ t('profile.disconnectWarning') }}
               </p>
               <button
                 v-if="!profile.can_edit_battletag"
@@ -595,7 +597,7 @@ async function loadParticipatedEvents() {
                 :disabled="disconnectingBnet || !profile.has_password"
                 @click="disconnectBnetAccount"
               >
-                {{ disconnectingBnet ? 'Disconnecting...' : 'Disconnect' }}
+                {{ disconnectingBnet ? t('profile.disconnecting') : t('profile.disconnect') }}
               </button>
               <button
                 v-else
@@ -604,7 +606,7 @@ async function loadParticipatedEvents() {
                 :disabled="connectingBnet"
                 @click="connectBnetAccount"
               >
-                {{ connectingBnet ? 'Connecting...' : 'Connect' }}
+                {{ connectingBnet ? t('profile.connecting') : t('profile.connect') }}
               </button>
             </div>
           </div>
@@ -614,14 +616,14 @@ async function loadParticipatedEvents() {
             <div class="connected-account-info">
               <DiscordIcon class="connected-account-logo connected-account-logo-discord" />
               <div class="connected-account-label-wrap">
-                <span class="connected-account-label">Discord</span>
+                <span class="connected-account-label">{{ t('profile.discord') }}</span>
                 <span v-if="profile.discord_username" class="connected-account-sublabel">{{ profile.discord_username }}</span>
               </div>
-              <span v-if="profile.has_discord_identity" class="connected-account-badge connected-account-badge-discord">Connected</span>
+              <span v-if="profile.has_discord_identity" class="connected-account-badge connected-account-badge-discord">{{ t('profile.connected') }}</span>
             </div>
             <div class="connected-account-actions">
               <p v-if="profile.has_discord_identity && !profile.has_password" class="connected-account-warning">
-                Set a password before disconnecting, otherwise you will lose access.
+                {{ t('profile.disconnectWarning') }}
               </p>
               <button
                 v-if="profile.has_discord_identity"
@@ -630,7 +632,7 @@ async function loadParticipatedEvents() {
                 :disabled="disconnectingDiscord || !profile.has_password"
                 @click="disconnectDiscordAccount"
               >
-                {{ disconnectingDiscord ? 'Disconnecting...' : 'Disconnect' }}
+                {{ disconnectingDiscord ? t('profile.disconnecting') : t('profile.disconnect') }}
               </button>
               <button
                 v-else
@@ -639,7 +641,7 @@ async function loadParticipatedEvents() {
                 :disabled="connectingDiscord"
                 @click="connectDiscordAccount"
               >
-                {{ connectingDiscord ? 'Connecting...' : 'Connect' }}
+                {{ connectingDiscord ? t('profile.connecting') : t('profile.connect') }}
               </button>
             </div>
           </div>
@@ -659,7 +661,7 @@ async function loadParticipatedEvents() {
                 <div class="rank-tiles-header">
                   <button class="rank-edit-btn" type="button" @click="startEdit('ranks')">
                     <span class="material-symbols-rounded" aria-hidden="true">edit</span>
-                    <span>Edit ranks</span>
+                    <span>{{ t('profile.editRanks') }}</span>
                   </button>
                 </div>
                 <div class="rank-tile-grid">
@@ -679,19 +681,19 @@ async function loadParticipatedEvents() {
             <form v-else class="profile-form" @submit.prevent="saveProfile">
               <div class="profile-ranks-grid">
                 <label>
-                  Tank rank
+                  {{ t('profile.tankRank') }}
                   <select v-model="editRankTank" @change="markProfileFormTouched">
                     <option v-for="rank in overwatchRanks" :key="`tank-${rank}`" :value="rank">{{ rank }}</option>
                   </select>
                 </label>
                 <label>
-                  DPS rank
+                  {{ t('profile.dpsRank') }}
                   <select v-model="editRankDps" @change="markProfileFormTouched">
                     <option v-for="rank in overwatchRanks" :key="`dps-${rank}`" :value="rank">{{ rank }}</option>
                   </select>
                 </label>
                 <label>
-                  Support rank
+                  {{ t('profile.supportRank') }}
                   <select v-model="editRankSupport" @change="markProfileFormTouched">
                     <option v-for="rank in overwatchRanks" :key="`support-${rank}`" :value="rank">{{ rank }}</option>
                   </select>
@@ -700,11 +702,11 @@ async function loadParticipatedEvents() {
               <div class="form-actions">
                 <button type="submit" class="btn-primary" :disabled="!canSaveOverwatchSection">
                   <span class="material-symbols-rounded" aria-hidden="true">{{ savingProfile ? 'hourglass_empty' : 'save' }}</span>
-                  <span>{{ savingProfile ? 'Saving...' : 'Save ranks' }}</span>
+                  <span>{{ savingProfile ? t('profile.savingRanks') : t('profile.saveRanks') }}</span>
                 </button>
                 <button type="button" class="btn-secondary" :disabled="savingProfile" @click="cancelEditRanks">
                   <span class="material-symbols-rounded" aria-hidden="true">close</span>
-                  <span>Cancel</span>
+                  <span>{{ t('profile.cancel') }}</span>
                 </button>
               </div>
             </form>
@@ -719,14 +721,14 @@ async function loadParticipatedEvents() {
         <!-- Events organized -->
         <div class="profile-events-col">
           <div class="profile-events-header">
-            <h2 class="profile-section-title">Events organized</h2>
+            <h2 class="profile-section-title">{{ t('profile.eventsOrganized') }}</h2>
             <InlineArrowLink
               :to="{ name: 'events', query: { owner: profileId } }"
-              label="See all"
+              :label="t('profile.seeAll')"
             />
           </div>
-          <p v-if="loadingCreatedEvents" class="muted">Loading...</p>
-          <p v-else-if="createdEvents.length === 0" class="muted">No events yet.</p>
+          <p v-if="loadingCreatedEvents" class="muted">{{ t('profile.eventsLoadingCreated') }}</p>
+          <p v-else-if="createdEvents.length === 0" class="muted">{{ t('profile.noEventsCreated') }}</p>
           <ul v-else class="profile-events-list">
             <EventListItem
               v-for="event in createdEvents"
@@ -741,10 +743,10 @@ async function loadParticipatedEvents() {
         <!-- Events played in -->
         <div class="profile-events-col">
           <div class="profile-events-header">
-            <h2 class="profile-section-title">Events played in</h2>
+            <h2 class="profile-section-title">{{ t('profile.eventsPlayed') }}</h2>
           </div>
-          <p v-if="loadingParticipatedEvents" class="muted">Loading...</p>
-          <p v-else-if="participatedEvents.length === 0" class="muted">No events yet.</p>
+          <p v-if="loadingParticipatedEvents" class="muted">{{ t('profile.eventsLoadingParticipated') }}</p>
+          <p v-else-if="participatedEvents.length === 0" class="muted">{{ t('profile.noEventsParticipated') }}</p>
           <ul v-else class="profile-events-list">
             <li v-for="event in participatedEvents" :key="event.id" class="participated-event-item">
               <RouterLink :to="{ name: 'event', params: { id: event.id } }" class="participated-event-link">
@@ -753,7 +755,7 @@ async function loadParticipatedEvents() {
                   <div class="participated-event-text">
                     <span class="participated-event-name">{{ event.name }}</span>
                     <span class="participated-event-meta">
-                      <span>{{ event.event_type }} ({{ event.format }})</span>
+                      <span>{{ event.event_type === 'TOURNEY' ? t('events.typeTourney') : t('events.typePug') }} ({{ event.format }})</span>
                       <span v-if="event.start_date" aria-hidden="true"> · </span>
                       <span v-if="event.start_date">{{ formatDayMonthYear(event.start_date) }}</span>
                     </span>
@@ -761,7 +763,7 @@ async function loadParticipatedEvents() {
                 </div>
                 <AppBadge
                   :variant="event.status === 'ENDED' ? 'muted' : event.status === 'DRAFT' ? 'warning' : 'ok'"
-                  :label="event.status === 'ENDED' ? 'Ended' : event.status === 'DRAFT' ? 'Draft' : 'Active'"
+                  :label="event.status === 'ENDED' ? t('common.statusEnded') : event.status === 'DRAFT' ? t('common.statusDraft') : t('common.statusActive')"
                 />
               </RouterLink>
             </li>
@@ -771,9 +773,9 @@ async function loadParticipatedEvents() {
     </section>
 
     <section v-else class="card">
-      <h2>Profile not found</h2>
-      <p class="muted">The user may not exist.</p>
-      <button class="btn-secondary" @click="goToEvents">Back to events</button>
+      <h2>{{ t('profile.notFound') }}</h2>
+      <p class="muted">{{ t('profile.notFoundHint') }}</p>
+      <button class="btn-secondary" @click="goToEvents">{{ t('profile.backToEvents') }}</button>
     </section>
   </main>
 </template>

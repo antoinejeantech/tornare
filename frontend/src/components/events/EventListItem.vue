@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { formatDayMonthYear, formatTime24, getDateTimestamp } from '../../lib/dates'
+import { useI18n } from 'vue-i18n'
+import { formatDayMonthYear, formatTime, getDateTimestamp } from '../../lib/dates'
 import AppBadge from '../ui/AppBadge.vue'
 import type { Event } from '../../types'
 import type { RouteLocationRaw } from 'vue-router'
@@ -12,12 +13,14 @@ const props = defineProps<{
   compact?: boolean
 }>()
 
+const { t } = useI18n()
+
 const startDateDisplay = computed(() => {
   return formatDayMonthYear(props.event?.start_date, '--/--/----')
 })
 
 const startTimeDisplay = computed(() => {
-  return formatTime24(props.event?.start_date, '--:--')
+  return formatTime(props.event?.start_date, '--:--')
 })
 
 const playerCount = computed(() => {
@@ -42,41 +45,57 @@ const creatorProfileRoute = computed(() => {
   return { name: 'profile', params: { id: creatorId } }
 })
 
-const statusLabel = computed(() => {
+const statusKey = computed(() => {
   const s = props.event?.status
-  if (s === 'ENDED') return 'Ended'
-  if (s === 'DRAFT') return 'Draft'
+  if (s === 'ENDED') return 'ended'
+  if (s === 'DRAFT') return 'draft'
 
-  // ACTIVE — derive display from signup visibility and timing
   const maxP = Number(props.event?.max_players) || 0
   const players = playerCount.value
   const startAt = getDateTimestamp(props.event?.start_date)
 
-  if (maxP > 0 && players >= maxP) return 'Full'
+  if (maxP > 0 && players >= maxP) return 'full'
 
   if (startAt !== null) {
     const now = Date.now()
-    if (startAt <= now) return 'Ongoing'
-    if (startAt - now <= 6 * 60 * 60 * 1000) return 'Starting Soon'
+    if (startAt <= now) return 'ongoing'
+    if (startAt - now <= 6 * 60 * 60 * 1000) return 'startingSoon'
   }
 
-  return props.event?.public_signup_enabled ? 'Open' : 'Private'
+  return props.event?.public_signup_enabled ? 'open' : 'private'
+})
+
+const statusLabel = computed(() => {
+  const map: Record<string, string> = {
+    ended: t('common.statusEnded'),
+    draft: t('common.statusDraft'),
+    full: t('eventList.statusFull'),
+    ongoing: t('eventList.statusOngoing'),
+    startingSoon: t('eventList.statusStartingSoon'),
+    open: t('eventList.statusOpen'),
+    private: t('eventList.statusPrivate'),
+  }
+  return map[statusKey.value] ?? statusKey.value
 })
 
 const statusVariant = computed(() => {
-  if (statusLabel.value === 'Ended') return 'muted'
-  if (statusLabel.value === 'Draft') return 'warning'
-  if (statusLabel.value === 'Full') return 'danger'
-  if (statusLabel.value === 'Ongoing') return 'info'
-  if (statusLabel.value === 'Private') return 'muted'
-  return 'ok'
+  const variants: Record<string, string> = {
+    ended: 'muted',
+    draft: 'warning',
+    full: 'danger',
+    ongoing: 'info',
+    startingSoon: 'ok',
+    open: 'ok',
+    private: 'muted',
+  }
+  return variants[statusKey.value] ?? 'ok'
 })
 
 </script>
 
 <template>
   <li class="event-list-item" :class="{ 'is-compact': compact }">
-    <RouterLink class="event-card-overlay" :to="to" aria-label="Open event" tabindex="-1" />
+    <RouterLink class="event-card-overlay" :to="to" :aria-label="t('eventList.openEvent')" tabindex="-1" />
     <div class="event-list-main">
       <span class="event-list-title-wrap">
         <span class="material-symbols-rounded event-list-trophy" aria-hidden="true">trophy</span>
@@ -85,14 +104,14 @@ const statusVariant = computed(() => {
             <span class="event-list-title">{{ event.name }}</span>
           </RouterLink>
         <span class="muted event-list-meta-row" :class="{ 'meta-row-hidden-compact': compact }">
-            by
+            {{ t('common.by') }}
             <RouterLink v-if="creatorProfileRoute" class="event-creator-link" :to="creatorProfileRoute">
-              {{ event.creator_name || 'Unknown' }}
+              {{ event.creator_name || t('common.unknown') }}
             </RouterLink>
-            <span v-else>{{ event.creator_name || 'Unknown' }}</span>
+            <span v-else>{{ event.creator_name || t('common.unknown') }}</span>
           </span>
           <span class="event-mobile-meta" :class="{ 'mobile-meta-always': compact }">
-            <span>{{ event.event_type || 'PUG' }} ({{ eventFormat }})</span>
+            <span>{{ (event.event_type || 'PUG') === 'TOURNEY' ? t('events.typeTourney') : t('events.typePug') }} ({{ eventFormat }})</span>
             <span aria-hidden="true"> · </span>
             <span>{{ playerCount }}/{{ maxPlayers || event.max_players }}</span>
             <span aria-hidden="true"> · </span>
@@ -102,9 +121,9 @@ const statusVariant = computed(() => {
       </span>
     </div>
 
-    <div class="event-format-col" :class="{ 'col-hidden-compact': compact }" aria-label="Event format">
-      <span class="event-col-label muted">Format</span>
-      <strong class="event-format-value">{{ event.event_type || 'PUG' }} ({{ eventFormat }})</strong>
+    <div class="event-format-col" :class="{ 'col-hidden-compact': compact }" :aria-label="t('eventList.formatLabel')">
+      <span class="event-col-label muted">{{ t('eventList.formatLabel') }}</span>
+      <strong class="event-format-value">{{ (event.event_type || 'PUG') === 'TOURNEY' ? t('events.typeTourney') : t('events.typePug') }} ({{ eventFormat }})</strong>
     </div>
 
     <div class="event-players-col" :class="{ 'col-hidden-compact': compact }" aria-label="Players">
@@ -112,8 +131,8 @@ const statusVariant = computed(() => {
       <strong>{{ playerCount }}/{{ maxPlayers || event.max_players }}</strong>
     </div>
 
-    <div class="event-date-col" :class="{ 'col-hidden-compact': compact }" aria-label="Date and time">
-      <span class="event-col-label muted">Date &amp; Time</span>
+    <div class="event-date-col" :class="{ 'col-hidden-compact': compact }" :aria-label="t('eventList.dateTimeLabel')">
+      <span class="event-col-label muted">{{ t('eventList.dateTimeLabel') }}</span>
       <strong class="event-date-value">
         <span>{{ startDateDisplay }}</span>
         <span class="event-date-dot material-symbols-rounded" aria-hidden="true">fiber_manual_record</span>

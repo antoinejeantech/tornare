@@ -40,7 +40,7 @@ export const useAlertsStore = defineStore('alerts', {
       this.items.push(item)
 
       const duration = Number(payload.duration)
-      const ttl = Number.isFinite(duration) ? duration : 2400
+      const ttl = Number.isFinite(duration) ? duration : 5000
       if (ttl > 0) {
         window.setTimeout(() => {
           this.remove(id)

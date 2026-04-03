@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 
+const { t } = useI18n()
 const openIds = ref(new Set<string>())
 
 function toggle(id: string) {
@@ -14,121 +16,53 @@ function toggle(id: string) {
   openIds.value = new Set(openIds.value)
 }
 
-const sections = [
+const sections = computed(() => [
   {
     id: 'getting-started',
-    title: 'Getting Started',
+    title: t('faq.s1Title'),
     icon: 'rocket_launch',
     questions: [
-      {
-        id: 'gs-1',
-        q: 'How do I create an account?',
-        a: 'Click "Sign in" in the top navigation. You can register with a username and password, or link an existing Discord or Battle.net account via OAuth on the Auth page.'
-      },
-      {
-        id: 'gs-2',
-        q: 'How do I create an event?',
-        a: 'Open the Events page and use the "Create Event" button in the header. You will be prompted to name the event, configure its format, and set signup options. Newly created events start in Draft status.'
-      },
-      {
-        id: 'gs-3',
-        q: 'How do I invite players to my event?',
-        a: "From the event's Requests tab, copy the signup link and share it in your community Discord or chat. Players do not need a Tornare account to submit a signup — they just open the link and fill in the form."
-      },
-      {
-        id: 'gs-4',
-        q: 'What does "public registration" mean?',
-        a: "When public registration is enabled, anyone with the signup link can request to join. When disabled, only manually approved players can access the event. Toggle this in the event's Settings tab."
-      }
+      { id: 'gs-1', q: t('faq.s1q1'), a: t('faq.s1a1') },
+      { id: 'gs-2', q: t('faq.s1q2'), a: t('faq.s1a2') },
+      { id: 'gs-3', q: t('faq.s1q3'), a: t('faq.s1a3') },
+      { id: 'gs-4', q: t('faq.s1q4'), a: t('faq.s1a4') },
     ]
   },
   {
     id: 'events',
-    title: 'Events & Rosters',
+    title: t('faq.s2Title'),
     icon: 'event',
     questions: [
-      {
-        id: 'ev-1',
-        q: 'How does auto-balance work?',
-        a: 'The balancing engine distributes players across teams by optimising role coverage (Tank, Support, DPS) and minimising total rank ELO difference between teams. Ensure all players have a rank set before running the balance for best results.'
-      },
-      {
-        id: 'ev-2',
-        q: 'Can I manually adjust teams after auto-balance?',
-        a: 'Yes. After running auto-balance, any team slot can be edited individually from the Teams section of the event.'
-      },
-      {
-        id: 'ev-3',
-        q: 'Can a player update their signup after submitting?',
-        a: "Players cannot edit a submitted request directly. As an organiser you can reject and re-invite them, which lets them submit a fresh request with updated information."
-      },
-      {
-        id: 'ev-4',
-        q: 'What are the different event statuses?',
-        a: 'Draft — being set up; not visible to the public, signups not accepted. Active — live and visible; players can submit signup requests if Public Registration is enabled. Ended — event is over; still visible in Past Events but locked for new signups.'
-      },
-      {
-        id: 'ev-5',
-        q: 'Can I archive or soft-delete an event?',
-        a: "Yes. From the event Settings tab you can mark an event as deleted. It remains in the database for record-keeping but is hidden from the public events list. Admins can still access it."
-      }
+      { id: 'ev-1', q: t('faq.s2q1'), a: t('faq.s2a1') },
+      { id: 'ev-2', q: t('faq.s2q2'), a: t('faq.s2a2') },
+      { id: 'ev-3', q: t('faq.s2q3'), a: t('faq.s2a3') },
+      { id: 'ev-4', q: t('faq.s2q4'), a: t('faq.s2a4') },
+      { id: 'ev-5', q: t('faq.s2q5'), a: t('faq.s2a5') },
     ]
   },
   {
     id: 'players',
-    title: 'Players & Roles',
+    title: t('faq.s3Title'),
     icon: 'group',
     questions: [
-      {
-        id: 'pl-1',
-        q: 'What roles are supported?',
-        a: 'Tornare currently supports Tank, Support, and DPS — the standard Overwatch 2 role categories. Players can set primary and secondary role preferences when submitting a signup request.'
-      },
-      {
-        id: 'pl-2',
-        q: 'What are ranks and how is ELO calculated?',
-        a: 'Players self-report their competitive rank (e.g. Gold 3, Platinum 1). Tornare maps these to numeric ELO values used for team balancing. The tiers follow the standard Overwatch competitive ladder.'
-      },
-      {
-        id: 'pl-3',
-        q: 'What is a "flex" role?',
-        a: 'Flex indicates the player has no strong role preference and is willing to fill any position. The balance engine uses flex players as wildcards when optimising team compositions.'
-      },
-      {
-        id: 'pl-4',
-        q: 'Can a player be assigned a different role than their preference?',
-        a: "Yes. Organisers can override the assigned role for any player in the Teams section. The player's preference is shown as a hint, but the final assignment is always under organiser control."
-      }
+      { id: 'pl-1', q: t('faq.s3q1'), a: t('faq.s3a1') },
+      { id: 'pl-2', q: t('faq.s3q2'), a: t('faq.s3a2') },
+      { id: 'pl-3', q: t('faq.s3q3'), a: t('faq.s3a3') },
+      { id: 'pl-4', q: t('faq.s3q4'), a: t('faq.s3a4') },
     ]
   },
   {
     id: 'accounts',
-    title: 'Accounts & Identity',
+    title: t('faq.s4Title'),
     icon: 'manage_accounts',
     questions: [
-      {
-        id: 'ac-1',
-        q: 'How do I link my Discord account?',
-        a: "Go to your Profile page and click \"Link Discord\". You will be redirected to Discord's OAuth screen. After authorising, your Discord username will appear on your profile and on your player cards in events."
-      },
-      {
-        id: 'ac-2',
-        q: 'How do I link my Battle.net account?',
-        a: "The same flow applies: Profile → \"Link Battle.net\" → authorise on Blizzard's site. Your BattleTag will then be linked to your Tornare identity and shown on player cards."
-      },
-      {
-        id: 'ac-3',
-        q: 'Can I change my username?',
-        a: 'Username changes are not currently self-served. Contact support if you need a correction. Display names can be updated freely from your Profile settings at any time.'
-      },
-      {
-        id: 'ac-4',
-        q: 'How do I delete my account?',
-        a: 'Send a deletion request through the Support page. We will anonymise your personal data within 30 days. Event participation records are retained in anonymised form to preserve tournament history.'
-      }
+      { id: 'ac-1', q: t('faq.s4q1'), a: t('faq.s4a1') },
+      { id: 'ac-2', q: t('faq.s4q2'), a: t('faq.s4a2') },
+      { id: 'ac-3', q: t('faq.s4q3'), a: t('faq.s4a3') },
+      { id: 'ac-4', q: t('faq.s4q4'), a: t('faq.s4a4') },
     ]
   }
-]
+])
 </script>
 
 <template>
@@ -137,8 +71,8 @@ const sections = [
     <header class="faq-header">
       <span class="material-symbols-rounded faq-header-icon" aria-hidden="true">help</span>
       <div>
-        <h1 class="faq-title">Frequently Asked Questions</h1>
-        <p class="faq-subtitle">Quick answers across events, players, teams, and accounts.</p>
+        <h1 class="faq-title">{{ t('faq.title') }}</h1>
+        <p class="faq-subtitle">{{ t('faq.subtitle') }}</p>
       </div>
     </header>
 
@@ -172,7 +106,7 @@ const sections = [
 
     <div class="faq-footer card">
       <span class="material-symbols-rounded faq-footer-icon" aria-hidden="true">live_help</span>
-      <p>Didn't find what you were looking for? <RouterLink to="/support" class="faq-footer-link">Visit the Support page</RouterLink> to reach the team directly.</p>
+      <p>{{ t('faq.footerText') }} <RouterLink to="/support" class="faq-footer-link">{{ t('faq.footerLink') }}</RouterLink></p>
     </div>
 
   </main>

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { getApiBase } from '../lib/api'
-import BnetIcon from '../components/ui/BnetIcon.vue'
-import DiscordIcon from '../components/ui/DiscordIcon.vue'
+import DiscordAuthButton from '../components/ui/DiscordAuthButton.vue'
+import BnetAuthButton from '../components/ui/BnetAuthButton.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -45,10 +47,9 @@ const canSubmit = computed(() => {
 
 const submitLabel = computed(() => {
   if (submitting.value) {
-    return mode.value === 'register' ? 'Creating account...' : 'Signing in...'
+    return mode.value === 'register' ? t('auth.creating') : t('auth.signingIn')
   }
-
-  return mode.value === 'register' ? 'Create account' : 'Sign in'
+  return mode.value === 'register' ? t('auth.createBtn') : t('auth.signInBtn')
 })
 
 async function submit() {
@@ -75,10 +76,14 @@ async function submit() {
       })
     }
 
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/events'
-    router.push(redirect)
+    if (mode.value === 'register') {
+      router.push({ name: 'onboarding' })
+    } else {
+      const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/events'
+      router.push(redirect)
+    }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Authentication failed'
+    error.value = err instanceof Error ? err.message : t('auth.authFailed')
   } finally {
     submitting.value = false
   }
@@ -97,59 +102,53 @@ function loginWithDiscord() {
   <main class="app-shell auth-shell">
     <section class="card auth-card">
       <header class="auth-header">
-        <h1 class="page-title">{{ mode === 'register' ? 'Create Account' : 'Sign In' }}</h1>
-        <p class="muted">Use your email and password to access your events.</p>
+        <h1 class="page-title">{{ mode === 'register' ? t('auth.createAccount') : t('auth.signIn') }}</h1>
+        <p class="muted">{{ t('auth.subtitle') }}</p>
       </header>
 
       <p v-if="error" class="status status-error">{{ error }}</p>
 
       <div class="auth-bnet">
-        <button type="button" class="btn-bnet" @click="loginWithBnet">
-          <BnetIcon class="btn-bnet-logo" />
-          <span class="btn-bnet-label">Sign in with Battle.net</span>
-        </button>
-        <button type="button" class="btn-discord" @click="loginWithDiscord">
-          <DiscordIcon class="btn-discord-logo" />
-          <span class="btn-discord-label">Sign in with Discord</span>
-        </button>
+        <DiscordAuthButton :label="t('auth.signInDiscord')" :recommended="true" @click="loginWithDiscord" />
+        <BnetAuthButton :label="t('auth.signInBnet')" @click="loginWithBnet" />
       </div>
 
       <div class="auth-divider" aria-hidden="true">
-        <span>{{ mode === 'register' ? 'or create account with email' : 'or sign in with email' }}</span>
+        <span>{{ mode === 'register' ? t('auth.dividerRegister') : t('auth.dividerLogin') }}</span>
       </div>
 
       <form class="grid-form" @submit.prevent="submit">
         <label v-if="mode === 'register'">
-          Username
-          <input v-model="username" placeholder="antoine" />
+          {{ t('auth.username') }}
+          <input v-model="username" :placeholder="t('auth.usernamePlaceholder')" />
         </label>
         <label v-if="mode === 'register'">
-          Display name
-          <input v-model="displayName" placeholder="Antoine" />
+          {{ t('auth.displayName') }}
+          <input v-model="displayName" :placeholder="t('auth.displayNamePlaceholder')" />
         </label>
         <label>
-          Email
-          <input v-model="email" type="email" placeholder="you@example.com" />
+          {{ t('auth.email') }}
+          <input v-model="email" type="email" :placeholder="t('auth.emailPlaceholder')" />
         </label>
         <label>
-          Password
-          <input v-model="password" type="password" placeholder="At least 8 characters" />
+          {{ t('auth.password') }}
+          <input v-model="password" type="password" :placeholder="t('auth.passwordPlaceholder')" />
         </label>
         <label v-if="mode === 'register'">
-          Confirm password
-          <input v-model="passwordConfirm" type="password" placeholder="Repeat your password" />
+          {{ t('auth.confirmPassword') }}
+          <input v-model="passwordConfirm" type="password" :placeholder="t('auth.confirmPasswordPlaceholder')" />
         </label>
         <button type="submit" class="btn-primary" :disabled="!canSubmit || submitting">{{ submitLabel }}</button>
       </form>
 
       <p class="auth-switch-hint">
         <template v-if="mode === 'login'">
-          No account yet?
-          <RouterLink :to="{ name: 'register', query: route.query }">Create one</RouterLink>
+          {{ t('auth.noAccount') }}
+          <RouterLink :to="{ name: 'register', query: route.query }">{{ t('auth.createOne') }}</RouterLink>
         </template>
         <template v-else>
-          Already have an account?
-          <RouterLink :to="{ name: 'login', query: route.query }">Sign in</RouterLink>
+          {{ t('auth.hasAccount') }}
+          <RouterLink :to="{ name: 'login', query: route.query }">{{ t('auth.signInBtn') }}</RouterLink>
         </template>
       </p>
     </section>
@@ -215,84 +214,6 @@ function loginWithDiscord() {
   content: '';
   height: 1px;
   background: color-mix(in srgb, var(--line) 55%, transparent 45%);
-}
-
-.btn-bnet {
-  width: 100%;
-  border: none;
-  border-radius: var(--radius-md);
-  padding: 0.72rem 1.1rem;
-  background: #148eff;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  cursor: pointer;
-  transition: background 120ms ease, box-shadow 120ms ease;
-  box-shadow: 0 2px 8px rgb(20 142 255 / 32%);
-}
-
-.btn-bnet:hover {
-  background: #1a9aff;
-  box-shadow: 0 3px 12px rgb(20 142 255 / 44%);
-}
-
-.btn-bnet:active {
-  background: #0e7de0;
-  box-shadow: 0 1px 4px rgb(20 142 255 / 24%);
-}
-
-.btn-bnet-logo {
-  width: 1.55rem;
-  height: 1.55rem;
-  display: block;
-  flex-shrink: 0;
-  color: white;
-}
-
-.btn-bnet-label {
-  font-weight: 700;
-  font-size: 0.97rem;
-  letter-spacing: 0.01em;
-}
-
-.btn-discord {
-  width: 100%;
-  border: none;
-  border-radius: var(--radius-md);
-  padding: 0.72rem 1.1rem;
-  background: #5865f2;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  cursor: pointer;
-  transition: background 120ms ease, box-shadow 120ms ease;
-  box-shadow: 0 2px 8px rgb(88 101 242 / 32%);
-}
-
-.btn-discord:hover {
-  background: #6470f3;
-  box-shadow: 0 3px 12px rgb(88 101 242 / 44%);
-}
-
-.btn-discord:active {
-  background: #4752c4;
-  box-shadow: 0 1px 4px rgb(88 101 242 / 24%);
-}
-
-.btn-discord-logo {
-  width: 1.45rem;
-  height: 1.45rem;
-  flex-shrink: 0;
-}
-
-.btn-discord-label {
-  font-weight: 700;
-  font-size: 0.97rem;
-  letter-spacing: 0.01em;
 }
 
 @media (prefers-color-scheme: dark) {

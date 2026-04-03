@@ -2,10 +2,12 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
 import { apiCall } from '../lib/api'
 import { useDebounce } from '../composables/useDebounce'
 import { useRequestSequence } from '../composables/useRequestSequence'
+import { setLocale, getLocale } from '../i18n'
 import tornareLogo from '../assets/branding/tornare-logo-pulse.svg'
 
 interface UserSearchResult {
@@ -14,10 +16,18 @@ interface UserSearchResult {
   display_name: string
 }
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
+const currentLocale = ref(getLocale())
+
+function toggleLocale() {
+  const next = currentLocale.value === 'en' ? 'fr' : 'en'
+  setLocale(next as 'en' | 'fr')
+  currentLocale.value = next
+}
 const notificationsOpen = ref(false)
 const searchQuery = ref('')
 const searchResults = ref<UserSearchResult[]>([])
@@ -132,22 +142,6 @@ function applyTheme(mode: string) {
   document.body.classList.toggle('theme-light', themeMode.value === 'light')
 }
 
-function toggleTheme() {
-  const next = themeMode.value === 'light' ? 'dark' : 'light'
-  applyTheme(next)
-
-  if (typeof window !== 'undefined') {
-    window.localStorage.setItem(THEME_STORAGE_KEY, next)
-  }
-}
-
-function themeIcon() {
-  return themeMode.value === 'light' ? 'dark_mode' : 'light_mode'
-}
-
-function themeLabel() {
-  return themeMode.value === 'light' ? 'Dark mode' : 'Light mode'
-}
 
 watch(() => route.fullPath, () => {
   closeMobileMenu()
@@ -190,28 +184,28 @@ onBeforeUnmount(() => {
         type="button"
         :aria-expanded="mobileMenuOpen ? 'true' : 'false'"
         aria-controls="top-nav-mobile-menu"
-        :title="mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'"
+        :title="mobileMenuOpen ? t('nav.closeMenu') : t('nav.openMenu')"
         @click="toggleMobileMenu"
       >
         <span class="material-symbols-rounded" aria-hidden="true">{{ mobileMenuOpen ? 'close' : 'menu' }}</span>
-        <span class="sr-only">{{ mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu' }}</span>
+        <span class="sr-only">{{ mobileMenuOpen ? t('nav.closeMenu') : t('nav.openMenu') }}</span>
       </button>
       <div id="top-nav-mobile-menu" class="top-nav-links" :class="{ 'menu-open': mobileMenuOpen }">
         <RouterLink class="top-nav-link" to="/" @click="closeMobileMenu">
           <span class="material-symbols-rounded" aria-hidden="true">home</span>
-          <span>Home</span>
+          <span>{{ t('nav.home') }}</span>
         </RouterLink>
         <RouterLink class="top-nav-link" to="/events" @click="closeMobileMenu">
           <span class="material-symbols-rounded" aria-hidden="true">event</span>
-          <span>Events</span>
+          <span>{{ t('nav.events') }}</span>
         </RouterLink>
         <RouterLink class="top-nav-link" to="/about" @click="closeMobileMenu">
           <span class="material-symbols-rounded" aria-hidden="true">info</span>
-          <span>About</span>
+          <span>{{ t('nav.about') }}</span>
         </RouterLink>
         <RouterLink class="top-nav-link" to="/news" @click="closeMobileMenu">
           <span class="material-symbols-rounded" aria-hidden="true">article</span>
-          <span>News</span>
+          <span>{{ t('nav.news') }}</span>
         </RouterLink>
         <div class="top-nav-search" @keydown.escape="clearSearch">
           <span class="material-symbols-rounded top-nav-search-icon" aria-hidden="true">search</span>
@@ -220,8 +214,8 @@ onBeforeUnmount(() => {
             v-model="searchQuery"
             class="top-nav-search-input"
             type="search"
-            placeholder="Search users..."
-            aria-label="Search users"
+            :placeholder="t('nav.searchPlaceholder')"
+            :aria-label="t('nav.searchLabel')"
             autocomplete="off"
             @input="onSearchInput"
           />
@@ -239,28 +233,28 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div v-if="!authStore.isAuthenticated" class="top-nav-auth-cta desktop-only">
-          <RouterLink class="top-nav-link" :to="{ name: 'login', query: loginRoute.query }" @click="closeMobileMenu">Sign in</RouterLink>
-          <RouterLink class="top-nav-cta-btn" :to="{ name: 'register', query: loginRoute.query }" @click="closeMobileMenu">Get started</RouterLink>
+          <RouterLink class="top-nav-link" :to="{ name: 'login', query: loginRoute.query }" @click="closeMobileMenu">{{ t('nav.signIn') }}</RouterLink>
+          <RouterLink class="top-nav-cta-btn" :to="{ name: 'register', query: loginRoute.query }" @click="closeMobileMenu">{{ t('nav.getStarted') }}</RouterLink>
         </div>
         <div v-if="!authStore.isAuthenticated" class="top-nav-auth-cta mobile-only">
-          <RouterLink class="top-nav-link" :to="{ name: 'login', query: loginRoute.query }" @click="closeMobileMenu">Sign in</RouterLink>
-          <RouterLink class="top-nav-cta-btn" :to="{ name: 'register', query: loginRoute.query }" @click="closeMobileMenu">Get started</RouterLink>
+          <RouterLink class="top-nav-link" :to="{ name: 'login', query: loginRoute.query }" @click="closeMobileMenu">{{ t('nav.signIn') }}</RouterLink>
+          <RouterLink class="top-nav-cta-btn" :to="{ name: 'register', query: loginRoute.query }" @click="closeMobileMenu">{{ t('nav.getStarted') }}</RouterLink>
         </div>
         <div v-else class="top-nav-user-controls desktop-only">
           <div class="top-nav-notification">
             <button
               class="top-nav-link top-nav-notification-btn"
               type="button"
-              title="Notifications"
+              :title="t('nav.notifications')"
               aria-controls="top-nav-notifications-panel"
               :aria-expanded="notificationsOpen ? 'true' : 'false'"
               @click="toggleNotifications"
             >
               <span class="material-symbols-rounded" aria-hidden="true">notifications</span>
-              <span class="sr-only">Notifications</span>
+              <span class="sr-only">{{ t('nav.notifications') }}</span>
             </button>
-            <div v-if="notificationsOpen" id="top-nav-notifications-panel" class="top-nav-notifications-panel" role="dialog" aria-label="Notifications panel">
-              <p class="top-nav-notifications-empty">No notifications right now.</p>
+            <div v-if="notificationsOpen" id="top-nav-notifications-panel" class="top-nav-notifications-panel" role="dialog" :aria-label="t('nav.notifications')">
+              <p class="top-nav-notifications-empty">{{ t('nav.noNotifications') }}</p>
             </div>
           </div>
           <div class="top-nav-user-menu">
@@ -271,11 +265,11 @@ onBeforeUnmount(() => {
             <div class="top-nav-user-dropdown" role="menu" aria-label="User menu">
               <RouterLink class="top-nav-user-action" :to="profileRoute">
                 <span class="material-symbols-rounded" aria-hidden="true">person</span>
-                <span>Profile</span>
+                <span>{{ t('nav.profile') }}</span>
               </RouterLink>
               <button class="top-nav-user-action" type="button" @click="logout">
                 <span class="material-symbols-rounded" aria-hidden="true">logout</span>
-                <span>Logout</span>
+                <span>{{ t('nav.logout') }}</span>
               </button>
             </div>
           </div>
@@ -284,18 +278,19 @@ onBeforeUnmount(() => {
         <div v-if="authStore.isAuthenticated" class="top-nav-mobile-user mobile-only">
           <RouterLink class="top-nav-link" :to="profileRoute" @click="closeMobileMenu">
             <span class="material-symbols-rounded" aria-hidden="true">person</span>
-            <span>Profile</span>
+            <span>{{ t('nav.profile') }}</span>
           </RouterLink>
           <button class="top-nav-link top-nav-mobile-logout" type="button" @click="logout">
             <span class="material-symbols-rounded" aria-hidden="true">logout</span>
-            <span>Logout</span>
+            <span>{{ t('nav.logout') }}</span>
           </button>
         </div>
-
-        <button class="top-nav-link top-nav-theme-toggle top-nav-theme-toggle-compact" type="button" :title="themeLabel()" :disabled="true" aria-disabled="true" @click="toggleTheme">
-          <span class="material-symbols-rounded" aria-hidden="true">{{ themeIcon() }}</span>
-          <span class="sr-only">{{ themeLabel() }}</span>
+        <button class="top-nav-link top-nav-locale-btn" type="button" :title="currentLocale === 'en' ? t('nav.switchToFr') : t('nav.switchToEn')" @click="toggleLocale">
+          <span class="top-nav-locale-flag" aria-hidden="true">{{ currentLocale === 'en' ? '🇫🇷' : '🇬🇧' }}</span>
+          <span class="sr-only">{{ currentLocale === 'en' ? t('nav.switchToFr') : t('nav.switchToEn') }}</span>
         </button>
+
+
       </div>
     </div>
   </nav>
@@ -418,6 +413,7 @@ onBeforeUnmount(() => {
   border: 1px solid transparent;
   background: transparent;
   color: var(--ink-2);
+  font-size: 0.9rem;
   font-weight: 620;
   letter-spacing: 0.01em;
   transition: box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;
@@ -634,6 +630,33 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
+.top-nav-locale-flag {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+/* Desktop: flag-only compact pill inside the user dropdown */
+.top-nav-user-dropdown .top-nav-locale-btn {
+  border-top: 1px solid var(--line);
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+}
+
+/* Mobile: flag-only, right-aligned small badge at the bottom of the menu */
+@media (max-width: 900px) {
+  .top-nav-locale-btn {
+    width: auto;
+    align-self: flex-end;
+    padding: 0.3rem 0.5rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+    background: transparent;
+    font-size: 1.15rem;
+    line-height: 1;
+    order: 10;
+  }
+}
+
 .top-nav-user-trigger {
   border-radius: 9px;
   border: 1px solid transparent;
@@ -765,7 +788,8 @@ onBeforeUnmount(() => {
     position: absolute;
     top: calc(100% + 0.5rem);
     right: 1rem;
-    left: 1rem;
+    left: auto;
+    min-width: 200px;
     z-index: 60;
     display: none;
     margin-left: 0;
@@ -790,13 +814,6 @@ onBeforeUnmount(() => {
     padding: 0.52rem 0.62rem;
   }
 
-  .top-nav-theme-toggle-compact {
-    width: auto;
-    justify-content: center;
-    justify-self: end;
-    padding: 0.42rem 0.52rem;
-  }
-
   .desktop-only {
     display: none;
   }
@@ -814,11 +831,12 @@ onBeforeUnmount(() => {
   }
 
   .top-nav-search {
+    order: 10;
     padding-inline: 0.52rem;
     margin-left: 0;
   }
   .top-nav-search-input {
-    width: 80px;
+    width: 100%;
   }
   .top-nav-search-dropdown {
     min-width: 240px;
