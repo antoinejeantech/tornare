@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, provide, proxyRefs, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, provide, proxyRefs, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { getDateTimestamp, parseDateValue } from '../lib/dates'
 import { getRankIcon, overwatchRanks } from '../lib/ranks'
+import { formatEventStartDate } from '../lib/dates'
 import { usePageRevalidation } from '../composables/usePageRevalidation'
 import { useAlert } from '../composables/alerts'
 import { useConfirm } from '../composables/confirm'
@@ -39,8 +39,6 @@ const matchStore = useMatchStore()
 const event = ref<Event | null>(null)
 const loadingEvent = ref(false)
 const matchupSelections = ref<Record<string, { teamAId: string; teamBId: string }>>({})
-const nowTick = ref(Date.now())
-let startsInTimer: ReturnType<typeof setInterval> | null = null
 let latestEventLoadRequestId = 0
 let eventLoadController: AbortController | null = null
 
@@ -58,37 +56,7 @@ const authIdentityKey = computed(() => {
   return `${initialized}:${authenticated}:${userId}`
 })
 const isTourneyEvent = computed(() => String(event.value?.event_type || '').toUpperCase() === 'TOURNEY')
-const eventStartsInLabel = computed(() => {
-  const raw = String(event.value?.start_date || '').trim()
-  if (!raw) return ''
-  const startAt = getDateTimestamp(raw)
-  if (startAt === null) return ''
-  const diffMs = startAt - nowTick.value
-  if (Math.abs(diffMs) < 60 * 1000) return t('eventPage.liveNow')
-  const absMs = Math.abs(diffMs)
-  const totalMinutes = Math.round(absMs / (60 * 1000))
-  const days = Math.floor(totalMinutes / (60 * 24))
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
-  const minutes = totalMinutes % 60
-  const parts = []
-  if (days > 0) parts.push(`${days}d`)
-  if (hours > 0) parts.push(`${hours}h`)
-  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`)
-  const readable = parts.slice(0, 2).join(' ')
-  return diffMs > 0 ? t('eventPage.startsIn', { time: readable }) : t('eventPage.startedAgo', { time: readable })
-})
-const eventStartDateTimeLabel = computed(() => {
-  const raw = String(event.value?.start_date || '').trim()
-  if (!raw) return ''
-  const parsed = parseDateValue(raw)
-  if (!parsed) return ''
-  const day = String(parsed.getDate()).padStart(2, '0')
-  const month = String(parsed.getMonth() + 1).padStart(2, '0')
-  const year = String(parsed.getFullYear())
-  const hours = String(parsed.getHours()).padStart(2, '0')
-  const minutes = String(parsed.getMinutes()).padStart(2, '0')
-  return `${day}/${month}/${year} ${hours}:${minutes}`
-})
+const eventStartDateTimeLabel = computed(() => formatEventStartDate(event.value?.start_date))
 const eventIsFull = computed(() => {
   if (!event.value) return false
   return event.value.players.length >= event.value.max_players
@@ -261,18 +229,9 @@ watch(
 
 usePageRevalidation(() => loadEvent())
 
-onMounted(() => {
-  startsInTimer = window.setInterval(() => {
-    nowTick.value = Date.now()
-  }, 30 * 1000)
-})
-
 onBeforeUnmount(() => {
   if (eventLoadController) {
     eventLoadController.abort()
-  }
-  if (startsInTimer) {
-    window.clearInterval(startsInTimer)
   }
 })
 
@@ -475,13 +434,8 @@ provide('eventCtx', proxyRefs({
                   <AppBadge v-if="event.status === 'ENDED'" variant="muted" :label="t('common.statusEnded')" />
                   <AppBadge v-else-if="event.status === 'DRAFT'" variant="warning" :label="t('common.statusDraft')" />
                 </div>
-                <div v-if="eventStartsInLabel || eventStartDateTimeLabel" class="event-starts-in muted">
-                  <span v-if="eventStartsInLabel" class="event-start-meta event-starts-in-countdown">
-                    <span class="material-symbols-rounded" aria-hidden="true">timer</span>
-                    <span>{{ eventStartsInLabel }}</span>
-                  </span>
-                  <span v-if="eventStartsInLabel && eventStartDateTimeLabel" class="event-start-separator event-starts-in-countdown" aria-hidden="true">|</span>
-                  <span v-if="eventStartDateTimeLabel" class="event-start-meta">
+                <div v-if="eventStartDateTimeLabel" class="event-starts-in muted">
+                  <span class="event-start-meta">
                     <span class="material-symbols-rounded" aria-hidden="true">calendar_month</span>
                     <span>{{ eventStartDateTimeLabel }}</span>
                   </span>
@@ -590,11 +544,6 @@ provide('eventCtx', proxyRefs({
   display: inline-flex;
   align-items: center;
   gap: 0.22rem;
-}
-
-.event-start-separator {
-  color: var(--ink-muted);
-  opacity: 0.75;
 }
 
 .event-start-meta .material-symbols-rounded {
@@ -838,10 +787,6 @@ provide('eventCtx', proxyRefs({
     width: 100%;
     justify-content: center;
     margin-left: 0;
-  }
-
-  .event-starts-in-countdown {
-    display: none;
   }
 
   /* Mobile bottom tab bar */
