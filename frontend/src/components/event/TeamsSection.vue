@@ -2,6 +2,7 @@
 import { computed, inject, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { averagePlayersElo } from '../../lib/elo'
+import { getLocale } from '../../i18n'
 import { getRoleIcon, sortPlayersByRoleThenName } from '../../lib/roles'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
@@ -356,7 +357,7 @@ function formatTeamAverageElo(teamId: string | number): string {
   if (rawAverage === null || rawAverage === undefined) return t('teams.naElo')
   const average = Number(rawAverage)
   if (!Number.isFinite(average)) return t('teams.naElo')
-  return Math.round(average).toLocaleString('en-US')
+  return Math.round(average).toLocaleString(getLocale())
 }
 
 function assignmentNotice(player: EventPlayer): string {

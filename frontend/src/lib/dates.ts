@@ -92,7 +92,7 @@ export function formatMediumDate(value: unknown, fallback = ''): string {
   return new Intl.DateTimeFormat(getLocale(), { month: 'short', day: '2-digit', year: 'numeric' }).format(parsed)
 }
 
-export function formatTime24(value: unknown, fallback = ''): string {
+export function formatTime(value: unknown, fallback = ''): string {
   const parsed = parseDateValue(value)
   if (!parsed) return fallback
   return new Intl.DateTimeFormat(getLocale(), { hour: '2-digit', minute: '2-digit' }).format(parsed)

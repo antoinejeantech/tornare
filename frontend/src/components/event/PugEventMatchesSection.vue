@@ -511,8 +511,7 @@ async function saveStartDate() {
           <div v-else class="winner-result-row">
             <div class="winner-result-label">
               <span class="material-symbols-rounded winner-trophy" aria-hidden="true">emoji_events</span>
-              <strong>{{ activeMatch.winner_team_name || 'Unknown' }}</strong>
-              <span class="muted">{{ t('pugMatches.wonMatch', { name: activeMatch.winner_team_name || 'Unknown' }) }}</span>
+              <span class="muted">{{ t('pugMatches.wonMatch', { name: activeMatch.winner_team_name || t('common.unknown') }) }}</span>
             </div>
             <button
               v-if="ctx.canManageEvent"

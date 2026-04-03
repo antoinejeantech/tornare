@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import DiscordIcon from './DiscordIcon.vue'
+import { useI18n } from 'vue-i18n'
 
 defineProps<{
   label: string
@@ -8,6 +9,8 @@ defineProps<{
 }>()
 
 defineEmits<{ click: [] }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -17,10 +20,10 @@ defineEmits<{ click: [] }>()
     :disabled="disabled"
     @click="$emit('click')"
   >
-    <span v-if="recommended" class="btn-discord-recommended btn-discord-spacer" aria-hidden="true">{{ $t('auth.discordRecommended') }}</span>
+    <span v-if="recommended" class="btn-discord-recommended btn-discord-spacer" aria-hidden="true">{{ t('auth.discordRecommended') }}</span>
     <DiscordIcon class="btn-discord-logo" />
     <span class="btn-discord-label">{{ label }}</span>
-    <span v-if="recommended" class="btn-discord-recommended">{{ $t('auth.discordRecommended') }}</span>
+    <span v-if="recommended" class="btn-discord-recommended">{{ t('auth.discordRecommended') }}</span>
   </button>
 </template>
 

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { formatDayMonthYear, formatTime24, getDateTimestamp } from '../../lib/dates'
+import { formatDayMonthYear, formatTime, getDateTimestamp } from '../../lib/dates'
 import AppBadge from '../ui/AppBadge.vue'
 import type { Event } from '../../types'
 import type { RouteLocationRaw } from 'vue-router'
@@ -20,7 +20,7 @@ const startDateDisplay = computed(() => {
 })
 
 const startTimeDisplay = computed(() => {
-  return formatTime24(props.event?.start_date, '--:--')
+  return formatTime(props.event?.start_date, '--:--')
 })
 
 const playerCount = computed(() => {
