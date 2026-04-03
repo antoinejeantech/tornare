@@ -24,7 +24,7 @@ const eventDateText = computed(() => {
 })
 
 const eventTypeText = computed(() => {
-  return String(props.event?.event_type || 'PUG')
+  return props.event?.event_type === 'TOURNEY' ? t('events.typeTourney') : t('events.typePug')
 })
 
 const eventFormatText = computed(() => {

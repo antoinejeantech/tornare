@@ -533,13 +533,13 @@ watch(editingMatchups, () => {
                   class="match-status-badge"
                   :class="`badge-${(match.winner_team_name ? 'completed' : match.status || 'open').toLowerCase()}`"
                 >
-                  {{ match.winner_team_name ? t('tourneyMatches.statusDone') : (match.status || 'Open') }}
+                  {{ match.winner_team_name ? t('tourneyMatches.statusDone') : t('tourneyMatches.statusOpen') }}
                 </span>
                 <button
                   v-if="ctx.canManageEvent && !match.isPlaceholder && !match.winner_team_id && match.team_a_id && match.team_b_id && nextMatchIsFull(match)"
                   class="match-warning-icon"
                   type="button"
-                  data-tooltip="Next match is full &#x2014; clear a team there before reporting a result here"
+                  :data-tooltip="t('tourneyMatches.nextMatchFull')"
                   :aria-label="t('tourneyMatches.nextMatchFullAria')"
                 >⚠️</button>
               </div>

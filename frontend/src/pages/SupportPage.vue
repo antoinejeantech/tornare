@@ -20,7 +20,7 @@ const channels = computed(() => [
     title: t('support.bugsTitle'),
     description: t('support.bugsDesc'),
     label: t('support.bugsBtn'),
-    href: 'https://github.com/tornare/tornare/issues',
+    href: 'https://github.com/antoinejeantech/tornare/issues',
     primary: false
   },
   {

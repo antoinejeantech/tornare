@@ -285,9 +285,9 @@ onBeforeUnmount(() => {
             <span>{{ t('nav.logout') }}</span>
           </button>
         </div>
-        <button class="top-nav-link top-nav-locale-btn" type="button" :title="currentLocale === 'en' ? 'Passer en français' : 'Switch to English'" @click="toggleLocale">
+        <button class="top-nav-link top-nav-locale-btn" type="button" :title="currentLocale === 'en' ? t('nav.switchToFr') : t('nav.switchToEn')" @click="toggleLocale">
           <span class="top-nav-locale-flag" aria-hidden="true">{{ currentLocale === 'en' ? '🇫🇷' : '🇬🇧' }}</span>
-          <span class="sr-only">{{ currentLocale === 'en' ? 'Passer en français' : 'Switch to English' }}</span>
+          <span class="sr-only">{{ currentLocale === 'en' ? t('nav.switchToFr') : t('nav.switchToEn') }}</span>
         </button>
 
 
@@ -413,6 +413,7 @@ onBeforeUnmount(() => {
   border: 1px solid transparent;
   background: transparent;
   color: var(--ink-2);
+  font-size: 0.9rem;
   font-weight: 620;
   letter-spacing: 0.01em;
   transition: box-shadow 0.16s ease, background 0.16s ease, border-color 0.16s ease, transform 0.12s ease;

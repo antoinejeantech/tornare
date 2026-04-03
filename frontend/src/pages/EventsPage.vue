@@ -317,12 +317,6 @@ onBeforeUnmount(() => {
 
     <section class="card events-toolbar reveal-block reveal-2">
       <div class="events-filter-row">
-        <label class="events-search">
-          <span class="sr-only">{{ t('events.searchLabel') }}</span>
-          <span class="material-symbols-rounded" aria-hidden="true">search</span>
-          <input v-model="eventSearchQuery" type="search" :placeholder="t('events.searchPlaceholder')" />
-        </label>
-
         <div v-if="authStore.isAuthenticated" class="events-subnav" :aria-label="t('events.ownershipFilter')">
           <button
             class="events-subnav-btn"
@@ -394,12 +388,23 @@ onBeforeUnmount(() => {
         >
           <span class="events-ended-toggle-copy">
             <span class="events-ended-toggle-label">{{ t('events.pastToggleLabel') }}</span>
-            <span class="events-ended-toggle-state">{{ pastEventsOnly ? t('events.pastToggleOn') : t('events.pastToggleOff') }}</span>
+            <span class="events-ended-toggle-state" aria-hidden="true">
+              <span :class="{ 'state-hidden': !pastEventsOnly }">{{ t('events.pastToggleOn') }}</span>
+              <span :class="{ 'state-hidden': pastEventsOnly }">{{ t('events.pastToggleOff') }}</span>
+            </span>
           </span>
           <span class="events-ended-toggle-switch" aria-hidden="true">
             <span class="events-ended-toggle-thumb" />
           </span>
         </button>
+      </div>
+
+      <div class="events-search-row">
+        <label class="events-search">
+          <span class="sr-only">{{ t('events.searchLabel') }}</span>
+          <span class="material-symbols-rounded" aria-hidden="true">search</span>
+          <input v-model="eventSearchQuery" type="search" :placeholder="t('events.searchPlaceholder')" />
+        </label>
 
         <button
           type="button"
@@ -543,6 +548,13 @@ onBeforeUnmount(() => {
   align-items: stretch;
   gap: 0.55rem;
   flex-wrap: wrap;
+  margin-bottom: 0.55rem;
+}
+
+.events-search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .events-stats-grid {
@@ -592,7 +604,6 @@ onBeforeUnmount(() => {
 }
 
 .events-search {
-  min-width: min(100%, 300px);
   flex: 1;
   display: inline-flex;
   align-items: center;
@@ -764,13 +775,20 @@ onBeforeUnmount(() => {
 }
 
 .events-ended-toggle-state {
-  display: inline-block;
+  display: inline-grid;
+  justify-items: center;
   font-size: 0.72rem;
   letter-spacing: 0.05em;
-  min-width: 3ch;
-  text-align: center;
   text-transform: uppercase;
   color: var(--ink-muted);
+}
+
+.events-ended-toggle-state > span {
+  grid-area: 1 / 1;
+}
+
+.events-ended-toggle-state > .state-hidden {
+  visibility: hidden;
 }
 
 .events-ended-toggle-switch {

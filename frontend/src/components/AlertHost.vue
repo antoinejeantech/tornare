@@ -17,7 +17,7 @@ function iconFor(type: AlertType): string {
 </script>
 
 <template>
-  <section class="alert-host" aria-live="polite" aria-label="Notifications">
+  <section class="alert-host" aria-live="polite" :aria-label="t('nav.notifications')">
     <TransitionGroup name="alert-slide" tag="div" class="alert-list">
       <article
         v-for="item in items"

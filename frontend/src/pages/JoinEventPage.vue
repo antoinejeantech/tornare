@@ -273,7 +273,7 @@ onMounted(async () => {
         <template v-else>
           <div v-if="!authStore.isAuthenticated" class="join-auth-hint">
             <span class="material-symbols-rounded" aria-hidden="true">account_circle</span>
-            <p><RouterLink to="/auth">Sign in</RouterLink> {{ t('joinEvent.signInHint') }}</p>
+            <p><RouterLink to="/auth">{{ t('nav.signIn') }}</RouterLink> {{ t('joinEvent.signInHint') }}</p>
           </div>
 
           <div v-else class="join-auth-banner">
