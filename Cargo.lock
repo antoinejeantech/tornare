@@ -2241,6 +2241,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "tornare-bot"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dotenvy",
+ "reqwest",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
 name = "tower"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
