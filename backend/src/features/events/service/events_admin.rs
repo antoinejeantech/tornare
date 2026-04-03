@@ -131,6 +131,12 @@ pub async fn publish_event_for_user(
     let new_status = event.status.publish().map_err(conflict)?;
     repo::set_event_status(&state.pool, event_id, new_status).await?;
 
+    sqlx::query("SELECT pg_notify('event_published', $1)")
+        .bind(event_id.to_string())
+        .execute(&state.pool)
+        .await
+        .ok(); // non-fatal: bot may not be running
+
     let event = repo::load_event(&state.pool, event_id).await?;
     Ok(event.into_owner(is_owner))
 }

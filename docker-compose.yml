@@ -81,9 +81,28 @@ services:
       - .:/workspace
     command: sleep infinity
 
+  bot-dev:
+    image: rust:1.89-bookworm
+    working_dir: /workspace/bot
+    volumes:
+      - .:/workspace
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - cargo-bin:/usr/local/cargo/bin
+      - bot-target:/workspace/bot/target
+    env_file:
+      - ./bot/.env
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/tornare
+    command: sh -c "cargo install cargo-watch --locked 2>/dev/null; cargo watch -x run"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   cargo-registry:
   cargo-git:
   cargo-bin:
   rust-target:
+  bot-target:
