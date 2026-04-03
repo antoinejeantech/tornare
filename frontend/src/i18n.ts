@@ -17,12 +17,18 @@ function detectLocale(): string {
   return browser === 'fr' ? 'fr' : 'en'
 }
 
+const initialLocale = detectLocale()
+
 export const i18n = createI18n({
   legacy: false,
-  locale: detectLocale(),
+  locale: initialLocale,
   fallbackLocale: 'en',
   messages: { en, fr },
 })
+
+if (typeof document !== 'undefined') {
+  document.documentElement.setAttribute('lang', initialLocale)
+}
 
 export function setLocale(locale: 'en' | 'fr') {
   (i18n.global.locale as unknown as { value: string }).value = locale

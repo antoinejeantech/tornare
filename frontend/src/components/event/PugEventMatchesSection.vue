@@ -2,6 +2,7 @@
 import { computed, inject, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getDateTimestamp, isoToDatetimeLocalValue } from '../../lib/dates'
+import { getLocale } from '../../i18n'
 import { sortPlayersByRoleThenName } from '../../lib/roles'
 import MapPicker from '../ui/MapPicker.vue'
 import AppModal from '../ui/AppModal.vue'
@@ -195,7 +196,7 @@ watch(() => activeMatchId.value, (newId) => {
 function formatMatchStartDate(isoStr: string): string {
   const d = new Date(isoStr)
   if (isNaN(d.getTime())) return isoStr
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(getLocale(), {
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })

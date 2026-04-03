@@ -3,6 +3,7 @@ import { computed, inject } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
 import { getDateTimestamp } from '../../lib/dates'
+import { getLocale } from '../../i18n'
 import AppBadge from '../ui/AppBadge.vue'
 import PlayerCard from '../player/PlayerCard.vue'
 import EventSectionHeader from './EventSectionHeader.vue'
@@ -75,7 +76,7 @@ function formatMatchDate(isoStr: string): string {
   if (!isoStr) return ''
   const d = new Date(isoStr)
   if (isNaN(d.getTime())) return ''
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(getLocale(), {
     month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
