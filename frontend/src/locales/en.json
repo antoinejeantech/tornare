@@ -21,7 +21,9 @@
     "searchLabel": "Search users",
     "openMenu": "Open navigation menu",
     "closeMenu": "Close navigation menu",
-    "tornareHome": "Tornare home"
+    "tornareHome": "Tornare home",
+    "switchToFr": "Passer en français",
+    "switchToEn": "Switch to English"
   },
   "footer": {
     "tagline": "Competitive Overwatch 2 community events.",
@@ -124,12 +126,41 @@
     "typeFilter": "Event type filter",
     "pagination": "Events pagination"
   },
+  "onboarding": {
+    "title": "Set up your account",
+    "subtitle": "A few optional steps to get the most out of Tornare.",
+    "stepOf": "Step {step} of {total}",
+    "skip": "Skip",
+    "continue": "Continue",
+    "finish": "Go to events",
+    "connectingDiscord": "Connecting…",
+    "connectingBnet": "Connecting…",
+    "step1Title": "Connect Discord",
+    "step1Desc": "Link your Discord account so event organisers can get in touch with you.",
+    "step1Recommended": "Recommended",
+    "step1Cta": "Connect Discord",
+    "step1Connected": "Connected as",
+    "step1Done": "Discord connected",
+    "step2Title": "Connect Battle.net",
+    "step2Desc": "Link your Battle.net account to display your Battletag on your profile.",
+    "step2Cta": "Connect Battle.net",
+    "step2Connected": "Connected as",
+    "step2Done": "Battle.net connected",
+    "step3Title": "Your roles & ranks",
+    "step3Desc": "Tell us your Overwatch ranks so you can be matched with players at your level.",
+    "step3Tank": "Tank",
+    "step3Dps": "DPS",
+    "step3Support": "Support",
+    "step3Saving": "Saving…",
+    "step3Save": "Save & continue"
+  },
   "auth": {
     "createAccount": "Create Account",
     "signIn": "Sign In",
-    "subtitle": "Use your email and password to access your events.",
+    "subtitle": "Sign in or create an account to join events.",
     "signInBnet": "Sign in with Battle.net",
     "signInDiscord": "Sign in with Discord",
+    "discordRecommended": "Recommended",
     "dividerRegister": "or create account with email",
     "dividerLogin": "or sign in with email",
     "username": "Username",
@@ -552,7 +583,8 @@
     "saveMatchup": "Save",
     "cancellingResult": "Cancelling…",
     "cancelResult": "Cancel Result",
-    "statusDone": "Done"
+    "statusDone": "Done",
+    "statusOpen": "Open"
   },
   "requests": {
     "sectionTitle": "Signup Requests",

@@ -20,11 +20,13 @@ import TermsPage from './pages/TermsPage.vue'
 import FaqPage from './pages/FaqPage.vue'
 import SupportPage from './pages/SupportPage.vue'
 import NotFoundPage from './pages/NotFoundPage.vue'
+import OnboardingPage from './pages/OnboardingPage.vue'
 
 const pinia = createPinia()
 
 const router = createRouter({
 	history: createWebHistory(),
+	scrollBehavior: () => ({ top: 0 }),
 	routes: [
 		{ path: '/', name: 'home', component: HomePage, meta: { title: 'Tornare' } },
 		{ path: '/events', name: 'events', component: EventsPage, meta: { title: 'Events | Tornare' } },
@@ -37,6 +39,7 @@ const router = createRouter({
 		{ path: '/auth', redirect: '/login' },
 		{ path: '/login', name: 'login', component: AuthPage, meta: { title: 'Sign In | Tornare' } },
 		{ path: '/register', name: 'register', component: AuthPage, meta: { title: 'Create Account | Tornare' } },
+		{ path: '/onboarding', name: 'onboarding', component: OnboardingPage, meta: { title: 'Set up your account | Tornare' } },
 		{ path: '/auth/callback', name: 'auth-callback', component: AuthCallbackPage, meta: { title: 'Signing in… | Tornare' } },
 		{ path: '/events/:id', name: 'event', component: EventPage, meta: { title: 'Event Setup | Tornare' } },
 		{ path: '/join/:token', name: 'join-event', component: JoinEventPage, meta: { title: 'Join Event | Tornare' } },

@@ -99,6 +99,12 @@ onMounted(async () => {
     } catch {
       // best effort — user may not be authenticated in this tab
     }
+    const resumeStep = sessionStorage.getItem('onboarding_resume_step')
+    if (resumeStep) {
+      sessionStorage.removeItem('onboarding_resume_step')
+      router.replace({ name: 'onboarding', query: { step: resumeStep } })
+      return
+    }
     const profileId = profileIdQuery || authStore.user?.id
     router.replace(profileId ? `/profiles/${profileId}` : '/events')
     return
