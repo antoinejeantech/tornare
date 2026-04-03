@@ -1,31 +1,35 @@
-.PHONY: help bootstrap up dev dev-no-migrate backend frontend db-up db-logs dev-up shell run check test test-e2e node-shell node-install node-build status restart down
+.PHONY: help bootstrap up dev dev-no-migrate backend frontend db-up db-logs dev-up shell run check test test-e2e node-shell node-install node-build bot-dev bot-shell bot-check status restart down
 
 help:
 	@echo "Available targets:"
-	@echo "  make bootstrap   - Create local .env files if missing"
-	@echo "  make up          - Build and run backend + frontend (production image)"
-	@echo "  make dev         - Start postgres + backend-dev (cargo-watch) + frontend"
+	@echo "  make bootstrap      - Create local .env files if missing"
+	@echo "  make up             - Build and run backend + frontend (production image)"
+	@echo "  make dev            - Start postgres + backend-dev (cargo-watch) + frontend"
 	@echo "  make dev-no-migrate - Same as dev but skips database migrations on start"
-	@echo "  make db-up       - Start postgres only"
-	@echo "  make db-logs     - Tail postgres logs"
-	@echo "  make backend     - Build and run backend API"
-	@echo "  make frontend    - Run Vue frontend"
-	@echo "  make dev-up      - Start rust-dev + node-dev containers"
-	@echo "  make shell       - Open bash shell in rust-dev container"
-	@echo "  make run         - Run cargo run in rust-dev container"
-	@echo "  make check       - Run cargo check in rust-dev container"
-	@echo "  make test        - Run all backend tests in rust-dev container"
-	@echo "  make test-e2e    - Run end-to-end tests against an isolated temp DB on postgres"
-	@echo "  make node-shell  - Open shell in Node dev container"
-	@echo "  make node-install - Install frontend deps"
-	@echo "  make node-build  - Build frontend in node-dev container"
-	@echo "  make status      - Show compose service status"
-	@echo "  make restart     - Restart backend + frontend + postgres"
-	@echo "  make down    - Stop and remove compose services"
+	@echo "  make db-up          - Start postgres only"
+	@echo "  make db-logs        - Tail postgres logs"
+	@echo "  make backend        - Build and run backend API"
+	@echo "  make frontend       - Run Vue frontend"
+	@echo "  make dev-up         - Start rust-dev + node-dev containers"
+	@echo "  make shell          - Open bash shell in rust-dev container"
+	@echo "  make run            - Run cargo run in rust-dev container"
+	@echo "  make check          - Run cargo check in rust-dev container"
+	@echo "  make test           - Run all backend tests in rust-dev container"
+	@echo "  make test-e2e       - Run end-to-end tests against an isolated temp DB on postgres"
+	@echo "  make node-shell     - Open shell in Node dev container"
+	@echo "  make node-install   - Install frontend deps"
+	@echo "  make node-build     - Build frontend in node-dev container"
+	@echo "  make bot-dev        - Start Discord bot with cargo-watch (hot-reload)"
+	@echo "  make bot-shell      - Open bash shell in bot-dev container"
+	@echo "  make bot-check      - Run cargo check on the bot crate"
+	@echo "  make status         - Show compose service status"
+	@echo "  make restart        - Restart backend + frontend + postgres"
+	@echo "  make down           - Stop and remove compose services"
 
 bootstrap:
 	@test -f backend/.env || cp backend/.env.example backend/.env
 	@test -f frontend/.env || cp frontend/.env.example frontend/.env
+	@test -f bot/.env || cp bot/.env.example bot/.env
 
 up:
 	docker compose up --build backend frontend
@@ -82,6 +86,15 @@ restart:
 
 down:
 	docker compose down --remove-orphans
+
+bot-dev:
+	docker compose up --force-recreate bot-dev
+
+bot-shell:
+	docker compose exec bot-dev bash
+
+bot-check:
+	docker compose run --rm bot-dev cargo check
 
 node-shell:
 	docker compose exec node-dev bash

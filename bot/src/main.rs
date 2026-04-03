@@ -3,7 +3,8 @@ mod discord;
 use std::env;
 
 use sqlx::postgres::PgListener;
-use sqlx::{PgPool, Row};
+use sqlx::Row;
+use sqlx::PgPool;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 

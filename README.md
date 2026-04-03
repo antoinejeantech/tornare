@@ -5,6 +5,7 @@ This workspace is a minimal full-stack setup for Overwatch event matches:
 - PostgreSQL database for persistence
 - Rust backend API (Axum) on port `8000`
 - Vue frontend (Vite) on port `5173`
+- Discord bot — posts event embeds when events are published
 - Everything runs in Docker
 - Create events (PUG/TOURNEY), build one event roster/teams, then manage multiple matches with shared teams
 
@@ -27,7 +28,10 @@ Create local env files from the provided examples:
 ```bash
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
+cp bot/.env.example bot/.env
 ```
+
+Or use `make bootstrap` to create all three at once.
 
 Backend variables (`backend/.env`):
 
@@ -38,6 +42,13 @@ Backend variables (`backend/.env`):
 Frontend variables (`frontend/.env`):
 
 - `VITE_API_URL`: backend base URL used by the frontend
+
+Discord bot variables (`bot/.env`):
+
+- `DATABASE_URL`: Postgres connection string (same as backend)
+- `DISCORD_BOT_TOKEN`: bot token from the Discord developer portal
+- `DISCORD_CHANNEL_ID`: ID of the channel where event announcements are posted
+- `FRONTEND_URL`: base URL of the frontend (used to build event deep-links in embeds)
 
 ## Make commands
 
@@ -58,6 +69,9 @@ make test-e2e
 make node-shell
 make node-install
 make node-build
+make bot-dev
+make bot-shell
+make bot-check
 make status
 make restart
 make down
@@ -68,6 +82,9 @@ make down
 - Build + run backend only: `make backend`
 - Start frontend only: `make frontend`
 - Create missing env files from examples: `make bootstrap`
+- Start Discord bot with hot-reload: `make bot-dev`
+- Open shell in bot container: `make bot-shell`
+- Cargo check on the bot crate: `make bot-check`
 - Run Rust app in dev container: `make run`
 - Compile checks: `make check`
 - Run all backend tests: `make test`
@@ -190,6 +207,8 @@ Timestamp contract:
 
 - `backend/src/main.rs`: Rust backend server
 - `backend/Cargo.toml`: Rust dependencies and crate config
+- `bot/src/main.rs`: Discord bot (Postgres LISTEN/NOTIFY → Discord embeds)
+- `bot/Cargo.toml`: bot crate dependencies
 - `frontend/`: Vue app
 - `docker-compose.yml`: service wiring
 - `Makefile`: shortcut commands
