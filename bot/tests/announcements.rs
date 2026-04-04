@@ -80,8 +80,8 @@ async fn fetch_pending_events_excludes_already_posted(pool: PgPool) {
     let event_id = Uuid::new_v4();
     sqlx::query(
         "INSERT INTO events \
-         (id, name, event_type, format, status, created_at) \
-         VALUES ($1, 'Test Event', 'PUG', '5v5', 'ACTIVE', NOW())",
+         (id, name, event_type, format, max_players, status, created_at) \
+         VALUES ($1, 'Test Event', 'PUG', '5v5', 10, 'ACTIVE', NOW())",
     )
     .bind(event_id)
     .execute(&pool)
