@@ -187,7 +187,7 @@ pub async fn set_announcements_enabled(
 ) -> Result<bool, ApiError> {
     let result = sqlx::query(
         "UPDATE discord_guilds SET announcements_enabled = $1, updated_at = NOW() \
-         WHERE owner_user_id = $2 AND guild_id = $3",
+         WHERE owner_user_id = $2 AND guild_id = $3 AND deleted_at IS NULL",
     )
     .bind(enabled)
     .bind(owner_user_id)
@@ -292,7 +292,7 @@ pub async fn remove_guild_member(
 #[allow(dead_code)]
 pub async fn list_all_guilds(pool: &PgPool) -> Result<Vec<DiscordGuild>, ApiError> {
     let rows = sqlx::query(
-        "SELECT id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled \
+        "SELECT id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, last_post_error, last_post_error_at \
          FROM discord_guilds",
     )
     .fetch_all(pool)

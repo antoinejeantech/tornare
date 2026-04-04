@@ -86,13 +86,13 @@ async function disconnect(guild: DiscordGuild) {
   }
 }
 
-let searchTimeout: ReturnType<typeof setTimeout> | null = null
+const searchTimeouts: Record<string, ReturnType<typeof setTimeout> | null> = {}
 async function onSearchInput(guildId: string) {
   const q = (memberSearch.value[guildId] ?? '').trim()
   memberSearchResults.value[guildId] = []
   if (!q) return
-  if (searchTimeout) clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(async () => {
+  if (searchTimeouts[guildId]) clearTimeout(searchTimeouts[guildId]!)
+  searchTimeouts[guildId] = setTimeout(async () => {
     memberSearchLoading.value[guildId] = true
     try {
       memberSearchResults.value[guildId] = await searchUsers(q)
@@ -257,24 +257,29 @@ onMounted(load)
                 @input="onSearchInput(guild.guild_id)"
               />
               <ul
-                v-if="(memberSearchResults[guild.guild_id] ?? []).length"
+                v-if="(memberSearch[guild.guild_id] ?? '').trim()"
                 class="search-dropdown"
               >
-                <li
-                  v-for="user in memberSearchResults[guild.guild_id]"
-                  :key="user.id"
-                  class="search-result"
-                  @click="addMember(guild.guild_id, user)"
-                >
-                  <span class="member-name">{{ user.display_name }}</span>
-                  <span v-if="user.username" class="member-username">@{{ user.username }}</span>
+                <li v-if="memberSearchLoading[guild.guild_id]" class="no-results">
+                  {{ t('common.loading') }}
                 </li>
-                <li
-                  v-if="!memberSearchLoading[guild.guild_id] && !(memberSearchResults[guild.guild_id] ?? []).length"
-                  class="no-results"
-                >
-                  {{ t('discord.members.noResults') }}
-                </li>
+                <template v-else>
+                  <li
+                    v-for="user in memberSearchResults[guild.guild_id]"
+                    :key="user.id"
+                    class="search-result"
+                    @click="addMember(guild.guild_id, user)"
+                  >
+                    <span class="member-name">{{ user.display_name }}</span>
+                    <span v-if="user.username" class="member-username">@{{ user.username }}</span>
+                  </li>
+                  <li
+                    v-if="!(memberSearchResults[guild.guild_id] ?? []).length"
+                    class="no-results"
+                  >
+                    {{ t('discord.members.noResults') }}
+                  </li>
+                </template>
               </ul>
             </div>
           </div>

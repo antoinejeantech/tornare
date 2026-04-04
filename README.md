@@ -13,7 +13,7 @@ Create **PUG** (pick-up game) or **TOURNEY** events. Add players with roles and 
 
 ### 🧠 Smart roster & team tools
 - ⚖️ **Auto-balance**: distributes players across teams by role (Tank / DPS / Support) respecting Overwatch slot quotas.
-- �️ **Tournament brackets**: one-click round generation from registered teams via `tourney/generate` — the bracket is re-computable and clearable at any time.
+- 🏆 **Tournament brackets**: one-click round generation from registered teams via `tourney/generate` — the bracket is re-computable and clearable at any time.
 - 🔗 **Public signup links**: shareable tokenized URLs let outsiders request to join — rotating the token instantly invalidates any previously shared link.
 - 📋 **Role-aware signups**: players declare their role and rank preferences when requesting to join; the event owner accepts or declines from the dashboard, and those preferences feed directly into auto-balance.
 
@@ -28,7 +28,7 @@ Guilds are self-served through slash commands:
 | `/unsetup` | Disconnect the server |
 | `/help` | Show available commands |
 
-The backend receives slash-command interactions via a **ed25519-signed webhook** (`POST /api/discord/interactions`). Signatures are verified on every request; an unconfigured public key fails closed (401).
+The backend receives slash-command interactions via an **ed25519-signed webhook** (`POST /api/discord/interactions`). Signatures are verified on every request; an unconfigured public key fails closed (401).
 
 🔒 **Guild ownership protection**: a guild registered by one user cannot be claimed by another via `/setup` as long as it remains active. Removing a guild is a soft-delete — the announcement history (`discord_guild_posts`) is preserved, and the guild ID can be re-claimed after removal.
 

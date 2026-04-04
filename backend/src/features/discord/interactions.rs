@@ -122,6 +122,20 @@ fn verify_discord_signature(
     verifying_key.verify(&message, &signature).is_ok()
 }
 
+/// Reject interactions whose timestamp is more than 5 minutes old to prevent replay attacks.
+fn is_timestamp_fresh(timestamp: &str) -> bool {
+    timestamp
+        .parse::<i64>()
+        .map(|ts| {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+            (now - ts).abs() < 300
+        })
+        .unwrap_or(false)
+}
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
@@ -143,6 +157,10 @@ pub async fn handle_interactions(
 
     if state.config.discord_bot_public_key.is_empty() {
         warn!("DISCORD_BOT_PUBLIC_KEY is not configured — rejecting interaction");
+        return Err(StatusCode::UNAUTHORIZED);
+    }
+    if !is_timestamp_fresh(timestamp) {
+        warn!("Discord interaction timestamp is stale — possible replay attack");
         return Err(StatusCode::UNAUTHORIZED);
     }
     if !verify_discord_signature(
@@ -174,7 +192,7 @@ pub async fn handle_interactions(
             match data.name.as_str() {
                 "setup"   => return handle_setup(&state, &interaction, data).await,
                 "unsetup" => return handle_unsetup(&state, &interaction).await,
-                "help"    => return Ok(handle_help()),
+                "help"    => return Ok(handle_help(&state.config.frontend_url)),
                 _ => {}
             }
         }
@@ -229,10 +247,11 @@ async fn handle_setup(
     .unwrap_or(false);
 
     if !has_account {
-        return Ok(ephemeral(
+        return Ok(ephemeral(&format!(
             "⚠️ You need a Tornare account with Discord connected to use this command. \
-             Visit tornare.gg to create one and link your Discord.",
-        ));
+             Visit {} to create one and link your Discord.",
+            state.config.frontend_url
+        )));
     }
 
     let guild_name: Option<&str> = None; // bot will backfill via fetch_guild_name
@@ -329,10 +348,11 @@ async fn handle_unsetup(
     .flatten();
 
     let Some(uid) = owner_user_id else {
-        return Ok(ephemeral(
+        return Ok(ephemeral(&format!(
             "⚠️ Your Discord account is not linked to a Tornare account. \
-             Visit tornare.gg to connect it first.",
-        ));
+             Visit {} to connect it first.",
+            state.config.frontend_url
+        )));
     };
 
     match repo::delete_guild_by_owner(&state.pool, uid, &guild_id).await {
@@ -363,18 +383,18 @@ fn ephemeral(content: &str) -> Json<Value> {    Json(serde_json::json!({
     }))
 }
 
-fn handle_help() -> Json<Value> {
-    let content = "\
+fn handle_help(frontend_url: &str) -> Json<Value> {
+    let content = format!("\
 ## 🏆 Tornare Bot
 Automatically posts event announcements to your Discord server.
 
 **Commands**
-`/setup [channel]` — Connect a channel for event announcements. Requires **Manage Channels** permission.
+`/setup [channel]` — Connect a channel for event announcements. Requires **Administrator** permission.
 `/unsetup` — Disconnect this server from Tornare.
 `/help` — Show this message.
 
 **Managing announcements**
-Visit your server's Discord Bot settings page on [tornare.gg](https://tornare.gg) to toggle announcements on/off or disconnect the bot.";
+Visit your server's Discord Bot settings page on [{frontend_url}]({frontend_url}) to toggle announcements on/off or disconnect the bot.");
 
     Json(serde_json::json!({
         "type": RESPONSE_CHANNEL_MESSAGE,

@@ -104,7 +104,7 @@ pub async fn remove_guild_member(
         .map(Json)
 }
 
-/// GET /api/discord/bot-invite-url
+/// GET /api/discord/invite
 pub async fn get_bot_invite_url(
     State(state): State<AppState>,
     headers: HeaderMap,

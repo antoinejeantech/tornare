@@ -141,7 +141,7 @@ pub async fn post_event(
 
     let public_signup_enabled: bool = row.try_get("public_signup_enabled").unwrap_or(false);
     let signup_token: Option<String> = row.try_get("signup_token").ok().flatten();
-    let join_url = if !public_signup_enabled {
+    let join_url = if public_signup_enabled {
         signup_token.map(|t| format!("{frontend_url}/join/{t}"))
     } else {
         None

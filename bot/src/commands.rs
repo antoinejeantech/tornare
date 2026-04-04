@@ -17,12 +17,12 @@ pub async fn register(bot_token: &str, application_id: &str) -> anyhow::Result<(
                 "required": false,
                 "channel_types": [0]
             }],
-            "default_member_permissions": "32"
+            "default_member_permissions": "8"
         },
         {
             "name": "unsetup",
             "description": "Disconnect this server from Tornare announcements",
-            "default_member_permissions": "32"
+            "default_member_permissions": "8"
         },
         {
             "name": "help",

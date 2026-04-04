@@ -17,8 +17,8 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     image: tornare-backend:latest
     container_name: tornare-backend
     env_file:
@@ -35,8 +35,8 @@ services:
     profiles:
       - production
     build:
-      context: ./bot
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: bot/Dockerfile
     image: tornare-bot:latest
     container_name: tornare-bot
     env_file:
