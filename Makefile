@@ -1,4 +1,4 @@
-.PHONY: help bootstrap up dev dev-no-migrate backend frontend db-up db-logs dev-up shell run check test test-e2e node-shell node-install node-build bot-dev bot-shell bot-check status restart down
+.PHONY: help bootstrap up dev dev-no-migrate backend frontend db-up db-logs dev-up shell run check test test-e2e node-shell node-install node-build bot-dev bot-shell bot-check bot-test status restart down
 
 help:
 	@echo "Available targets:"
@@ -22,6 +22,7 @@ help:
 	@echo "  make bot-dev        - Start Discord bot with cargo-watch (hot-reload)"
 	@echo "  make bot-shell      - Open bash shell in bot-dev container"
 	@echo "  make bot-check      - Run cargo check on the bot crate"
+	@echo "  make bot-test       - Run bot crate tests against an isolated temp DB on postgres"
 	@echo "  make status         - Show compose service status"
 	@echo "  make restart        - Restart backend + bot + frontend + postgres"
 	@echo "  make down           - Stop and remove compose services"
@@ -32,7 +33,7 @@ bootstrap:
 	@test -f bot/.env || cp bot/.env.example bot/.env
 
 up:
-	docker compose up --build backend bot frontend
+	docker compose --profile production up --build backend bot frontend
 
 dev:
 	docker compose stop backend 2>/dev/null || true
@@ -82,7 +83,7 @@ status:
 	docker compose ps
 
 restart:
-	docker compose up -d --build postgres backend bot frontend
+	docker compose --profile production up -d --build postgres backend bot frontend
 
 down:
 	docker compose down --remove-orphans
@@ -95,6 +96,12 @@ bot-shell:
 
 bot-check:
 	docker compose run --rm bot-dev cargo check
+
+bot-test:
+	docker compose up -d postgres rust-dev
+	docker compose exec \
+		-e DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres \
+		rust-dev cargo test -p tornare-bot
 
 node-shell:
 	docker compose exec node-dev bash
