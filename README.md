@@ -13,8 +13,9 @@ Create **PUG** (pick-up game) or **TOURNEY** events. Add players with roles and 
 
 ### 🧠 Smart roster & team tools
 - ⚖️ **Auto-balance**: distributes players across teams by role (Tank / DPS / Support) respecting Overwatch slot quotas.
-- 🎯 **Auto-solo teams**: one team per player for free-for-all formats.
-- 🔗 **Public signup links**: shareable tokenized URLs let outsiders request to join — owners accept or decline from the dashboard.
+- �️ **Tournament brackets**: one-click round generation from registered teams via `tourney/generate` — the bracket is re-computable and clearable at any time.
+- 🔗 **Public signup links**: shareable tokenized URLs let outsiders request to join — rotating the token instantly invalidates any previously shared link.
+- 📋 **Role-aware signups**: players declare their role and rank preferences when requesting to join; the event owner accepts or declines from the dashboard, and those preferences feed directly into auto-balance.
 
 ### 🤖 Discord bot
 The bot runs as a separate process, polling the database on a configurable interval and posting rich embeds to announcement channels when new events go live.
@@ -193,22 +194,38 @@ frontend/
 ## 📡 API reference
 
 ### 🔑 Auth
+
+```
+POST   /api/auth/register
 POST   /api/auth/login
 GET    /api/auth/me
 POST   /api/auth/refresh
 POST   /api/auth/logout
+
 GET    /api/auth/battlenet/authorize
 GET    /api/auth/battlenet/callback
 POST   /api/auth/battlenet/complete
 GET    /api/auth/battlenet/connect-init
 DELETE /api/auth/battlenet/disconnect
+
 GET    /api/auth/discord/authorize
 GET    /api/auth/discord/callback
 GET    /api/auth/discord/connect-init
 DELETE /api/auth/discord/disconnect
 ```
 
+### 👤 Users
+
+```
+GET    /api/users/:id
+PUT    /api/users/:id
+DELETE /api/users/:id   (admin only)
+```
+
 ### 🏆 Events
+
+```
+GET    /api/events
 POST   /api/events
 GET    /api/events/kpi
 GET    /api/events/featured
@@ -248,12 +265,15 @@ GET    /api/public/event-signups/:token
 POST   /api/public/event-signups/:token/requests
 ```
 
-### 🤖 Discord bot           Slash-command webhook (ed25519-signed)
-GET    /api/discord/invite                 Bot invite URL
-GET    /api/discord/guilds                 List guilds owned by the authenticated user
-PUT    /api/discord/guild                  Register or update a guild
-DELETE /api/discord/guild/:guild_id        Soft-delete a guild
-PATCH  /api/discord/guild/:guild_id/announcements   Toggle announcements on/off
+### 🤖 Discord
+
+```
+POST   /api/discord/interactions                          Slash-command webhook (ed25519-signed)
+GET    /api/discord/invite                                Bot invite URL
+GET    /api/discord/guilds                                List guilds owned by the authenticated user
+PUT    /api/discord/guild                                 Register or update a guild
+DELETE /api/discord/guild/:guild_id                       Soft-delete a guild
+PATCH  /api/discord/guild/:guild_id/announcements         Toggle announcements on/off
 GET    /api/discord/guild/:guild_id/members
 POST   /api/discord/guild/:guild_id/members
 DELETE /api/discord/guild/:guild_id/members/:user_id
@@ -263,9 +283,6 @@ DELETE /api/discord/guild/:guild_id/members/:user_id
 
 ```
 GET    /health
-GET    /api/users/:id
-PUT    /api/users/:id
-DELETE /api/users/:id   (admin only)
 GET    /api/matches
 GET    /api/matches/:id
 DELETE /api/matches/:id
