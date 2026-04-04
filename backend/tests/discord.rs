@@ -406,6 +406,42 @@ async fn interactions_without_public_key_returns_401(pool: PgPool) {
     assert_eq!(res.status().as_u16(), 401, "missing public key must reject all interactions");
 }
 
+/// A request with a valid signature but a stale timestamp (>5 min old) must return 401.
+#[sqlx::test]
+async fn interactions_with_stale_timestamp_returns_401(pool: PgPool) {
+    let signing_key = SigningKey::from_bytes(&[77u8; 32]);
+    let pub_key_hex = hex::encode(signing_key.verifying_key().to_bytes());
+    let base = spawn_test_server_with_config(pool, AppConfig {
+        discord_bot_public_key: pub_key_hex,
+        ..default_test_config()
+    })
+    .await;
+    let client = Client::new();
+
+    // 10 minutes in the past — well outside the 5-minute freshness window.
+    let stale_ts = (std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        - 600)
+        .to_string();
+    let body_bytes = br#"{"type":1}"#;
+    let mut message = stale_ts.as_bytes().to_vec();
+    message.extend_from_slice(body_bytes);
+    let sig_hex = hex::encode(signing_key.sign(&message).to_bytes());
+
+    let res = client
+        .post(format!("{base}/api/discord/interactions"))
+        .header("x-signature-ed25519", sig_hex)
+        .header("x-signature-timestamp", &stale_ts)
+        .body(body_bytes.as_ref())
+        .header("content-type", "application/json")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 401, "stale timestamp must be rejected even with a valid signature");
+}
+
 /// A request with a known key but an incorrect signature must return 401.
 #[sqlx::test]
 async fn interactions_with_wrong_signature_returns_401(pool: PgPool) {
@@ -418,10 +454,15 @@ async fn interactions_with_wrong_signature_returns_401(pool: PgPool) {
     .await;
     let client = Client::new();
 
+    let fresh_ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        .to_string();
     let res = client
         .post(format!("{base}/api/discord/interactions"))
         .header("x-signature-ed25519", "ab".repeat(32)) // valid length, wrong content
-        .header("x-signature-timestamp", "1234567890")
+        .header("x-signature-timestamp", &fresh_ts)
         .body(r#"{"type":1}"#)
         .header("content-type", "application/json")
         .send()
@@ -443,7 +484,11 @@ async fn interactions_ping_with_valid_signature_returns_pong(pool: PgPool) {
     let client = Client::new();
 
     let body_bytes = br#"{"type":1}"#;
-    let timestamp = "1234567890";
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        .to_string();
     let mut message = timestamp.as_bytes().to_vec();
     message.extend_from_slice(body_bytes);
     let sig_hex = hex::encode(signing_key.sign(&message).to_bytes());
