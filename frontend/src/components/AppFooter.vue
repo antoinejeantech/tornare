@@ -18,7 +18,7 @@ const { t } = useI18n()
         <p class="app-footer-tagline">{{ t('footer.tagline') }}</p>
         <div class="app-footer-social">
           <a
-            href="https://discord.gg/tornare"
+            href="https://discord.gg/yEKdkURwuA"
             target="_blank"
             rel="noopener noreferrer"
             class="app-footer-social-link"

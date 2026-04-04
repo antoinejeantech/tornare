@@ -4,7 +4,11 @@
     "statusEnded": "Terminé",
     "statusActive": "Actif",
     "by": "par",
-    "unknown": "Inconnu"
+    "unknown": "Inconnu",
+    "loading": "Chargement…",
+    "saving": "Enregistrement…",
+    "enabled": "Activé",
+    "disabled": "Désactivé"
   },
   "nav": {
     "home": "Accueil",
@@ -15,6 +19,7 @@
     "getStarted": "S'inscrire",
     "profile": "Profil",
     "logout": "Déconnexion",
+    "discordBot": "Bot Discord",
     "notifications": "Notifications",
     "noNotifications": "Aucune notification pour l'instant.",
     "searchPlaceholder": "Rechercher des joueurs...",
@@ -153,6 +158,46 @@
     "step3Support": "Support",
     "step3Saving": "Enregistrement…",
     "step3Save": "Enregistrer & continuer"
+  },
+  "discord": {
+    "title": "Bot Discord",
+    "subtitle": "Connectez votre serveur Discord pour recevoir les annonces d'événements automatiquement.",
+    "disconnected": "Serveur Discord déconnecté.",
+    "disconnectError": "Échec de la déconnexion du serveur Discord.",
+    "connected": "Connecté à {name}",
+    "notConnected": "Non connecté",
+    "step1": {
+      "title": "1. Ajouter le bot à votre serveur",
+      "description": "Cliquez sur le bouton ci-dessous pour ajouter le bot Tornare à votre serveur Discord. Vous devez avoir la permission Gérer le serveur.",
+      "addBot": "Ajouter le bot à Discord"
+    },
+    "step2": {
+      "title": "2. Lancer la commande de configuration",
+      "description": "Dans Discord, allez dans le salon où vous souhaitez recevoir les annonces et tapez :",
+      "hint": "Vous devez avoir la permission « Gérer les salons » pour exécuter cette commande."
+    },
+    "announcements": {
+      "label": "Annonces d'événements",
+      "hint": "Lorsqu'activé, les nouveaux événements seront publiés dans votre salon configuré.",
+      "error": "Échec de la mise à jour du paramètre d'annonces."
+    },
+    "postError": {
+      "label": "Dernière erreur de publication"
+    },
+    "form": {
+      "disconnect": "Déconnecter le serveur"
+    },
+    "members": {
+      "title": "Pool d'annonces",
+      "hint": "Les événements créés par les utilisateurs de ce pool seront publiés dans votre salon Discord.",
+      "removeOwner": "Vous ne pouvez pas vous retirer du pool.",
+      "addPlaceholder": "Rechercher par pseudo ou nom",
+      "add": "Ajouter",
+      "addError": "Échec de l'ajout du membre.",
+      "removeError": "Échec de la suppression du membre.",
+      "noResults": "Aucun utilisateur trouvé.",
+      "owner": "Propriétaire"
+    }
   },
   "auth": {
     "createAccount": "Créer un compte",

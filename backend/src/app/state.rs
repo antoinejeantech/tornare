@@ -14,6 +14,10 @@ pub struct AppConfig {
     pub discord_client_secret: String,
     pub discord_redirect_uri: String,
     pub frontend_url: String,
+    /// Discord bot public key for verifying interaction webhook signatures.
+    pub discord_bot_public_key: String,
+    /// Discord bot token — used to verify channel permissions on /setup.
+    pub discord_bot_token: String,
 }
 
 #[derive(Clone)]

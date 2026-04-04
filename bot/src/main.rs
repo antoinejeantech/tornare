@@ -1,12 +1,15 @@
-mod discord;
+use tornare_bot::announcements;
+use tornare_bot::commands;
+use tornare_bot::discord;
 
 use std::env;
+use std::time::Duration;
 
-use sqlx::postgres::PgListener;
-use sqlx::Row;
 use sqlx::PgPool;
-use tracing::{error, info, warn};
-use uuid::Uuid;
+use tokio::time;
+use tracing::{info, warn};
+
+const POLL_INTERVAL_SECS_DEFAULT: u64 = 60;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -15,100 +18,47 @@ async fn main() -> anyhow::Result<()> {
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let bot_token = env::var("DISCORD_BOT_TOKEN").expect("DISCORD_BOT_TOKEN must be set");
-    let channel_id = env::var("DISCORD_CHANNEL_ID").expect("DISCORD_CHANNEL_ID must be set");
+    let poll_interval_secs = env::var("POLL_INTERVAL_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(POLL_INTERVAL_SECS_DEFAULT);
+    let application_id = env::var("DISCORD_BOT_APPLICATION_ID").ok();
     let frontend_url =
-        env::var("FRONTEND_URL").unwrap_or_else(|_| "https://tornare.gg".to_string());
+        env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".to_string());
 
     info!("Connecting to database...");
     let pool = PgPool::connect(&database_url).await?;
-    info!("Database connected");
+    info!("Database connected. Polling every {poll_interval_secs}s for unpublished events.");
 
-    let http = discord::DiscordHttp::new(bot_token);
+    let http = discord::DiscordHttp::new(bot_token.clone());
 
-    let mut listener = PgListener::connect_with(&pool).await?;
-    listener.listen("event_published").await?;
-    info!("Listening for event_published notifications");
+    // Register slash commands only when REGISTER_COMMANDS=true.
+    // Commands are global and persist on Discord's side, so this only needs
+    // to run once after changes — not on every startup.
+    let register_commands = env::var("REGISTER_COMMANDS")
+        .map(|v| v.eq_ignore_ascii_case("true") || v == "1")
+        .unwrap_or(false);
+
+    if register_commands {
+        if let Some(ref app_id) = application_id {
+            info!("Registering slash commands...");
+            if let Err(e) = commands::register(&bot_token, app_id).await {
+                warn!("Failed to register slash commands: {e:#}");
+            } else {
+                info!("Slash commands registered.");
+            }
+        } else {
+            warn!("REGISTER_COMMANDS=true but DISCORD_BOT_APPLICATION_ID is not set — skipping");
+        }
+    } else {
+        info!("Skipping slash command registration (set REGISTER_COMMANDS=true to register)");
+    }
+
+    let mut interval = time::interval(Duration::from_secs(poll_interval_secs));
+    interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
 
     loop {
-        match listener.recv().await {
-            Ok(notification) => {
-                let payload = notification.payload();
-                match payload.parse::<Uuid>() {
-                    Ok(event_id) => {
-                        if let Err(e) = handle_event_published(
-                            &pool,
-                            &http,
-                            &channel_id,
-                            &frontend_url,
-                            event_id,
-                        )
-                        .await
-                        {
-                            error!("Failed to handle event_published {event_id}: {e:#}");
-                        }
-                    }
-                    Err(_) => warn!("Received invalid UUID payload: {payload}"),
-                }
-            }
-            Err(e) => {
-                // PgListener reconnects automatically on the next recv() call.
-                error!("Listener error: {e:#}");
-            }
-        }
+        interval.tick().await;
+        announcements::run_poll(&pool, &http, &frontend_url).await;
     }
-}
-
-async fn handle_event_published(
-    pool: &PgPool,
-    http: &discord::DiscordHttp,
-    channel_id: &str,
-    frontend_url: &str,
-    event_id: Uuid,
-) -> anyhow::Result<()> {
-    let row = sqlx::query(
-        "SELECT name, description, event_type, start_date, discord_message_id \
-         FROM events WHERE id = $1",
-    )
-    .bind(event_id)
-    .fetch_optional(pool)
-    .await?;
-
-    let Some(row) = row else {
-        warn!("Event {event_id} not found, skipping");
-        return Ok(());
-    };
-
-    // If we already posted, skip to avoid duplicates on bot restart.
-    let already_posted: Option<String> = row.try_get("discord_message_id").ok().flatten();
-    if already_posted.is_some() {
-        info!("Event {event_id} already has a Discord message, skipping");
-        return Ok(());
-    }
-
-    let name: String = row.try_get("name")?;
-    let description: String = row.try_get("description")?;
-    let event_type: String = row.try_get("event_type")?;
-    let start_date: Option<String> = row.try_get("start_date").ok().flatten();
-
-    let event_url = format!("{frontend_url}/events/{event_id}");
-
-    let message_id = http
-        .post_event_embed(
-            channel_id,
-            &name,
-            &description,
-            &event_type,
-            start_date.as_deref(),
-            &event_url,
-        )
-        .await?;
-
-    sqlx::query("UPDATE events SET discord_message_id = $1 WHERE id = $2")
-        .bind(&message_id)
-        .bind(event_id)
-        .execute(pool)
-        .await?;
-
-    info!("Posted Discord message {message_id} for event '{name}' ({event_id})");
-    Ok(())
 }

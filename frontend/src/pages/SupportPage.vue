@@ -11,7 +11,7 @@ const channels = computed(() => [
     title: t('support.discordTitle'),
     description: t('support.discordDesc'),
     label: t('support.discordBtn'),
-    href: 'https://discord.gg/tornare',
+    href: 'https://discord.gg/yEKdkURwuA',
     primary: true
   },
   {

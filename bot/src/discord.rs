@@ -3,6 +3,19 @@ use reqwest::Client;
 use serde_json::{json, Value};
 use tracing::debug;
 
+pub struct EventEmbed {
+    pub name: String,
+    pub description: String,
+    pub event_type: String,
+    pub format: String,
+    pub max_players: i32,
+    pub start_date: Option<String>,
+    pub organizer: Option<String>,
+    pub event_url: String,
+    /// Set when the event uses private (token-based) signup.
+    pub join_url: Option<String>,
+}
+
 pub struct DiscordHttp {
     client: Client,
     token: String,
@@ -19,36 +32,76 @@ impl DiscordHttp {
     pub async fn post_event_embed(
         &self,
         channel_id: &str,
-        name: &str,
-        description: &str,
-        event_type: &str,
-        start_date: Option<&str>,
-        event_url: &str,
+        ev: &EventEmbed,
     ) -> Result<String> {
-        let type_label = match event_type {
-            "PUG" => "Pick-Up Game",
-            "TOURNEY" => "Tournament",
-            other => other,
+        const TORNARE_LOGO: &str = "https://tornare.vercel.app/pwa-icon-192.png";
+
+        let (type_label, author_name, color) = match ev.event_type.as_str() {
+            "PUG"     => ("Pick-Up Game", "\u{1F3AE}  New Pick-Up Game", 0x5865F2_u32),
+            "TOURNEY" => ("Tournament",   "\u{1F3C6}  New Tournament",   0xF0A500_u32),
+            other     => (other,          "\u{1F4C5}  New Event",        0x5865F2_u32),
         };
 
-        let mut fields = vec![json!({"name": "Type", "value": type_label, "inline": true})];
+        // Row 1: type · format · capacity  (3 inline = one Discord row)
+        let mut fields = vec![
+            json!({"name": "Type",     "value": type_label,                             "inline": true}),
+            json!({"name": "Format",   "value": ev.format.as_str(),                     "inline": true}),
+            json!({"name": "Capacity", "value": format!("{} players", ev.max_players),  "inline": true}),
+        ];
 
-        if let Some(date) = start_date {
-            fields.push(json!({"name": "Starts", "value": date, "inline": true}));
+        // Row 2 (optional): starts · organizer
+        if let Some(date) = &ev.start_date {
+            fields.push(json!({"name": "\u{1F4C5} Starts", "value": date.as_str(), "inline": true}));
+        }
+        if let Some(org) = &ev.organizer {
+            fields.push(json!({"name": "Organizer", "value": org.as_str(), "inline": true}));
         }
 
+        let description = if ev.description.is_empty() {
+            Value::Null
+        } else {
+            Value::String(ev.description.clone())
+        };
+
+        let timestamp = chrono::Utc::now().to_rfc3339();
+
         let embed = json!({
-            "title": name,
-            "description": if description.is_empty() { Value::Null } else { Value::String(description.to_string()) },
-            "url": event_url,
-            "color": 0x5865F2,
-            "fields": fields,
-            "footer": {"text": "tornare.gg"},
+            "author":      {"name": author_name},
+            "title":       ev.name.as_str(),
+            "url":         ev.event_url.as_str(),
+            "description": description,
+            "color":       color,
+            "fields":      fields,
+            "thumbnail":   {"url": TORNARE_LOGO},
+            "footer":      {"text": "Tornare", "icon_url": TORNARE_LOGO},
+            "timestamp":   timestamp,
         });
 
-        let body = json!({"embeds": [embed]});
+        // Build action row with link buttons.
+        // style 5 = LINK — opens URL, requires no interaction handler.
+        let mut buttons = vec![
+            json!({
+                "type":  2,
+                "style": 5,
+                "label": "View Event",
+                "url":   ev.event_url.as_str(),
+                "emoji": {"name": "\u{1F4C5}"},
+            }),
+        ];
+        if let Some(url) = &ev.join_url {
+            buttons.push(json!({
+                "type":  2,
+                "style": 5,
+                "label": "Join Event",
+                "url":   url.as_str(),
+                "emoji": {"name": "\u{1F4DD}"},
+            }));
+        }
+        let components = vec![json!({"type": 1, "components": buttons})];
 
-        debug!("Posting embed for {event_url}");
+        let body = json!({"embeds": [embed], "components": components});
+
+        debug!("Posting embed for {}", ev.event_url);
 
         let resp = self
             .client
@@ -73,5 +126,36 @@ impl DiscordHttp {
             .to_string();
 
         Ok(message_id)
+    }
+
+    /// Fetch the guild name from Discord for a given guild ID.
+    pub async fn fetch_guild_name(&self, guild_id: &str) -> Result<Option<String>> {
+        let resp = self
+            .client
+            .get(format!("https://discord.com/api/v10/guilds/{guild_id}"))
+            .header("Authorization", format!("Bot {}", self.token))
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            return Ok(None);
+        }
+
+        let data: Value = resp.json().await?;
+        Ok(data["name"].as_str().map(|s| s.to_string()))
+    }
+
+    /// Check whether the bot is still a member of the given guild.
+    /// Returns `false` on 403/404 (bot removed/banned or guild gone).
+    /// Returns `true` on 200. Network errors propagate as `Err`.
+    pub async fn is_bot_in_guild(&self, guild_id: &str) -> Result<bool> {
+        let resp = self
+            .client
+            .get(format!("https://discord.com/api/v10/guilds/{guild_id}"))
+            .header("Authorization", format!("Bot {}", self.token))
+            .send()
+            .await?;
+
+        Ok(resp.status().is_success())
     }
 }
