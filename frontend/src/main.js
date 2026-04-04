@@ -21,6 +21,7 @@ import FaqPage from './pages/FaqPage.vue'
 import SupportPage from './pages/SupportPage.vue'
 import NotFoundPage from './pages/NotFoundPage.vue'
 import OnboardingPage from './pages/OnboardingPage.vue'
+import DiscordGuildPage from './pages/DiscordGuildPage.vue'
 
 const pinia = createPinia()
 
@@ -40,6 +41,7 @@ const router = createRouter({
 		{ path: '/login', name: 'login', component: AuthPage, meta: { title: 'Sign In | Tornare' } },
 		{ path: '/register', name: 'register', component: AuthPage, meta: { title: 'Create Account | Tornare' } },
 		{ path: '/onboarding', name: 'onboarding', component: OnboardingPage, meta: { title: 'Set up your account | Tornare' } },
+		{ path: '/discord', name: 'discord-guild', component: DiscordGuildPage, meta: { title: 'Discord Bot | Tornare', requiresAuth: true } },
 		{ path: '/auth/callback', name: 'auth-callback', component: AuthCallbackPage, meta: { title: 'Signing in… | Tornare' } },
 		{ path: '/events/:id', name: 'event', component: EventPage, meta: { title: 'Event Setup | Tornare' } },
 		{ path: '/join/:token', name: 'join-event', component: JoinEventPage, meta: { title: 'Join Event | Tornare' } },

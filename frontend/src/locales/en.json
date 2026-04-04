@@ -4,7 +4,11 @@
     "statusEnded": "Ended",
     "statusActive": "Active",
     "by": "by",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
   },
   "nav": {
     "home": "Home",
@@ -15,6 +19,7 @@
     "getStarted": "Get started",
     "profile": "Profile",
     "logout": "Logout",
+    "discordBot": "Discord Bot",
     "notifications": "Notifications",
     "noNotifications": "No notifications right now.",
     "searchPlaceholder": "Search users...",
@@ -153,6 +158,46 @@
     "step3Support": "Support",
     "step3Saving": "Saving…",
     "step3Save": "Save & continue"
+  },
+  "discord": {
+    "title": "Discord Bot",
+    "subtitle": "Connect your Discord server to receive automatic event announcements.",
+    "disconnected": "Discord server disconnected.",
+    "disconnectError": "Failed to disconnect Discord server.",
+    "connected": "Connected to {name}",
+    "notConnected": "Not connected",
+    "step1": {
+      "title": "1. Add the bot to your server",
+      "description": "Click the button below to add the Tornare bot to your Discord server. Make sure you have the Manage Server permission.",
+      "addBot": "Add bot to Discord"
+    },
+    "step2": {
+      "title": "2. Run the setup command",
+      "description": "In Discord, go to the channel where you want announcements and type:",
+      "hint": "You need the \"Manage Channels\" permission to run this command."
+    },
+    "announcements": {
+      "label": "Event announcements",
+      "hint": "When enabled, new events will be posted in your configured channel.",
+      "error": "Failed to update announcements setting."
+    },
+    "postError": {
+      "label": "Last posting error"
+    },
+    "form": {
+      "disconnect": "Disconnect server"
+    },
+    "members": {
+      "title": "Announcement pool",
+      "hint": "Events created by users in this pool will be posted to your Discord channel.",
+      "removeOwner": "You cannot remove yourself from the pool.",
+      "addPlaceholder": "Search by username or display name",
+      "add": "Add",
+      "addError": "Failed to add member.",
+      "removeError": "Failed to remove member.",
+      "noResults": "No users found.",
+      "owner": "Owner"
+    }
   },
   "auth": {
     "createAccount": "Create Account",

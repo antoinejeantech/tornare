@@ -11,20 +11,36 @@ use uuid::Uuid;
 /// Bind to an OS-assigned port, spawn the app, and return the base URL.
 #[allow(dead_code)]
 pub async fn spawn_test_server(pool: PgPool) -> String {
+    spawn_test_server_with_config(pool, default_test_config()).await
+}
+
+/// Returns the base AppConfig used in tests. Use struct update syntax to
+/// override individual fields:
+///   AppConfig { discord_bot_public_key: key, ..default_test_config() }
+#[allow(dead_code)]
+pub fn default_test_config() -> AppConfig {
+    AppConfig {
+        jwt_secret: "e2e-test-secret-dev-only-do-not-use-in-prod".to_string(),
+        cors_allowed_origins: vec!["*".to_string()],
+        battlenet_client_id: String::new(),
+        battlenet_client_secret: String::new(),
+        battlenet_redirect_uri: String::new(),
+        discord_client_id: String::new(),
+        discord_client_secret: String::new(),
+        discord_redirect_uri: String::new(),
+        discord_bot_public_key: String::new(),
+        discord_bot_token: String::new(),
+        frontend_url: "http://localhost:5173".to_string(),
+    }
+}
+
+/// Spawn a test server using the provided AppConfig.
+#[allow(dead_code)]
+pub async fn spawn_test_server_with_config(pool: PgPool, config: AppConfig) -> String {
     let state = AppState {
         pool,
         rate_limiter: RateLimiter::new(),
-        config: AppConfig {
-            jwt_secret: "e2e-test-secret-dev-only-do-not-use-in-prod".to_string(),
-            cors_allowed_origins: vec!["*".to_string()],
-            battlenet_client_id: String::new(),
-            battlenet_client_secret: String::new(),
-            battlenet_redirect_uri: String::new(),
-            discord_client_id: String::new(),
-            discord_client_secret: String::new(),
-            discord_redirect_uri: String::new(),
-            frontend_url: "http://localhost:5173".to_string(),
-        },
+        config,
     };
 
     let app = build_app(state);

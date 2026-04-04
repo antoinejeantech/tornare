@@ -36,6 +36,8 @@ async fn main() {
     let discord_client_secret = env::var("DISCORD_CLIENT_SECRET").unwrap_or_default();
     let discord_redirect_uri = env::var("DISCORD_REDIRECT_URI")
         .unwrap_or_else(|_| "http://localhost:8000/api/auth/discord/callback".to_string());
+    let discord_bot_public_key = env::var("DISCORD_BOT_PUBLIC_KEY").unwrap_or_default();
+    let discord_bot_token = env::var("DISCORD_BOT_TOKEN").unwrap_or_default();
     let frontend_url = env::var("FRONTEND_URL")
         .unwrap_or_else(|_| "http://localhost:5173".to_string());
 
@@ -79,6 +81,8 @@ async fn main() {
             discord_client_secret,
             discord_redirect_uri,
             frontend_url,
+            discord_bot_public_key,
+            discord_bot_token,
         },
     };
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")

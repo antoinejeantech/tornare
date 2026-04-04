@@ -17,8 +17,8 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     image: tornare-backend:latest
     container_name: tornare-backend
     env_file:
@@ -27,6 +27,23 @@ services:
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/tornare
     ports:
       - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  bot:
+    profiles:
+      - production
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    image: tornare-bot:latest
+    container_name: tornare-bot
+    env_file:
+      - ./bot/.env
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/tornare
+      - RUST_LOG=info
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,9 +98,30 @@ services:
       - .:/workspace
     command: sleep infinity
 
+  bot-dev:
+    image: rust:1.89-bookworm
+    working_dir: /workspace/bot
+    volumes:
+      - .:/workspace
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - cargo-bin:/usr/local/cargo/bin
+      - bot-target:/workspace/bot/target
+    env_file:
+      - ./bot/.env
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/tornare
+      - RUST_LOG=info
+    restart: on-failure
+    command: sh -c "cargo install cargo-watch --locked 2>/dev/null; cargo watch -x run"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   cargo-registry:
   cargo-git:
   cargo-bin:
   rust-target:
+  bot-target:
