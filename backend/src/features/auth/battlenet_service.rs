@@ -8,14 +8,14 @@ use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
-    features::auth::models::AuthResponse,
+    features::auth::models::{AuthResponse, PendingVerificationResponse},
     shared::{
         errors::{bad_request, internal_error, ApiError},
         validation::normalize_email,
     },
 };
 
-use super::repo;
+use super::{email as auth_email, repo};
 use super::service;
 
 const OAUTH_STATE_TTL_SECONDS: usize = 600;
@@ -122,7 +122,7 @@ pub async fn complete_battlenet_signup(
     state: &AppState,
     pending_token: &str,
     email: &str,
-) -> Result<AuthResponse, ApiError> {
+) -> Result<PendingVerificationResponse, ApiError> {
     if pending_token.trim().is_empty() {
         return Err(bad_request("Missing pending signup token"));
     }
@@ -145,8 +145,19 @@ pub async fn complete_battlenet_signup(
 
     let user_id = upsert_or_create_bnet_user(state, &claims.sub, &claims.battletag, &email).await?;
 
-    let user = service::get_auth_user_by_id(state, user_id).await?;
-    service::issue_auth_response(state, user, None).await
+    // Send verification email — best-effort.
+    match repo::create_verification_token(&state.pool, user_id).await {
+        Ok(raw_token) => {
+            if let Err(e) = auth_email::send_verification_email(&state.config, &email, &raw_token).await {
+                tracing::error!("Failed to send BNet signup verification email: {e:?}");
+            }
+        }
+        Err(e) => tracing::error!("Failed to create BNet signup verification token: {e:?}"),
+    }
+
+    Ok(PendingVerificationResponse {
+        message: "Account created. Please check your email to verify your account.".to_string(),
+    })
 }
 
 pub async fn battlenet_connect_init_url(

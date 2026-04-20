@@ -68,3 +68,12 @@ pub fn internal_error(error: impl std::fmt::Display) -> ApiError {
         }),
     )
 }
+
+pub fn email_not_verified() -> ApiError {
+    (
+        StatusCode::FORBIDDEN,
+        Json(ErrorResponse {
+            error: "EMAIL_NOT_VERIFIED".to_string(),
+        }),
+    )
+}

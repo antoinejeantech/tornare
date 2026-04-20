@@ -9,7 +9,7 @@ use tracing::{error, info, warn};
 
 use crate::{
     app::{security::enforce_rate_limit, state::AppState},
-    features::auth::models::{AuthResponse, BnetCompleteInput},
+    features::auth::models::{BnetCompleteInput, PendingVerificationResponse},
     shared::{
         errors::{internal_error, ApiError, ApiResult},
         models::MessageResponse,
@@ -206,7 +206,7 @@ pub async fn battlenet_complete_signup(
     State(state): State<AppState>,
     headers: HeaderMap,
     Json(payload): Json<BnetCompleteInput>,
-) -> ApiResult<AuthResponse> {
+) -> ApiResult<PendingVerificationResponse> {
     enforce_rate_limit(&state.rate_limiter, &headers, "bnet_complete", 20, 60).await?;
     battlenet_service::complete_battlenet_signup(&state, &payload.pending_token, &payload.email)
         .await
