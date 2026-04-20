@@ -2,6 +2,15 @@ use sqlx::PgPool;
 
 use crate::app::security::RateLimiter;
 
+/// Which backend to use for sending transactional email.
+#[derive(Clone)]
+pub enum EmailDriver {
+    /// Local dev: plain SMTP (Mailpit on localhost:1025).
+    Smtp,
+    /// Production: Resend REST API.
+    Resend,
+}
+
 /// Configuration values loaded from environment variables at startup.
 #[derive(Clone)]
 pub struct AppConfig {
@@ -18,6 +27,16 @@ pub struct AppConfig {
     pub discord_bot_public_key: String,
     /// Discord bot token — used to verify channel permissions on /setup.
     pub discord_bot_token: String,
+    /// Which email-sending backend to use.
+    pub email_driver: EmailDriver,
+    /// "From" address for outgoing emails, e.g. "noreply@tornare.gg".
+    pub from_email: String,
+    /// Resend API key (only required when email_driver = Resend).
+    pub resend_api_key: String,
+    /// SMTP host (only required when email_driver = Smtp).
+    pub smtp_host: String,
+    /// SMTP port (only required when email_driver = Smtp, default 1025 for Mailpit).
+    pub smtp_port: u16,
 }
 
 #[derive(Clone)]

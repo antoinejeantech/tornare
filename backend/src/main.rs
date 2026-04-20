@@ -41,6 +41,20 @@ async fn main() {
     let frontend_url = env::var("FRONTEND_URL")
         .unwrap_or_else(|_| "http://localhost:5173".to_string());
 
+    let email_driver_raw = env::var("EMAIL_DRIVER").unwrap_or_else(|_| "smtp".to_string());
+    let email_driver = match email_driver_raw.to_lowercase().as_str() {
+        "resend" => app::state::EmailDriver::Resend,
+        _ => app::state::EmailDriver::Smtp,
+    };
+    let from_email = env::var("FROM_EMAIL")
+        .unwrap_or_else(|_| "noreply@tornare.gg".to_string());
+    let resend_api_key = env::var("RESEND_API_KEY").unwrap_or_default();
+    let smtp_host = env::var("SMTP_HOST").unwrap_or_else(|_| "localhost".to_string());
+    let smtp_port: u16 = env::var("SMTP_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1025);
+
     if is_production && jwt_secret == "dev-only-change-me" {
         panic!("JWT_SECRET must be set to a strong value in production");
     }
@@ -83,6 +97,11 @@ async fn main() {
             frontend_url,
             discord_bot_public_key,
             discord_bot_token,
+            email_driver,
+            from_email,
+            resend_api_key,
+            smtp_host,
+            smtp_port,
         },
     };
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")

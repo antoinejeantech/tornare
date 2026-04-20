@@ -83,6 +83,7 @@ pub async fn fetch_pending_events_for_guild(
          JOIN discord_guild_members dgm \
              ON dgm.user_id = em.user_id AND dgm.discord_guild_id = $1 \
          WHERE e.status = 'ACTIVE' \
+           AND e.discord_announce = TRUE \
            AND e.deleted_at IS NULL \
            AND NOT EXISTS ( \
                SELECT 1 FROM discord_guild_posts dgp \

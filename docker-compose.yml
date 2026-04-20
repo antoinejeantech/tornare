@@ -15,6 +15,14 @@ services:
       timeout: 3s
       retries: 20
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+
   backend:
     build:
       context: .
