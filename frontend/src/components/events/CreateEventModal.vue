@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { apiCall } from '../../lib/api'
+import { apiCall, getDiscordGuilds } from '../../lib/api'
 import { normalizeDatetimeLocalInput } from '../../lib/dates'
 import { formatOptionsForType } from '../../lib/event-format'
 import AppModal from '../ui/AppModal.vue'
@@ -30,6 +30,8 @@ const newEventSignupVisibility = ref('private')
 const newEventMaxPlayers = ref(10)
 const newEventRequireDiscord = ref(false)
 const newEventRequireBattletag = ref(false)
+const newEventDiscordAnnounce = ref(true)
+const hasGuild = ref(false)
 const creatingEvent = ref(false)
 const error = ref('')
 
@@ -64,11 +66,21 @@ function reset() {
   newEventMaxPlayers.value = 10
   newEventRequireDiscord.value = false
   newEventRequireBattletag.value = false
+  newEventDiscordAnnounce.value = true
   error.value = ''
 }
 
-watch(() => props.open, (open) => {
-  if (!open) reset()
+watch(() => props.open, async (open) => {
+  if (open) {
+    try {
+      const guilds = await getDiscordGuilds()
+      hasGuild.value = guilds.length > 0
+    } catch {
+      hasGuild.value = false
+    }
+  } else {
+    reset()
+  }
 })
 
 async function submit() {
@@ -97,6 +109,7 @@ async function submit() {
         max_players: Number(newEventMaxPlayers.value),
         require_discord: newEventRequireDiscord.value,
         require_battletag: newEventRequireBattletag.value,
+        discord_announce: hasGuild.value ? newEventDiscordAnnounce.value : true,
       }),
     })
     emit('update:open', false)
@@ -200,6 +213,36 @@ async function submit() {
             </button>
           </label>
         </div>
+      </div>
+
+      <div class="create-form-section">
+        <p class="create-form-section-kicker">{{ t('createEvent.discordSection') }}</p>
+        <template v-if="hasGuild">
+          <div class="create-form-toggles">
+            <label class="create-form-toggle-row">
+              <span class="create-form-toggle-label">
+                <DiscordIcon class="create-form-toggle-icon" />
+                {{ t('createEvent.discordAnnounce') }}
+              </span>
+              <span class="create-form-toggle-hint">{{ t('createEvent.discordAnnounceHint') }}</span>
+              <button
+                type="button"
+                role="switch"
+                class="create-form-toggle-switch"
+                :aria-checked="newEventDiscordAnnounce ? 'true' : 'false'"
+                :class="{ 'is-on': newEventDiscordAnnounce }"
+                @click="newEventDiscordAnnounce = !newEventDiscordAnnounce"
+              >
+                <span class="create-form-toggle-thumb" />
+              </button>
+            </label>
+          </div>
+        </template>
+        <p v-else class="create-no-guild-hint">
+          <span class="material-symbols-rounded" style="font-size:1rem;flex-shrink:0" aria-hidden="true">info</span>
+          {{ t('createEvent.noGuildHint') }}
+          <router-link to="/discord" class="create-no-guild-link">{{ t('createEvent.addGuildLink') }}</router-link>
+        </p>
       </div>
 
       <p v-if="error" class="status status-error">{{ error }}</p>
@@ -347,5 +390,26 @@ async function submit() {
   align-items: center;
   gap: 0.45rem;
   flex-wrap: wrap;
+}
+
+.create-no-guild-hint {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  line-height: 1.4;
+  flex-wrap: wrap;
+}
+
+.create-no-guild-link {
+  color: var(--brand-1);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.create-no-guild-link:hover {
+  text-decoration: underline;
 }
 </style>

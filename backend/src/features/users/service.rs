@@ -81,6 +81,13 @@ pub async fn update_user_profile_for_user(
 
     let current_profile = get_user_profile_public(state, target_user_id).await?;
 
+    // Discord-linked accounts use Discord as the source of truth for email.
+    if current_profile.has_discord_identity && email != current_profile.email {
+        return Err(bad_request(
+            "Email cannot be changed for accounts linked with Discord. Disconnect Discord first.",
+        ));
+    }
+
     let battletag = payload
         .battletag
         .as_deref()

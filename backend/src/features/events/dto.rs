@@ -21,6 +21,10 @@ pub(super) fn normalize_optional_string(value: &Option<String>) -> Option<String
         .filter(|text| !text.is_empty())
 }
 
+fn default_true() -> bool {
+    true
+}
+
 // ---------------------------------------------------------------------------
 // Event input DTOs
 // ---------------------------------------------------------------------------
@@ -39,6 +43,8 @@ pub struct CreateEventInput {
     pub require_discord: bool,
     #[serde(default)]
     pub require_battletag: bool,
+    #[serde(default = "default_true")]
+    pub discord_announce: bool,
 }
 
 impl CreateEventInput {
@@ -66,6 +72,8 @@ pub struct UpdateEventInput {
     pub require_discord: bool,
     #[serde(default)]
     pub require_battletag: bool,
+    #[serde(default = "default_true")]
+    pub discord_announce: bool,
 }
 
 impl UpdateEventInput {

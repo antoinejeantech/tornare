@@ -77,6 +77,7 @@ export interface EventCtxType {
   editEventMaxPlayers: number
   editEventRequireDiscord: boolean
   editEventRequireBattletag: boolean
+  editEventDiscordAnnounce: boolean
 
   // ── Matchup selections ──
   matchupSelections: Record<string, { teamAId: string; teamBId: string }>

@@ -439,6 +439,7 @@ pub struct Event {
     pub public_signup_token: Option<String>,
     pub require_discord: bool,
     pub require_battletag: bool,
+    pub discord_announce: bool,
     pub max_players: u8,
     pub players: Vec<Player>,
     pub teams: Vec<EventTeam>,

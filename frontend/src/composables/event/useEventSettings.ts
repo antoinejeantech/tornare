@@ -13,6 +13,7 @@ export function useEventSettings({
   const editEventMaxPlayers = ref(10)
   const editEventRequireDiscord = ref(false)
   const editEventRequireBattletag = ref(false)
+  const editEventDiscordAnnounce = ref(true)
   const updatingEvent = ref(false)
   const deletingEvent = ref(false)
 
@@ -33,6 +34,7 @@ export function useEventSettings({
     editEventMaxPlayers.value = Number(event.value.max_players)
     editEventRequireDiscord.value = Boolean(event.value.require_discord)
     editEventRequireBattletag.value = Boolean(event.value.require_battletag)
+    editEventDiscordAnnounce.value = event.value.discord_announce !== false
   }
 
   async function saveEventEdit() {
@@ -58,6 +60,7 @@ export function useEventSettings({
         max_players: editEventMaxPlayers.value,
         require_discord: editEventRequireDiscord.value,
         require_battletag: editEventRequireBattletag.value,
+        discord_announce: editEventDiscordAnnounce.value,
       })
       event.value = updatedEvent
       syncEventEditDraftFromEvent()
@@ -94,7 +97,7 @@ export function useEventSettings({
 
   return {
     editEventName, editEventDescription, editEventStartDate, editEventFormat, editEventMaxPlayers,
-    editEventRequireDiscord, editEventRequireBattletag,
+    editEventRequireDiscord, editEventRequireBattletag, editEventDiscordAnnounce,
     updatingEvent, deletingEvent, canSaveEventMeta,
     syncEventEditDraftFromEvent, saveEventEdit, deleteEvent,
   }

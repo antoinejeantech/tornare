@@ -355,10 +355,11 @@ pub async fn insert_event(
     signup_token: &str,
     require_discord: bool,
     require_battletag: bool,
+    discord_announce: bool,
 ) -> Result<(), crate::shared::errors::ApiError> {
     sqlx::query(
-        "INSERT INTO events (id, name, description, start_date, event_type, format, public_signup_enabled, max_players, signup_token, status, require_discord, require_battletag)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'DRAFT', $10, $11)",
+        "INSERT INTO events (id, name, description, start_date, event_type, format, public_signup_enabled, max_players, signup_token, status, require_discord, require_battletag, discord_announce)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'DRAFT', $10, $11, $12)",
     )
     .bind(event_id)
     .bind(name)
@@ -371,6 +372,7 @@ pub async fn insert_event(
     .bind(signup_token)
     .bind(require_discord)
     .bind(require_battletag)
+    .bind(discord_announce)
     .execute(pool)
     .await
     .map_err(internal_error)?;
@@ -408,12 +410,13 @@ pub async fn update_event_details(
     max_players: i32,
     require_discord: bool,
     require_battletag: bool,
+    discord_announce: bool,
 ) -> Result<bool, crate::shared::errors::ApiError> {
     let updated = sqlx::query(
         "UPDATE events
          SET name = $1, description = $2, start_date = $3, event_type = $4, format = $5, max_players = $6,
-             require_discord = $7, require_battletag = $8
-            WHERE id = $9 AND deleted_at IS NULL
+             require_discord = $7, require_battletag = $8, discord_announce = $9
+            WHERE id = $10 AND deleted_at IS NULL
          RETURNING id",
     )
     .bind(name)
@@ -424,6 +427,7 @@ pub async fn update_event_details(
     .bind(max_players)
     .bind(require_discord)
     .bind(require_battletag)
+    .bind(discord_announce)
     .bind(event_id)
     .fetch_optional(pool)
     .await
@@ -1588,6 +1592,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
             e.public_signup_enabled,
             e.require_discord,
             e.require_battletag,
+            e.discord_announce,
             e.max_players,
             m.user_id AS creator_id,
             u.display_name AS creator_name
@@ -1645,6 +1650,7 @@ pub async fn load_event(pool: &PgPool, event_id: Uuid) -> Result<Event, crate::s
         },
         require_discord: row.get("require_discord"),
         require_battletag: row.get("require_battletag"),
+        discord_announce: row.get("discord_announce"),
         max_players: i32_to_u8(row.get::<i32, _>("max_players"), "max_players")?,
         players,
         teams,
