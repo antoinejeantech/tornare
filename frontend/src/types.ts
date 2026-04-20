@@ -97,6 +97,7 @@ export interface Event {
   public_signup_token: string | null
   require_discord: boolean
   require_battletag: boolean
+  discord_announce: boolean
   is_featured: boolean
   status: EventStatus
   creator_id?: number | string
@@ -165,6 +166,10 @@ export interface AuthSession {
   user: AuthUser
   access_token: string
   refresh_token: string
+}
+
+export interface PendingVerificationResponse {
+  message: string
 }
 
 

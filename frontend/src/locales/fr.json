@@ -225,7 +225,10 @@
     "noAccount": "Pas encore de compte ?",
     "createOne": "Créez-en un",
     "hasAccount": "Vous avez déjà un compte ?",
-    "authFailed": "Authentification échouée"
+    "authFailed": "Authentification échouée",
+    "emailNotVerified": "Veuillez vérifier votre adresse email avant de vous connecter.",
+    "resendVerificationEmail": "Renvoyer l'email de vérification",
+    "forgotPassword": "Mot de passe oublié ?"
   },
   "authCallback": {
     "oneMoreStep": "Une dernière étape",
@@ -246,6 +249,49 @@
     "rateLimited": "Trop de requêtes. Veuillez patienter un moment et réessayer.",
     "failed": "La connexion a échoué. Veuillez réessayer.",
     "completeFailed": "Échec de la finalisation de l'inscription."
+  },
+  "verifyEmail": {
+    "verifying": "Vérification de votre adresse email…",
+    "successTitle": "Email vérifié !",
+    "successSubtitle": "Votre compte est confirmé. Redirection vers l'intégration…",
+    "errorTitle": "Échec de la vérification",
+    "failed": "La vérification de l'email a échoué. Veuillez réessayer.",
+    "missingToken": "Aucun jeton de vérification trouvé. Veuillez utiliser le lien de votre email.",
+    "requestNew": "Demander un nouveau lien"
+  },
+  "verifyEmailPending": {
+    "title": "Vérifiez votre boîte de réception",
+    "subtitle": "Nous avons envoyé un lien de vérification à :",
+    "note": "Le lien expire dans 24 heures. Vérifiez vos spams si vous ne le voyez pas.",
+    "resendLabel": "Vous ne l'avez pas reçu ?",
+    "emailPlaceholder": "vous{'@'}exemple.com",
+    "sending": "Envoi\u2026",
+    "resendBtn": "Renvoyer l'email",
+    "resendFailed": "Échec de l'envoi. Veuillez réessayer."
+  },
+  "forgotPassword": {
+    "title": "Mot de passe oublié ?",
+    "subtitle": "Entrez votre adresse email et nous vous enverrons un lien de réinitialisation.",
+    "emailLabel": "Adresse email",
+    "emailPlaceholder": "vous{'@'}exemple.com",
+    "submitting": "Envoi\u2026",
+    "submitBtn": "Envoyer le lien",
+    "successTitle": "Vérifiez votre boîte de réception",
+    "successSubtitle": "Si un compte avec cet email existe, vous recevrez un lien de réinitialisation.",
+    "backToLogin": "Retour à la connexion"
+  },
+  "resetPassword": {
+    "title": "Choisissez un nouveau mot de passe",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "confirmLabel": "Confirmer le mot de passe",
+    "submitting": "Mise à jour\u2026",
+    "submitBtn": "Mettre à jour",
+    "successTitle": "Mot de passe mis à jour",
+    "successSubtitle": "Votre mot de passe a été modifié. Redirection vers la connexion\u2026",
+    "errorTitle": "Échec de la réinitialisation",
+    "invalidToken": "Ce lien de réinitialisation est invalide ou a expiré.",
+    "missingToken": "Aucun jeton trouvé. Veuillez utiliser le lien de votre email.",
+    "requestNew": "Demander un nouveau lien"
   },
   "notFound": {
     "eyebrow": "Signal Perdu",
@@ -422,6 +468,11 @@
     "requireDiscordHint": "Rejeter les soumissions sans identifiant Discord",
     "requireBnet": "Exiger un tag Battle.net",
     "requireBnetHint": "Rejeter les soumissions sans tag Battle.net",
+    "discordSection": "Discord",
+    "discordAnnounce": "Publier sur Discord",
+    "discordAnnounceHint": "Le bot annoncera cet événement sur votre serveur quand il sera publié.",
+    "noGuildHint": "Aucun serveur Discord connecté.",
+    "addGuildLink": "Configurer le bot →",
     "creating": "Création...",
     "createBtn": "Créer l'événement",
     "cancel": "Annuler",
@@ -689,6 +740,13 @@
     "requireDiscordHint": "Les soumissions sans identifiant Discord seront rejetées",
     "requireBnet": "Exiger un tag Battle.net",
     "requireBnetHint": "Les soumissions sans tag Battle.net seront rejetées",
+    "discordSection": "Discord",
+    "discordAnnounce": "Publier sur Discord",
+    "discordAnnounceHint": "Le bot annoncera cet événement sur votre serveur quand il sera publié. L'option d'annonces du serveur doit également être activée.",
+    "eventDetailsLabel": "Détails de l'événement",
+    "formatSection": "Format",
+    "noGuildHint": "Aucun serveur Discord connecté.",
+    "addGuildLink": "Configurer le bot →",
     "savingSettings": "Enregistrement...",
     "saveSettings": "Enregistrer les paramètres",
     "resetChanges": "Réinitialiser",
