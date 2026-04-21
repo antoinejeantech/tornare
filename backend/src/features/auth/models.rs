@@ -56,3 +56,25 @@ pub struct BnetCompleteInput {
     pub pending_token: String,
     pub email: String,
 }
+
+#[derive(Serialize)]
+pub struct PendingVerificationResponse {
+    pub message: String,
+}
+
+#[derive(Deserialize)]
+pub struct ResendVerificationInput {
+    pub email: String,
+}
+
+#[derive(Deserialize)]
+pub struct ForgotPasswordInput {
+    pub email: String,
+}
+
+#[derive(Deserialize)]
+pub struct ResetPasswordInput {
+    pub token: String,
+    pub new_password: String,
+    pub new_password_confirm: String,
+}

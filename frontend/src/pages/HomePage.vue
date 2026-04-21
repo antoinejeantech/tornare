@@ -200,7 +200,7 @@ onMounted(async () => {
           <InlineArrowLink to="/events" :label="t('home.viewAll')" class="home-ticker-view-all" />
         </div>
         <p v-if="loadingEvents" class="muted home-ticker-empty">{{ t('home.loadingEvents') }}</p>
-        <p v-else-if="sortedEvents.length === 0" class="muted home-ticker-empty">{{ t('home.noEvents') }} <RouterLink to="/events">{{ t('home.createOne') }}</RouterLink> {{ t('home.noEventsHint') }}</p>
+        <p v-else-if="sortedEvents.length === 0" class="muted home-ticker-empty">{{ t('home.noEvents') }} <RouterLink class="home-ticker-empty-link" to="/events">{{ t('home.createOne') }}</RouterLink> {{ t('home.noEventsHint') }}</p>
         <ul v-else class="home-ticker-list">
           <EventListItem
             v-for="event in sortedEvents.slice(0, 6)"
@@ -212,25 +212,6 @@ onMounted(async () => {
       </section>
 
       <aside class="home-dashboard-side reveal-block reveal-2">
-        <section class="home-signal-grid">
-          <article class="home-signal">
-            <div class="home-signal-head">
-              <span class="home-signal-label">{{ t('home.boardLabel') }}</span>
-              <span class="material-symbols-rounded home-signal-icon home-signal-icon-light" aria-hidden="true">calendar_month</span>
-            </div>
-            <strong class="home-signal-value">{{ totalEvents }}</strong>
-            <p class="muted">{{ t('home.boardDesc') }}</p>
-          </article>
-          <article class="home-signal">
-            <div class="home-signal-head">
-              <span class="home-signal-label">{{ t('home.signupsLabel') }}</span>
-              <span class="material-symbols-rounded home-signal-icon home-signal-icon-light" aria-hidden="true">group</span>
-            </div>
-            <strong class="home-signal-value">{{ totalSignups }}</strong>
-            <p class="muted">{{ t('home.signupsDesc') }}</p>
-          </article>
-        </section>
-
         <section class="home-countdown-grid">
           <article v-for="(event, index) in countdownEvents" :key="`countdown-${event.id}`" :class="['home-countdown', { 'home-countdown-upnext': index === 0 }]">
             <span class="home-countdown-label">{{ index === 0 ? t('home.upNext') : t('home.afterThat') }}<span v-if="index === 0" class="material-symbols-rounded home-countdown-icon" aria-hidden="true">schedule</span></span>
@@ -320,12 +301,13 @@ onMounted(async () => {
   position: absolute;
   right: 0.2rem;
   bottom: 0;
-  width: clamp(175px, 30vw, 330px);
-  max-height: 95%;
+  width: clamp(220px, 38vw, 460px);
+  max-height: 100%;
   object-fit: contain;
   pointer-events: none;
-  filter: drop-shadow(0 8px 18px rgba(6, 16, 36, 0.35));
-  opacity: 0.95;
+  filter: drop-shadow(0 8px 28px rgba(6, 16, 36, 0.45));
+  opacity: 0.97;
+  z-index: 1;
 }
 
 .home-ticker {
@@ -422,6 +404,17 @@ onMounted(async () => {
   font-size: 0.88rem;
 }
 
+.home-ticker-empty-link {
+  color: color-mix(in srgb, var(--brand-1) 90%, white 10%);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.home-ticker-empty-link:hover {
+  color: color-mix(in srgb, var(--brand-1) 76%, white 24%);
+  text-decoration: underline;
+}
+
 .home-eyebrow {
   margin: 0;
   color: var(--accent);
@@ -485,51 +478,6 @@ onMounted(async () => {
   color: white;
   font-size: 1rem;
   font-weight: 700;
-  line-height: 1;
-}
-
-.home-signal-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-}
-
-.home-signal {
-  display: grid;
-  gap: 0.25rem;
-  min-height: 106px;
-  padding: 0.5rem var(--space-1);
-  border-bottom: 0;
-}
-
-.home-signal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.35rem;
-}
-
-.home-signal-icon {
-  font-size: 0.95rem;
-}
-
-.home-signal-icon-light {
-  color: var(--ink-muted);
-}
-
-.home-signal p {
-  margin: 0;
-}
-
-.home-signal-label {
-  color: var(--ink-2);
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.home-signal-value {
-  font-size: 1.55rem;
   line-height: 1;
 }
 
@@ -639,8 +587,7 @@ onMounted(async () => {
 }
 
 .home-hero-secondary-btn {
-  padding: 0;
-  border: 0;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, var(--ink-muted) 22%);
   background: transparent;
   color: var(--ink-muted);
   font-size: 0.95rem;

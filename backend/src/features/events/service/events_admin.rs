@@ -41,6 +41,7 @@ pub async fn create_event_for_user(
         &signup_token,
         payload.require_discord,
         payload.require_battletag,
+        payload.discord_announce,
     )
     .await?;
 
@@ -71,6 +72,7 @@ pub async fn update_event_for_user(
         i32::from(payload.max_players),
         payload.require_discord,
         payload.require_battletag,
+        payload.discord_announce,
     )
     .await?;
 

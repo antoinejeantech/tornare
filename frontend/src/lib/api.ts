@@ -165,3 +165,89 @@ export async function apiCall<T = unknown>(path: string, options: ApiCallOptions
 
   return response.json() as Promise<T>
 }
+
+// ---------------------------------------------------------------------------
+// Discord guild API
+// ---------------------------------------------------------------------------
+
+export interface UserSearchResult {
+  id: string
+  username: string | null
+  display_name: string
+}
+
+export function searchUsers(query: string): Promise<UserSearchResult[]> {
+  return apiCall<UserSearchResult[]>(`/api/users?search=${encodeURIComponent(query)}`)
+}
+
+export interface DiscordGuild {
+  id: string
+  guild_id: string
+  guild_name: string | null
+  owner_user_id: string | null
+  channel_id: string
+  announcements_enabled: boolean
+  mention_roles: string[]
+  last_post_error?: string | null
+  last_post_error_at?: string | null
+}
+
+export interface GuildMember {
+  user_id: string
+  username: string | null
+  display_name: string
+  added_at: string
+}
+
+export interface UpsertGuildInput {
+  guild_id: string
+  guild_name?: string
+  channel_id: string
+}
+
+export function getDiscordGuilds(): Promise<DiscordGuild[]> {
+  return apiCall<DiscordGuild[]>('/api/discord/guilds')
+}
+
+export function upsertDiscordGuild(input: UpsertGuildInput): Promise<DiscordGuild> {
+  return apiCall<DiscordGuild>('/api/discord/guild', { method: 'PUT', body: JSON.stringify(input) })
+}
+
+export function deleteDiscordGuild(guildId: string): Promise<{ message: string }> {
+  return apiCall<{ message: string }>(`/api/discord/guild/${guildId}`, { method: 'DELETE' })
+}
+
+export function getDiscordBotInviteUrl(): Promise<{ url: string }> {
+  return apiCall<{ url: string }>('/api/discord/invite')
+}
+
+export function toggleDiscordAnnouncements(guildId: string, enabled: boolean): Promise<DiscordGuild> {
+  return apiCall<DiscordGuild>(`/api/discord/guild/${guildId}/announcements`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  })
+}
+
+export function listGuildMembers(guildId: string): Promise<GuildMember[]> {
+  return apiCall<GuildMember[]>(`/api/discord/guild/${guildId}/members`)
+}
+
+export function addGuildMember(guildId: string, userId: string): Promise<GuildMember[]> {
+  return apiCall<GuildMember[]>(`/api/discord/guild/${guildId}/members`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  })
+}
+
+export function removeGuildMember(guildId: string, userId: string): Promise<GuildMember[]> {
+  return apiCall<GuildMember[]>(`/api/discord/guild/${guildId}/members/${userId}`, {
+    method: 'DELETE',
+  })
+}
+
+export function setGuildMentionRoles(guildId: string, roles: string[]): Promise<DiscordGuild> {
+  return apiCall<DiscordGuild>(`/api/discord/guild/${guildId}/mention-roles`, {
+    method: 'PATCH',
+    body: JSON.stringify({ roles }),
+  })
+}

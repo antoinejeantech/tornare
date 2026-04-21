@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink } from 'vue-router'
-import spotlightEventBackground from '../../assets/branding/spotlight-event-bg.jpg'
+import spotlightEventBackground from '../../assets/branding/spotlight-event-bg.webp'
 import { formatMediumDate } from '../../lib/dates'
 import ActionCtaButton from '../ui/ActionCtaButton.vue'
 import type { Event } from '../../types'

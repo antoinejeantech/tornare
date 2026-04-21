@@ -1,4 +1,6 @@
+use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Row};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::shared::errors::internal_error;
@@ -37,13 +39,22 @@ pub struct UserLoginRow {
     pub id: Uuid,
     pub password_hash: Option<String>,
     pub is_active: bool,
+    pub email_verified: bool,
+}
+
+/// A verification token row from `email_verification_tokens`.
+pub struct VerificationTokenRow {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub expires_at: OffsetDateTime,
+    pub used_at: Option<OffsetDateTime>,
 }
 
 pub async fn find_user_login_by_email(
     pool: &PgPool,
     email: &str,
 ) -> Result<Option<UserLoginRow>, crate::shared::errors::ApiError> {
-    let row = sqlx::query("SELECT id, password_hash, is_active FROM users WHERE email = $1")
+    let row = sqlx::query("SELECT id, password_hash, is_active, email_verified FROM users WHERE email = $1")
     .bind(email)
     .fetch_optional(pool)
     .await
@@ -53,6 +64,7 @@ pub async fn find_user_login_by_email(
         id: r.get("id"),
         password_hash: r.get("password_hash"),
         is_active: r.get("is_active"),
+        email_verified: r.get("email_verified"),
     }))
 }
 
@@ -471,8 +483,9 @@ pub async fn insert_discord_user(
     display_name: &str,
     avatar_url: Option<&str>,
 ) -> Result<(), crate::shared::errors::ApiError> {
+    // Discord provides a pre-verified email — mark verified immediately.
     sqlx::query(
-        "INSERT INTO users (id, email, username, display_name, avatar_url) VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO users (id, email, username, display_name, avatar_url, email_verified) VALUES ($1, $2, $3, $4, $5, TRUE)",
     )
     .bind(user_id)
     .bind(email)
@@ -535,3 +548,203 @@ pub async fn remove_discord_identity(
     .map_err(internal_error)?;
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Email verification tokens
+// ---------------------------------------------------------------------------
+
+fn hash_verification_token(raw: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(raw.as_bytes());
+    hex::encode(hasher.finalize())
+}
+
+/// Creates a new single-use verification token (24 h TTL) and returns the raw token string.
+pub async fn create_verification_token(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<String, crate::shared::errors::ApiError> {
+    let raw_token = format!("{}.{}", Uuid::new_v4(), Uuid::new_v4());
+    let token_hash = hash_verification_token(&raw_token);
+    sqlx::query(
+        "INSERT INTO email_verification_tokens (id, user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, NOW() + INTERVAL '24 hours')",
+    )
+    .bind(Uuid::new_v4())
+    .bind(user_id)
+    .bind(&token_hash)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(raw_token)
+}
+
+pub async fn find_token_by_hash(
+    pool: &PgPool,
+    raw_token: &str,
+) -> Result<Option<VerificationTokenRow>, crate::shared::errors::ApiError> {
+    let token_hash = hash_verification_token(raw_token);
+    let row = sqlx::query(
+        "SELECT id, user_id, expires_at, used_at
+         FROM email_verification_tokens
+         WHERE token_hash = $1",
+    )
+    .bind(&token_hash)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.map(|r| VerificationTokenRow {
+        id: r.get("id"),
+        user_id: r.get("user_id"),
+        expires_at: r.get("expires_at"),
+        used_at: r.get("used_at"),
+    }))
+}
+
+/// Atomically claims a verification token by setting `used_at`, guarded by
+/// `used_at IS NULL`. Returns `true` if the token was claimed, `false` if a
+/// concurrent request already claimed it.
+pub async fn mark_token_used(
+    pool: &PgPool,
+    token_id: Uuid,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let result =
+        sqlx::query("UPDATE email_verification_tokens SET used_at = NOW() WHERE id = $1 AND used_at IS NULL")
+            .bind(token_id)
+            .execute(pool)
+            .await
+            .map_err(internal_error)?;
+    Ok(result.rows_affected() > 0)
+}
+
+pub async fn mark_email_verified(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("UPDATE users SET email_verified = TRUE WHERE id = $1")
+        .bind(user_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+    Ok(())
+}
+
+/// Returns the `created_at` timestamp of the most recent token for this user,
+/// used to enforce a per-user resend rate-limit.
+pub async fn get_latest_token_created_at(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<Option<OffsetDateTime>, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT created_at FROM email_verification_tokens
+         WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(row.map(|r| r.get("created_at")))
+}
+
+// ---------------------------------------------------------------------------
+// Password reset tokens
+// ---------------------------------------------------------------------------
+
+/// A password reset token row from `password_reset_tokens`.
+pub struct PasswordResetTokenRow {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub expires_at: OffsetDateTime,
+    pub used_at: Option<OffsetDateTime>,
+}
+
+/// Creates a new single-use password reset token (1 h TTL) and returns the raw token string.
+pub async fn create_password_reset_token(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<String, crate::shared::errors::ApiError> {
+    let raw_token = format!("{}.{}", Uuid::new_v4(), Uuid::new_v4());
+    let token_hash = hash_verification_token(&raw_token);
+    sqlx::query(
+        "INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, NOW() + INTERVAL '1 hour')",
+    )
+    .bind(Uuid::new_v4())
+    .bind(user_id)
+    .bind(&token_hash)
+    .execute(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(raw_token)
+}
+
+pub async fn find_reset_token_by_hash(
+    pool: &PgPool,
+    raw_token: &str,
+) -> Result<Option<PasswordResetTokenRow>, crate::shared::errors::ApiError> {
+    let token_hash = hash_verification_token(raw_token);
+    let row = sqlx::query(
+        "SELECT id, user_id, expires_at, used_at
+         FROM password_reset_tokens
+         WHERE token_hash = $1",
+    )
+    .bind(&token_hash)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.map(|r| PasswordResetTokenRow {
+        id: r.get("id"),
+        user_id: r.get("user_id"),
+        expires_at: r.get("expires_at"),
+        used_at: r.get("used_at"),
+    }))
+}
+
+/// Atomically claims a password reset token by setting `used_at`, guarded by
+/// `used_at IS NULL`. Returns `true` if the token was claimed, `false` if a
+/// concurrent request already claimed it.
+pub async fn mark_reset_token_used(
+    pool: &PgPool,
+    token_id: Uuid,
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let result =
+        sqlx::query("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1 AND used_at IS NULL")
+            .bind(token_id)
+            .execute(pool)
+            .await
+            .map_err(internal_error)?;
+    Ok(result.rows_affected() > 0)
+}
+
+/// Returns the `created_at` of the most recent reset token for rate-limiting.
+pub async fn get_latest_reset_token_created_at(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<Option<OffsetDateTime>, crate::shared::errors::ApiError> {
+    let row = sqlx::query(
+        "SELECT created_at FROM password_reset_tokens
+         WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+    Ok(row.map(|r| r.get("created_at")))
+}
+
+pub async fn update_user_password(
+    pool: &PgPool,
+    user_id: Uuid,
+    password_hash: &str,
+) -> Result<(), crate::shared::errors::ApiError> {
+    sqlx::query("UPDATE users SET password_hash = $1 WHERE id = $2")
+        .bind(password_hash)
+        .bind(user_id)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+    Ok(())
+}
+

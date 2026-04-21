@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <meta name="color-scheme" content="light dark"/>
+  <meta name="supported-color-schemes" content="light dark"/>
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+
+    .email-bg {
+      background: #1a1a1a !important;
+    }
+
+    .email-card {
+      background: #1a1a1a !important;
+      border-color: #2a2a2a !important;
+    }
+
+    .email-header,
+    .email-footer {
+      background: #1a1a1a !important;
+      border-color: #2a2a2a !important;
+    }
+
+    .email-heading {
+      color: #f4f4f4 !important;
+    }
+
+    .email-copy,
+    .email-note {
+      color: #a2b3c9 !important;
+    }
+
+    .email-footnote {
+      color: #7f95b3 !important;
+    }
+
+    .email-link {
+      color: #72afff !important;
+    }
+
+    .email-cta {
+      background: #f0bf4c !important;
+      background-color: #f0bf4c !important;
+    }
+
+    /* Outlook.com / Outlook mobile dark-mode selectors */
+    [data-ogsc] .email-bg,
+    [data-ogsb] .email-bg {
+      background: #1a1a1a !important;
+    }
+
+    [data-ogsc] .email-card,
+    [data-ogsb] .email-card {
+      background: #1a1a1a !important;
+      border-color: #2a2a2a !important;
+    }
+
+    [data-ogsc] .email-header,
+    [data-ogsb] .email-header,
+    [data-ogsc] .email-footer,
+    [data-ogsb] .email-footer {
+      background: #1a1a1a !important;
+      border-color: #2a2a2a !important;
+    }
+
+    [data-ogsc] .email-heading,
+    [data-ogsb] .email-heading {
+      color: #f4f4f4 !important;
+    }
+
+    [data-ogsc] .email-copy,
+    [data-ogsb] .email-copy,
+    [data-ogsc] .email-note,
+    [data-ogsb] .email-note {
+      color: #a2b3c9 !important;
+    }
+
+    [data-ogsc] .email-link,
+    [data-ogsc] .email-footnote,
+    [data-ogsb] .email-footnote,
+    [data-ogsb] .email-link {
+      color: #7f95b3 !important;
+    }
+
+    [data-ogsc] .email-link,
+    [data-ogsb] .email-link {
+      color: #72afff !important;
+    }
+  </style>
+  <!--[if mso]>
+  <style type="text/css">
+    .email-bg,
+    .email-bg td {
+      background: #1a1a1a !important;
+      background-color: #1a1a1a !important;
+    }
+
+    .email-card,
+    .email-card td {
+      background: #1a1a1a !important;
+      background-color: #1a1a1a !important;
+    }
+
+    .email-header,
+    .email-footer {
+      background: #1a1a1a !important;
+      background-color: #1a1a1a !important;
+    }
+
+    .email-cta {
+      background: #f0bf4c !important;
+      background-color: #f0bf4c !important;
+    }
+  </style>
+  <![endif]-->
+  <title>{% block title %}Tornare{% endblock title %}</title>
+</head>
+<body bgcolor="#1a1a1a" style="margin:0;padding:0;background:#1a1a1a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <!--[if gte mso 9]>
+  <v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:100%;">
+    <v:fill type="gradient" angle="0" color="#1a1a1a" color2="#1a1a1a" />
+    <v:textbox inset="0,0,0,0">
+  <![endif]-->
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-bg" bgcolor="#1a1a1a" style="background:#1a1a1a;">
+    <tr>
+      <td align="center" bgcolor="#1a1a1a" style="padding:40px 16px;background:#1a1a1a;">
+
+        <!--[if gte mso 9]>
+        <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" arcsize="3%" fill="true" stroke="true"
+          strokecolor="#2a2a2a" style="width:480px;">
+          <v:fill type="gradient" angle="0" color="#1a1a1a" color2="#1a1a1a" />
+          <v:textbox inset="0,0,0,0">
+        <![endif]-->
+
+        <!-- Card -->
+         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-card"
+           bgcolor="#1a1a1a"
+           style="max-width:480px;background:#1a1a1a;border-radius:12px;
+             border:1px solid #2a2a2a;overflow:hidden;">
+
+          <!-- Header: logo + wordmark -->
+          <tr>
+            <td align="center" class="email-header" bgcolor="#1a1a1a" style="background:#1a1a1a;padding:28px 32px;border-bottom:1px solid #2a2a2a;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="vertical-align:middle;padding-right:12px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 320 320" role="img" aria-label="Tornare">
+                      <rect x="40" y="40" width="240" height="240" rx="42" fill="#f0bf4c"/>
+                      <path d="M90 160H120L152 88L188 228L220 160H246" fill="none" stroke="#0f1522" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <span style="font-size:22px;font-weight:700;letter-spacing:0.06em;color:#f0bf4c;">TORNARE</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Content: heading + child body + CTA button -->
+          <tr>
+            <td bgcolor="#1a1a1a" style="padding:36px 40px 28px;background:#1a1a1a;">
+              <h1 class="email-heading" style="margin:0 0 16px;font-size:20px;font-weight:700;color:#f4f4f4;">
+                {% block heading %}{% endblock heading %}
+              </h1>
+
+              {% block body %}{% endblock body %}
+
+              <!-- CTA Button -->
+              <table role="presentation" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td class="email-cta" bgcolor="#f0bf4c" style="border-radius:8px;background:#f0bf4c;">
+                    <a href="{{ cta_url }}"
+                       style="display:inline-block;padding:13px 32px;font-size:15px;font-weight:700;
+                              color:#111827;text-decoration:none;border-radius:8px;
+                              letter-spacing:0.02em;">{% block cta_label %}{% endblock cta_label %}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider + footer note + fallback link -->
+          <tr>
+            <td bgcolor="#1a1a1a" style="padding:0 40px 28px;background:#1a1a1a;">
+              <hr style="border:none;border-top:1px solid #334155;margin:0 0 20px;"/>
+              {% block footer_note %}{% endblock footer_note %}
+              <p class="email-footnote" style="margin:8px 0 0;font-size:11px;color:#7f95b3;">
+                Or copy this link into your browser:<br/>
+                <span class="email-link" style="word-break:break-all;color:#72afff;">{{ cta_url }}</span>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" class="email-footer"
+              bgcolor="#1a1a1a"
+              style="background:#1a1a1a;border-top:1px solid #2a2a2a;
+                       padding:18px 32px;border-radius:0 0 12px 12px;">
+              <p class="email-footnote" style="margin:0;font-size:11px;color:#7f95b3;">
+                &copy; Tornare &mdash; <a href="https://tornare.gg" class="email-link" style="color:#72afff;text-decoration:none;">tornare.gg</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+        <!--[if gte mso 9]>
+          </v:textbox>
+        </v:roundrect>
+        <![endif]-->
+      </td>
+    </tr>
+  </table>
+  <!--[if gte mso 9]>
+    </v:textbox>
+  </v:rect>
+  <![endif]-->
+</body>
+</html>

@@ -267,6 +267,10 @@ onBeforeUnmount(() => {
                 <span class="material-symbols-rounded" aria-hidden="true">person</span>
                 <span>{{ t('nav.profile') }}</span>
               </RouterLink>
+              <RouterLink class="top-nav-user-action" :to="{ name: 'discord-guild' }">
+                <span class="material-symbols-rounded" aria-hidden="true">smart_toy</span>
+                <span>{{ t('nav.discordBot') }}</span>
+              </RouterLink>
               <button class="top-nav-user-action" type="button" @click="logout">
                 <span class="material-symbols-rounded" aria-hidden="true">logout</span>
                 <span>{{ t('nav.logout') }}</span>
@@ -279,6 +283,10 @@ onBeforeUnmount(() => {
           <RouterLink class="top-nav-link" :to="profileRoute" @click="closeMobileMenu">
             <span class="material-symbols-rounded" aria-hidden="true">person</span>
             <span>{{ t('nav.profile') }}</span>
+          </RouterLink>
+          <RouterLink class="top-nav-link" :to="{ name: 'discord-guild' }" @click="closeMobileMenu">
+            <span class="material-symbols-rounded" aria-hidden="true">smart_toy</span>
+            <span>{{ t('nav.discordBot') }}</span>
           </RouterLink>
           <button class="top-nav-link top-nav-mobile-logout" type="button" @click="logout">
             <span class="material-symbols-rounded" aria-hidden="true">logout</span>
@@ -761,6 +769,10 @@ onBeforeUnmount(() => {
 
 .top-nav-user-action .material-symbols-rounded {
   font-size: 1rem;
+}
+
+.top-nav-user-action span:not(.material-symbols-rounded) {
+  white-space: nowrap;
 }
 
 .top-nav-user-action:hover {

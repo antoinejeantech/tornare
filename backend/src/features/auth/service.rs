@@ -8,19 +8,21 @@ use axum::http::{header::AUTHORIZATION, HeaderMap};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::{
     app::state::AppState,
-    features::auth::models::{AuthResponse, AuthUser, LoginInput, RegisterInput},
+    features::auth::models::{AuthResponse, AuthUser, ForgotPasswordInput, LoginInput, PendingVerificationResponse, RegisterInput, ResetPasswordInput},
     shared::{
         crypto::hash_password,
-        errors::{bad_request, forbidden, internal_error, unauthorized, ApiError},
+        errors::{bad_request, email_not_verified, forbidden, internal_error, too_many_requests, unauthorized, ApiError},
+        models::MessageResponse,
         validation::{normalize_email, normalize_username},
     },
 };
 
-use super::repo;
+use super::{email as auth_email, repo};
 
 const ACCESS_TOKEN_TTL_SECONDS: usize = 15 * 60;
 
@@ -31,7 +33,7 @@ struct AccessClaims {
     token_type: String,
 }
 
-pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<AuthResponse, ApiError> {
+pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<PendingVerificationResponse, ApiError> {
     validate_register_input(&payload)?;
 
     let normalized_email = normalize_email(&payload.email)?;
@@ -61,8 +63,19 @@ pub async fn register_user(state: &AppState, payload: RegisterInput) -> Result<A
     repo::insert_local_identity(&state.pool, user_id, &normalized_email).await?;
     repo::insert_default_role(&state.pool, user_id).await?;
 
-    let user = get_auth_user_by_id(state, user_id).await?;
-    issue_auth_response(state, user, None).await
+    // Send verification email — best-effort; registration succeeds even if email fails.
+    match repo::create_verification_token(&state.pool, user_id).await {
+        Ok(raw_token) => {
+            if let Err(e) = auth_email::send_verification_email(&state.config, &normalized_email, &raw_token).await {
+                tracing::error!("Failed to send verification email for {normalized_email}: {e:?}");
+            }
+        }
+        Err(e) => tracing::error!("Failed to create verification token: {e:?}"),
+    }
+
+    Ok(PendingVerificationResponse {
+        message: "Account created. Please check your email to verify your account.".to_string(),
+    })
 }
 
 pub async fn login_user(state: &AppState, payload: LoginInput) -> Result<AuthResponse, ApiError> {
@@ -87,6 +100,10 @@ pub async fn login_user(state: &AppState, payload: LoginInput) -> Result<AuthRes
     };
 
     verify_password(&password_hash, &payload.password)?;
+
+    if !login.email_verified {
+        return Err(email_not_verified());
+    }
 
     let user = get_auth_user_by_id(state, login.id).await?;
 
@@ -276,3 +293,154 @@ fn current_unix_timestamp() -> usize {
         .map(|duration| duration.as_secs() as usize)
         .unwrap_or(0)
 }
+
+/// Consumes a verification token and issues auth tokens.
+pub async fn verify_email(state: &AppState, raw_token: &str) -> Result<AuthResponse, ApiError> {
+    if raw_token.trim().is_empty() {
+        return Err(bad_request("Verification token is required"));
+    }
+
+    let Some(token) = repo::find_token_by_hash(&state.pool, raw_token).await? else {
+        return Err(bad_request("Invalid or expired verification link"));
+    };
+
+    if token.used_at.is_some() {
+        return Err(bad_request("This verification link has already been used"));
+    }
+
+    if token.expires_at < OffsetDateTime::now_utc() {
+        return Err(bad_request(
+            "This verification link has expired. Please request a new one.",
+        ));
+    }
+
+    if !repo::mark_token_used(&state.pool, token.id).await? {
+        return Err(bad_request("This verification link has already been used"));
+    }
+    repo::mark_email_verified(&state.pool, token.user_id).await?;
+
+    let user = get_auth_user_by_id(state, token.user_id).await?;
+    issue_auth_response(state, user, None).await
+}
+
+/// Sends a fresh verification email, with a 60-second per-user rate limit.
+/// Always returns the same generic 200 response regardless of account state to
+/// prevent account enumeration (verified/unverified/non-existent are indistinguishable
+/// to the caller). Cooldown is enforced silently server-side.
+pub async fn resend_verification(
+    state: &AppState,
+    email: &str,
+) -> Result<MessageResponse, ApiError> {
+    let generic_ok = MessageResponse {
+        message: "If an account with that email exists and needs verification, a new email has been sent.".to_string(),
+    };
+
+    let normalized_email = normalize_email(email)?;
+
+    let Some(login) = repo::find_user_login_by_email(&state.pool, &normalized_email).await? else {
+        return Ok(generic_ok);
+    };
+
+    if login.email_verified {
+        tracing::debug!(%normalized_email, "resend_verification: email already verified, skipping silently");
+        return Ok(generic_ok);
+    }
+
+    const RESEND_COOLDOWN_SECONDS: i64 = 60;
+    if let Some(latest) = repo::get_latest_token_created_at(&state.pool, login.id).await? {
+        let age = (OffsetDateTime::now_utc() - latest).whole_seconds();
+        if age < RESEND_COOLDOWN_SECONDS {
+            let wait = RESEND_COOLDOWN_SECONDS - age;
+            tracing::debug!(user_id = %login.id, wait_secs = wait, "resend_verification: cooldown active, skipping silently");
+            return Ok(generic_ok);
+        }
+    }
+
+    let raw_token = repo::create_verification_token(&state.pool, login.id).await?;
+    auth_email::send_verification_email(&state.config, &normalized_email, &raw_token).await?;
+
+    Ok(generic_ok)
+}
+
+/// Sends a password reset email. Always returns a generic success message (anti-enumeration).
+pub async fn forgot_password(
+    state: &AppState,
+    payload: ForgotPasswordInput,
+) -> Result<MessageResponse, ApiError> {
+    let generic_ok = MessageResponse {
+        message: "If an account with that email exists, you'll receive a reset link shortly."
+            .to_string(),
+    };
+
+    let Ok(normalized_email) = normalize_email(&payload.email) else {
+        return Ok(generic_ok);
+    };
+
+    let Some(login) = repo::find_user_login_by_email(&state.pool, &normalized_email).await? else {
+        return Ok(generic_ok);
+    };
+
+    const RESET_COOLDOWN_SECONDS: i64 = 60;
+    if let Some(latest) =
+        repo::get_latest_reset_token_created_at(&state.pool, login.id).await?
+    {
+        let age = (OffsetDateTime::now_utc() - latest).whole_seconds();
+        if age < RESET_COOLDOWN_SECONDS {
+            let wait = RESET_COOLDOWN_SECONDS - age;
+            return Err(too_many_requests(&format!(
+                "Please wait {wait} seconds before requesting another reset email"
+            )));
+        }
+    }
+
+    let raw_token = repo::create_password_reset_token(&state.pool, login.id).await?;
+    if let Err(e) =
+        auth_email::send_password_reset_email(&state.config, &normalized_email, &raw_token).await
+    {
+        tracing::error!(?e, "Failed to send password reset email");
+    }
+
+    Ok(generic_ok)
+}
+
+/// Validates a reset token and updates the user's password.
+pub async fn reset_password(
+    state: &AppState,
+    payload: ResetPasswordInput,
+) -> Result<MessageResponse, ApiError> {
+    if payload.new_password.len() < 8 {
+        return Err(bad_request("Password must be at least 8 characters"));
+    }
+    if payload.new_password != payload.new_password_confirm {
+        return Err(bad_request("Passwords do not match"));
+    }
+
+    let Some(token) = repo::find_reset_token_by_hash(&state.pool, &payload.token).await? else {
+        return Err(bad_request("Invalid or expired reset link"));
+    };
+
+    if token.used_at.is_some() {
+        return Err(bad_request("This reset link has already been used"));
+    }
+
+    if token.expires_at < OffsetDateTime::now_utc() {
+        return Err(bad_request(
+            "This reset link has expired. Please request a new one.",
+        ));
+    }
+
+    let password_hash = hash_password(&payload.new_password)?;
+    // Claim the token atomically before updating the password so that
+    // concurrent reset requests with the same token cannot both succeed.
+    if !repo::mark_reset_token_used(&state.pool, token.id).await? {
+        return Err(bad_request("This reset link has already been used"));
+    }
+    repo::update_user_password(&state.pool, token.user_id, &password_hash).await?;
+    // Resetting password also proves email ownership.
+    repo::mark_email_verified(&state.pool, token.user_id).await?;
+
+    Ok(MessageResponse {
+        message: "Password updated. You can now sign in.".to_string(),
+    })
+}
+

@@ -77,13 +77,17 @@ async function submit() {
     }
 
     if (mode.value === 'register') {
-      router.push({ name: 'onboarding' })
+      router.push({ name: 'verify-email-pending', query: { email: email.value.trim() } })
     } else {
       const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/events'
       router.push(redirect)
     }
   } catch (err) {
-    error.value = err instanceof Error ? err.message : t('auth.authFailed')
+    if (err instanceof Error && err.message === 'EMAIL_NOT_VERIFIED') {
+      router.push({ name: 'verify-email-pending', query: { email: email.value.trim() } })
+    } else {
+      error.value = err instanceof Error ? err.message : t('auth.authFailed')
+    }
   } finally {
     submitting.value = false
   }
@@ -134,6 +138,9 @@ function loginWithDiscord() {
           {{ t('auth.password') }}
           <input v-model="password" type="password" :placeholder="t('auth.passwordPlaceholder')" />
         </label>
+        <p v-if="mode === 'login'" class="auth-forgot-hint">
+          <RouterLink :to="{ name: 'forgot-password' }">{{ t('auth.forgotPassword') }}</RouterLink>
+        </p>
         <label v-if="mode === 'register'">
           {{ t('auth.confirmPassword') }}
           <input v-model="passwordConfirm" type="password" :placeholder="t('auth.confirmPasswordPlaceholder')" />
@@ -214,6 +221,22 @@ function loginWithDiscord() {
   content: '';
   height: 1px;
   background: color-mix(in srgb, var(--line) 55%, transparent 45%);
+}
+
+.auth-forgot-hint {
+  margin: -0.25rem 0 0;
+  text-align: right;
+  font-size: 0.82rem;
+}
+
+.auth-forgot-hint a {
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+
+.auth-forgot-hint a:hover {
+  color: var(--brand-1);
+  text-decoration: underline;
 }
 
 @media (prefers-color-scheme: dark) {

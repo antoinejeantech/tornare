@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { AuthSession, AuthUser } from '../types'
+import type { AuthSession, AuthUser, PendingVerificationResponse } from '../types'
 import { ApiHttpError, apiBase, apiCall, clearAccessToken, getAccessToken, setAccessToken, syncAccessTokenFromStorage } from '../lib/api'
 
 const REFRESH_TOKEN_STORAGE_KEY = 'tornare_refresh_token'
@@ -54,13 +54,11 @@ export const useAuthStore = defineStore('auth', {
       clearAccessToken()
       setStoredRefreshToken('')
     },
-    async register(payload: Record<string, unknown>): Promise<AuthSession> {
-      const response = await apiCall<AuthSession>('/api/auth/register', {
+    async register(payload: Record<string, unknown>): Promise<PendingVerificationResponse> {
+      return apiCall<PendingVerificationResponse>('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify(payload),
       })
-      this.setSession(response)
-      return response
     },
     async login(payload: Record<string, unknown>): Promise<AuthSession> {
       const response = await apiCall<AuthSession>('/api/auth/login', {
@@ -89,16 +87,14 @@ export const useAuthStore = defineStore('auth', {
       }
       this.initialized = true
     },
-    async completeBnetSignup(pendingToken: string, email: string): Promise<void> {
-      const response = await apiCall<AuthSession>('/api/auth/battlenet/complete', {
+    async completeBnetSignup(pendingToken: string, email: string): Promise<PendingVerificationResponse> {
+      return apiCall<PendingVerificationResponse>('/api/auth/battlenet/complete', {
         method: 'POST',
         body: JSON.stringify({
           pending_token: pendingToken,
           email,
         }),
       })
-      this.setSession(response)
-      this.initialized = true
     },
     async connectBnetInit(): Promise<void> {
       const response = await fetch(`${apiBase}/api/auth/battlenet/connect-init`, {
@@ -115,6 +111,29 @@ export const useAuthStore = defineStore('auth', {
     async disconnectBnet(): Promise<void> {
       await apiCall('/api/auth/battlenet/disconnect', { method: 'DELETE' })
       await this.fetchMe()
+    },
+    async verifyEmail(token: string): Promise<void> {
+      const response = await apiCall<AuthSession>(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)
+      this.setSession(response)
+      this.initialized = true
+    },
+    async resendVerification(email: string): Promise<{ message: string }> {
+      return apiCall<{ message: string }>('/api/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      })
+    },
+    async forgotPassword(email: string): Promise<{ message: string }> {
+      return apiCall<{ message: string }>('/api/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      })
+    },
+    async resetPassword(token: string, newPassword: string, newPasswordConfirm: string): Promise<{ message: string }> {
+      return apiCall<{ message: string }>('/api/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token, new_password: newPassword, new_password_confirm: newPasswordConfirm }),
+      })
     },
     async connectDiscordInit(): Promise<void> {
       const response = await fetch(`${apiBase}/api/auth/discord/connect-init`, {

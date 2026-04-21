@@ -6,7 +6,7 @@ use uuid::Uuid;
 // Timestamp serialization helpers
 // ---------------------------------------------------------------------------
 
-pub(super) fn serialize_timestamp<S>(value: &OffsetDateTime, serializer: S) -> Result<S::Ok, S::Error>
+pub(crate) fn serialize_timestamp<S>(value: &OffsetDateTime, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -18,7 +18,7 @@ where
     serializer.serialize_str(&formatted)
 }
 
-pub(super) fn serialize_optional_timestamp<S>(
+pub(crate) fn serialize_optional_timestamp<S>(
     value: &Option<OffsetDateTime>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
@@ -439,6 +439,7 @@ pub struct Event {
     pub public_signup_token: Option<String>,
     pub require_discord: bool,
     pub require_battletag: bool,
+    pub discord_announce: bool,
     pub max_players: u8,
     pub players: Vec<Player>,
     pub teams: Vec<EventTeam>,

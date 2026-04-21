@@ -5,7 +5,7 @@
 
 mod common;
 
-use common::{promote_to_admin, register, spawn_test_server};
+use common::{promote_to_admin, register_verified, spawn_test_server};
 use reqwest::Client;
 use serde_json::{json, Value};
 use sqlx::PgPool;
@@ -17,10 +17,10 @@ use sqlx::PgPool;
 /// Duplicate email registration must be rejected.
 #[sqlx::test]
 async fn register_with_duplicate_email_is_rejected(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let first = register(&client, &base, "bob@test.local", "bob").await;
+    let first = register_verified(&client, &pool, &base, "bob@test.local", "bob").await;
     assert!(
         first["access_token"].is_string(),
         "first registration must return an access_token; got: {first}"
@@ -54,8 +54,8 @@ async fn admin_can_edit_another_users_profile(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let admin = register(&client, &base, "admin@test.local", "admin_user").await;
-    let target = register(&client, &base, "target@test.local", "target_user").await;
+    let admin = register_verified(&client, &pool, &base, "admin@test.local", "admin_user").await;
+    let target = register_verified(&client, &pool, &base, "target@test.local", "target_user").await;
 
     let admin_id = admin["user"]["id"]
         .as_str()
@@ -121,8 +121,8 @@ async fn admin_can_delete_another_users_account(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let admin = register(&client, &base, "deladmin@test.local", "deladmin").await;
-    let target = register(&client, &base, "deltarget@test.local", "deltarget").await;
+    let admin = register_verified(&client, &pool, &base, "deladmin@test.local", "deladmin").await;
+    let target = register_verified(&client, &pool, &base, "deltarget@test.local", "deltarget").await;
 
     let admin_id = admin["user"]["id"].as_str().expect("admin must have id").to_string();
     let admin_token = admin["access_token"].as_str().expect("admin must have token").to_string();
@@ -162,7 +162,7 @@ async fn admin_cannot_delete_their_own_account(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let admin = register(&client, &base, "selfdelete@test.local", "selfdelete").await;
+    let admin = register_verified(&client, &pool, &base, "selfdelete@test.local", "selfdelete").await;
     let admin_id = admin["user"]["id"].as_str().expect("admin must have id").to_string();
     let admin_token = admin["access_token"].as_str().expect("admin must have token").to_string();
 
@@ -183,8 +183,8 @@ async fn non_admin_cannot_delete_user_account(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let user_a = register(&client, &base, "nodela@test.local", "nodela").await;
-    let user_b = register(&client, &base, "nodelb@test.local", "nodelb").await;
+    let user_a = register_verified(&client, &pool, &base, "nodela@test.local", "nodela").await;
+    let user_b = register_verified(&client, &pool, &base, "nodelb@test.local", "nodelb").await;
 
     let token_a = user_a["access_token"].as_str().expect("user A must have token").to_string();
     let id_b = user_b["user"]["id"].as_str().expect("user B must have id").to_string();
@@ -208,7 +208,7 @@ async fn unauthenticated_cannot_delete_user_account(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let target = register(&client, &base, "unauthdeleted@test.local", "unauthdeleted").await;
+    let target = register_verified(&client, &pool, &base, "unauthdeleted@test.local", "unauthdeleted").await;
     let target_id = target["user"]["id"].as_str().expect("must have id").to_string();
 
     let res = client
@@ -230,7 +230,7 @@ async fn admin_delete_of_nonexistent_user_returns_404(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let admin = register(&client, &base, "del404admin@test.local", "del404admin").await;
+    let admin = register_verified(&client, &pool, &base, "del404admin@test.local", "del404admin").await;
     let admin_id = admin["user"]["id"].as_str().expect("must have id").to_string();
     let admin_token = admin["access_token"].as_str().expect("must have token").to_string();
 
@@ -254,11 +254,11 @@ async fn admin_delete_of_nonexistent_user_returns_404(pool: PgPool) {
 
 #[sqlx::test]
 async fn participated_events_lists_events_joined_via_signup_acceptance(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "owner-participated@test.local", "owner_participated").await;
-    let player = register(&client, &base, "player-participated@test.local", "player_participated").await;
+    let owner = register_verified(&client, &pool, &base, "owner-participated@test.local", "owner_participated").await;
+    let player = register_verified(&client, &pool, &base, "player-participated@test.local", "player_participated").await;
 
     let owner_token = owner["access_token"]
         .as_str()
@@ -369,10 +369,10 @@ async fn participated_events_lists_events_joined_via_signup_acceptance(pool: PgP
 /// Updating to a valid preset path must succeed and return the new avatar_url.
 #[sqlx::test]
 async fn set_avatar_to_valid_preset_succeeds(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let user = register(&client, &base, "avatarok@test.local", "avatarok").await;
+    let user = register_verified(&client, &pool, &base, "avatarok@test.local", "avatarok").await;
     let user_id = user["user"]["id"].as_str().expect("must have id").to_string();
     let token = user["access_token"].as_str().expect("must have token").to_string();
 
@@ -396,10 +396,10 @@ async fn set_avatar_to_valid_preset_succeeds(pool: PgPool) {
 /// Submitting an arbitrary external URL must be rejected with 400.
 #[sqlx::test]
 async fn set_avatar_to_arbitrary_url_is_rejected(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let user = register(&client, &base, "avatarbad@test.local", "avatarbad").await;
+    let user = register_verified(&client, &pool, &base, "avatarbad@test.local", "avatarbad").await;
     let user_id = user["user"]["id"].as_str().expect("must have id").to_string();
     let token = user["access_token"].as_str().expect("must have token").to_string();
 
@@ -420,10 +420,10 @@ async fn set_avatar_to_arbitrary_url_is_rejected(pool: PgPool) {
 /// Sending null must reset the avatar_url to null (back to initials fallback).
 #[sqlx::test]
 async fn set_avatar_to_null_resets_avatar(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let user = register(&client, &base, "avatarnull@test.local", "avatarnull").await;
+    let user = register_verified(&client, &pool, &base, "avatarnull@test.local", "avatarnull").await;
     let user_id = user["user"]["id"].as_str().expect("must have id").to_string();
     let token = user["access_token"].as_str().expect("must have token").to_string();
 
@@ -457,11 +457,11 @@ async fn set_avatar_to_null_resets_avatar(pool: PgPool) {
 /// A user must not be able to change another user's avatar.
 #[sqlx::test]
 async fn user_cannot_set_another_users_avatar(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let alice = register(&client, &base, "alice_av@test.local", "alice_av").await;
-    let bob = register(&client, &base, "bob_av@test.local", "bob_av").await;
+    let alice = register_verified(&client, &pool, &base, "alice_av@test.local", "alice_av").await;
+    let bob = register_verified(&client, &pool, &base, "bob_av@test.local", "bob_av").await;
 
     let bob_id = bob["user"]["id"].as_str().expect("must have id").to_string();
     let alice_token = alice["access_token"].as_str().expect("must have token").to_string();

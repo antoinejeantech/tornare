@@ -138,7 +138,7 @@ async function submitEmail(): Promise<void> {
   error.value = ''
   try {
     await authStore.completeBnetSignup(pendingToken.value, trimmedEmail)
-    router.replace('/events')
+    router.replace({ name: 'verify-email-pending', query: { email: trimmedEmail } })
   } catch (err) {
     error.value = err instanceof Error ? err.message : t('authCallback.completeFailed')
   } finally {

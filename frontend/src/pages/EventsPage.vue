@@ -25,18 +25,11 @@ const route = useRoute()
 
 const events = ref<Event[]>([])
 const featuredEvent = ref<Event | null>(null)
-const kpis = ref({
-  total_events: 0,
-  total_signups: 0,
-  upcoming_events_this_week: 0,
-  upcoming_tourneys_this_week: 0,
-})
 const error = ref('')
 const loadingEvents = ref(false)
 const activeOwnerFilter = ref('all')
 const activeTypeFilter = ref('all')
 const pastEventsOnly = ref(false)
-const showEventsKpis = false
 const eventSearchQuery = ref('')
 const activeSort = ref('soonest')
 const showCreateModal = ref(false)
@@ -53,17 +46,12 @@ const normalizedSearchQuery = computed(() => eventSearchQuery.value.trim().toLow
 
 const sortedEvents = computed(() => events.value)
 
-const totalEventsCount = computed(() => Number(kpis.value.total_events) || 0)
-
 const totalPages = computed(() => {
   const total = Number(totalEventsAvailable.value) || 0
   return Math.max(1, Math.ceil(total / pageSize.value))
 })
 
 const visibleEventsCount = computed(() => events.value.length)
-
-const totalPlayersSignedUp = computed(() => Number(kpis.value.total_signups) || 0)
-const weeklyTourneyCount = computed(() => Number(kpis.value.upcoming_tourneys_this_week) || 0)
 
 const hasActiveFilters = computed(() => {
   return (
@@ -177,19 +165,6 @@ async function loadFeaturedEvent() {
   }
 }
 
-function formatKpiValue(value: number): string {
-  const numericValue = Number(value)
-  if (!Number.isFinite(numericValue)) {
-    return '00'
-  }
-
-  if (numericValue >= 0 && numericValue < 10) {
-    return `0${Math.floor(numericValue)}`
-  }
-
-  return String(Math.floor(numericValue))
-}
-
 function goToPrevPage() {
   if (currentPage.value > 1) {
     currentPage.value -= 1
@@ -271,33 +246,6 @@ onBeforeUnmount(() => {
       :event="featuredEvent"
       :badge-label="t('home.spotlightBadge')"
     />
-
-    <section v-if="showEventsKpis" class="events-stats-grid reveal-block reveal-2" aria-label="Event highlights">
-      <article class="events-stat-card">
-        <span class="material-symbols-rounded events-stat-icon" aria-hidden="true">space_dashboard</span>
-        <div class="events-stat-copy">
-          <span class="events-stat-label">Live board</span>
-          <strong class="events-stat-value">{{ formatKpiValue(totalEventsCount) }}</strong>
-          <span class="muted">Active listings</span>
-        </div>
-      </article>
-      <article class="events-stat-card">
-        <span class="material-symbols-rounded events-stat-icon" aria-hidden="true">groups</span>
-        <div class="events-stat-copy">
-          <span class="events-stat-label">Signups</span>
-          <strong class="events-stat-value">{{ formatKpiValue(totalPlayersSignedUp) }}</strong>
-          <span class="muted">Players currently registered</span>
-        </div>
-      </article>
-      <article class="events-stat-card">
-        <span class="material-symbols-rounded events-stat-icon" aria-hidden="true">event_upcoming</span>
-        <div class="events-stat-copy">
-          <span class="events-stat-label">This week</span>
-          <strong class="events-stat-value">{{ formatKpiValue(weeklyTourneyCount) }}</strong>
-          <span class="muted">Upcoming tourneys</span>
-        </div>
-      </article>
-    </section>
 
     <section class="events-header reveal-block reveal-2">
       <div class="events-toolbar-title-wrap">
@@ -557,50 +505,8 @@ onBeforeUnmount(() => {
   gap: 0.55rem;
 }
 
-.events-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
-  margin-bottom: 0.95rem;
-}
-
-.events-stat-card {
-  border: 1px solid var(--surface-card-border);
-  border-radius: var(--radius-md);
-  padding: 1.25rem 1.2rem;
-  background: var(--surface-card-bg);
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 0.9rem;
-  box-shadow: none;
-}
-
-.events-stat-copy {
-  display: grid;
-  gap: 0.22rem;
-}
-
-.events-stat-icon {
-  font-size: 2rem;
-  line-height: 1;
-  color: color-mix(in srgb, var(--brand-1) 90%, #ffd869 10%);
-}
-
 .events-shell :deep(.spotlight-event-card) {
   margin-bottom: 0.5rem;
-}
-
-.events-stat-label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--ink-2);
-}
-
-.events-stat-value {
-  font-size: 1.48rem;
-  line-height: 1;
 }
 
 .events-search {
@@ -1019,10 +925,6 @@ onBeforeUnmount(() => {
 @media (max-width: 840px) {
   .events-header {
     flex-wrap: wrap;
-  }
-
-  .events-stats-grid {
-    grid-template-columns: 1fr;
   }
 
   .events-empty-actions {

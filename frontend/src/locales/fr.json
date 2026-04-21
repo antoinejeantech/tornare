@@ -4,7 +4,11 @@
     "statusEnded": "Terminé",
     "statusActive": "Actif",
     "by": "par",
-    "unknown": "Inconnu"
+    "unknown": "Inconnu",
+    "loading": "Chargement…",
+    "saving": "Enregistrement…",
+    "enabled": "Activé",
+    "disabled": "Désactivé"
   },
   "nav": {
     "home": "Accueil",
@@ -15,6 +19,7 @@
     "getStarted": "S'inscrire",
     "profile": "Profil",
     "logout": "Déconnexion",
+    "discordBot": "Bot Discord",
     "notifications": "Notifications",
     "noNotifications": "Aucune notification pour l'instant.",
     "searchPlaceholder": "Rechercher des joueurs...",
@@ -154,6 +159,57 @@
     "step3Saving": "Enregistrement…",
     "step3Save": "Enregistrer & continuer"
   },
+  "discord": {
+    "title": "Bot Discord",
+    "subtitle": "Connectez votre serveur Discord pour recevoir les annonces d'événements automatiquement.",
+    "disconnected": "Serveur Discord déconnecté.",
+    "disconnectError": "Échec de la déconnexion du serveur Discord.",
+    "connected": "Connecté à {name}",
+    "notConnected": "Non connecté",
+    "step1": {
+      "title": "1. Ajouter le bot à votre serveur",
+      "description": "Cliquez sur le bouton ci-dessous pour ajouter le bot Tornare à votre serveur Discord. Vous devez avoir la permission Gérer le serveur.",
+      "addBot": "Ajouter le bot à Discord"
+    },
+    "step2": {
+      "title": "2. Lancer la commande de configuration",
+      "description": "Dans Discord, allez dans le salon où vous souhaitez recevoir les annonces et tapez :",
+      "hint": "Vous devez avoir la permission « Gérer les salons » pour exécuter cette commande."
+    },
+    "announcements": {
+      "label": "Annonces d'événements",
+      "hint": "Lorsqu'activé, les nouveaux événements seront publiés dans votre salon configuré.",
+      "error": "Échec de la mise à jour du paramètre d'annonces."
+    },
+    "postError": {
+      "label": "Dernière erreur de publication"
+    },
+    "form": {
+      "disconnect": "Déconnecter le serveur"
+    },
+    "mentionRoles": {
+      "title": "Rôles mentionnés",
+      "hint": "Ces rôles Discord seront @mentionnés dans chaque annonce.",
+      "none": "Aucun rôle configuré.",
+      "addPlaceholder": "ID du rôle (ex. 123456789012345678)",
+      "add": "Ajouter",
+      "addError": "Échec de l'enregistrement des rôles mentionnés.",
+      "removeError": "Échec de la suppression du rôle mentionné.",
+      "invalidId": "L'ID du rôle doit être un snowflake Discord de 17 à 20 chiffres."
+    },
+    "members": {
+      "title": "Pool d'annonces",
+      "hint": "Les événements créés par les utilisateurs de ce pool seront publiés dans votre salon Discord.",
+      "removeOwner": "Vous ne pouvez pas vous retirer du pool.",
+      "removeAriaLabel": "Retirer {name} du pool d'annonces",
+      "addPlaceholder": "Rechercher par pseudo ou nom",
+      "add": "Ajouter",
+      "addError": "Échec de l'ajout du membre.",
+      "removeError": "Échec de la suppression du membre.",
+      "noResults": "Aucun utilisateur trouvé.",
+      "owner": "Propriétaire"
+    }
+  },
   "auth": {
     "createAccount": "Créer un compte",
     "signIn": "Se connecter",
@@ -180,7 +236,10 @@
     "noAccount": "Pas encore de compte ?",
     "createOne": "Créez-en un",
     "hasAccount": "Vous avez déjà un compte ?",
-    "authFailed": "Authentification échouée"
+    "authFailed": "Authentification échouée",
+    "emailNotVerified": "Veuillez vérifier votre adresse email avant de vous connecter.",
+    "resendVerificationEmail": "Renvoyer l'email de vérification",
+    "forgotPassword": "Mot de passe oublié ?"
   },
   "authCallback": {
     "oneMoreStep": "Une dernière étape",
@@ -201,6 +260,56 @@
     "rateLimited": "Trop de requêtes. Veuillez patienter un moment et réessayer.",
     "failed": "La connexion a échoué. Veuillez réessayer.",
     "completeFailed": "Échec de la finalisation de l'inscription."
+  },
+  "verifyEmail": {
+    "verifying": "Vérification de votre adresse email…",
+    "successTitle": "Email vérifié !",
+    "successSubtitle": "Votre compte est confirmé. Redirection vers l'intégration…",
+    "errorTitle": "Échec de la vérification",
+    "failed": "La vérification de l'email a échoué. Veuillez réessayer.",
+    "missingToken": "Aucun jeton de vérification trouvé. Veuillez utiliser le lien de votre email.",
+    "requestNew": "Demander un nouveau lien"
+  },
+  "verifyEmailPending": {
+    "title": "Vérifiez votre boîte de réception",
+    "subtitle": "Nous avons envoyé un lien de vérification à :",
+    "note": "Le lien expire dans 24 heures. Vérifiez vos spams si vous ne le voyez pas.",
+    "rateLimitHint": "Vous pouvez demander un nouvel email de vérification environ une fois par minute.",
+    "spamHint": "L'email peut arriver dans vos spams/indésirables.",
+    "missingEmail": "Aucune adresse email n'a été fournie pour cette page.",
+    "resendLabel": "Vous ne l'avez pas reçu ?",
+    "emailPlaceholder": "vous{'@'}exemple.com",
+    "sending": "Envoi\u2026",
+    "resendBtn": "Renvoyer l'email",
+    "resendUnavailable": "Le renvoi n'est pas disponible ici. Revenez à la connexion pour demander un nouveau lien de vérification.",
+    "resendFailed": "Échec de l'envoi. Veuillez réessayer."
+  },
+  "forgotPassword": {
+    "title": "Mot de passe oublié ?",
+    "subtitle": "Entrez votre adresse email et nous vous enverrons un lien de réinitialisation.",
+    "rateLimitHint": "Vous pouvez demander un nouvel email de réinitialisation environ une fois par minute.",
+    "spamHint": "L'email peut arriver dans vos spams/indésirables.",
+    "emailLabel": "Adresse email",
+    "emailPlaceholder": "vous{'@'}exemple.com",
+    "submitting": "Envoi\u2026",
+    "submitBtn": "Envoyer le lien",
+    "submitError": "Une erreur est survenue. Veuillez réessayer.",
+    "successTitle": "Vérifiez votre boîte de réception",
+    "successSubtitle": "Si un compte avec cet email existe, vous recevrez un lien de réinitialisation.",
+    "backToLogin": "Retour à la connexion"
+  },
+  "resetPassword": {
+    "title": "Choisissez un nouveau mot de passe",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "confirmLabel": "Confirmer le mot de passe",
+    "submitting": "Mise à jour\u2026",
+    "submitBtn": "Mettre à jour",
+    "successTitle": "Mot de passe mis à jour",
+    "successSubtitle": "Votre mot de passe a été modifié. Redirection vers la connexion\u2026",
+    "errorTitle": "Échec de la réinitialisation",
+    "invalidToken": "Ce lien de réinitialisation est invalide ou a expiré.",
+    "missingToken": "Aucun jeton trouvé. Veuillez utiliser le lien de votre email.",
+    "requestNew": "Demander un nouveau lien"
   },
   "notFound": {
     "eyebrow": "Signal Perdu",
@@ -377,6 +486,11 @@
     "requireDiscordHint": "Rejeter les soumissions sans identifiant Discord",
     "requireBnet": "Exiger un tag Battle.net",
     "requireBnetHint": "Rejeter les soumissions sans tag Battle.net",
+    "discordSection": "Discord",
+    "discordAnnounce": "Publier sur Discord",
+    "discordAnnounceHint": "Le bot annoncera cet événement sur votre serveur quand il sera publié.",
+    "noGuildHint": "Aucun serveur Discord connecté.",
+    "addGuildLink": "Configurer le bot →",
     "creating": "Création...",
     "createBtn": "Créer l'événement",
     "cancel": "Annuler",
@@ -644,6 +758,13 @@
     "requireDiscordHint": "Les soumissions sans identifiant Discord seront rejetées",
     "requireBnet": "Exiger un tag Battle.net",
     "requireBnetHint": "Les soumissions sans tag Battle.net seront rejetées",
+    "discordSection": "Discord",
+    "discordAnnounce": "Publier sur Discord",
+    "discordAnnounceHint": "Le bot annoncera cet événement sur votre serveur quand il sera publié. L'option d'annonces du serveur doit également être activée.",
+    "eventDetailsLabel": "Détails de l'événement",
+    "formatSection": "Format",
+    "noGuildHint": "Aucun serveur Discord connecté.",
+    "addGuildLink": "Configurer le bot →",
     "savingSettings": "Enregistrement...",
     "saveSettings": "Enregistrer les paramètres",
     "resetChanges": "Réinitialiser",

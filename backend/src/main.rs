@@ -2,7 +2,7 @@ mod app;
 mod features;
 mod shared;
 
-use app::{router::build_app, state::{AppConfig, AppState}};
+use app::{router::build_app, state::{AppConfig, AppState, SmtpTlsMode}};
 use app::security::RateLimiter;
 use dotenvy::{dotenv, from_filename};
 use shared::db::init_schema;
@@ -36,8 +36,37 @@ async fn main() {
     let discord_client_secret = env::var("DISCORD_CLIENT_SECRET").unwrap_or_default();
     let discord_redirect_uri = env::var("DISCORD_REDIRECT_URI")
         .unwrap_or_else(|_| "http://localhost:8000/api/auth/discord/callback".to_string());
+    let discord_bot_public_key = env::var("DISCORD_BOT_PUBLIC_KEY").unwrap_or_default();
+    let discord_bot_token = env::var("DISCORD_BOT_TOKEN").unwrap_or_default();
     let frontend_url = env::var("FRONTEND_URL")
         .unwrap_or_else(|_| "http://localhost:5173".to_string());
+
+    let email_driver_raw = env::var("EMAIL_DRIVER").unwrap_or_else(|_| "smtp".to_string());
+    let email_driver = match email_driver_raw.to_lowercase().as_str() {
+        "resend" => app::state::EmailDriver::Resend,
+        _ => app::state::EmailDriver::Smtp,
+    };
+    let from_email = env::var("FROM_EMAIL")
+        .unwrap_or_else(|_| "noreply@tornare.gg".to_string());
+    let resend_api_key = env::var("RESEND_API_KEY").unwrap_or_default();
+    let smtp_host = env::var("SMTP_HOST").unwrap_or_else(|_| "localhost".to_string());
+    let smtp_port: u16 = env::var("SMTP_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1025);
+    let smtp_username = env::var("SMTP_USERNAME").ok().filter(|v| !v.trim().is_empty());
+    let smtp_password = env::var("SMTP_PASSWORD").ok().filter(|v| !v.trim().is_empty());
+    let smtp_dev_redirect_to = env::var("DEV_SMTP_REDIRECT_TO").ok().filter(|v| !v.trim().is_empty());
+    let smtp_tls_mode = match env::var("SMTP_TLS_MODE")
+        .unwrap_or_else(|_| "none".to_string())
+        .to_lowercase()
+        .as_str()
+    {
+        "none" => SmtpTlsMode::None,
+        "starttls" => SmtpTlsMode::StartTls,
+        "implicit" => SmtpTlsMode::Implicit,
+        other => panic!("Invalid SMTP_TLS_MODE '{other}'. Expected one of: none, starttls, implicit"),
+    };
 
     if is_production && jwt_secret == "dev-only-change-me" {
         panic!("JWT_SECRET must be set to a strong value in production");
@@ -70,6 +99,7 @@ async fn main() {
         pool,
         rate_limiter: RateLimiter::new(),
         config: AppConfig {
+            is_production,
             jwt_secret,
             cors_allowed_origins,
             battlenet_client_id,
@@ -79,6 +109,17 @@ async fn main() {
             discord_client_secret,
             discord_redirect_uri,
             frontend_url,
+            discord_bot_public_key,
+            discord_bot_token,
+            email_driver,
+            from_email,
+            resend_api_key,
+            smtp_host,
+            smtp_port,
+            smtp_username,
+            smtp_password,
+            smtp_tls_mode,
+            smtp_dev_redirect_to,
         },
     };
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")

@@ -4,7 +4,11 @@
     "statusEnded": "Ended",
     "statusActive": "Active",
     "by": "by",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "loading": "Loading…",
+    "saving": "Saving…",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
   },
   "nav": {
     "home": "Home",
@@ -15,6 +19,7 @@
     "getStarted": "Get started",
     "profile": "Profile",
     "logout": "Logout",
+    "discordBot": "Discord Bot",
     "notifications": "Notifications",
     "noNotifications": "No notifications right now.",
     "searchPlaceholder": "Search users...",
@@ -103,7 +108,7 @@
     "filterMine": "My events",
     "typeAll": "All types",
     "typePug": "PUG",
-    "typeTourney": "Tourney",
+    "typeTourney": "Tournament",
     "sortLabel": "Sort",
     "sortSoonest": "Soonest",
     "sortNewest": "Latest",
@@ -154,6 +159,57 @@
     "step3Saving": "Saving…",
     "step3Save": "Save & continue"
   },
+  "discord": {
+    "title": "Discord Bot",
+    "subtitle": "Connect your Discord server to receive automatic event announcements.",
+    "disconnected": "Discord server disconnected.",
+    "disconnectError": "Failed to disconnect Discord server.",
+    "connected": "Connected to {name}",
+    "notConnected": "Not connected",
+    "step1": {
+      "title": "1. Add the bot to your server",
+      "description": "Click the button below to add the Tornare bot to your Discord server. Make sure you have the Manage Server permission.",
+      "addBot": "Add bot to Discord"
+    },
+    "step2": {
+      "title": "2. Run the setup command",
+      "description": "In Discord, go to the channel where you want announcements and type:",
+      "hint": "You need the \"Manage Channels\" permission to run this command."
+    },
+    "announcements": {
+      "label": "Event announcements",
+      "hint": "When enabled, new events will be posted in your configured channel.",
+      "error": "Failed to update announcements setting."
+    },
+    "postError": {
+      "label": "Last posting error"
+    },
+    "form": {
+      "disconnect": "Disconnect server"
+    },
+    "mentionRoles": {
+      "title": "Mentioned roles",
+      "hint": "These Discord roles will be @mentioned in every announcement post.",
+      "none": "No roles configured.",
+      "addPlaceholder": "Role ID (e.g. 123456789012345678)",
+      "add": "Add",
+      "addError": "Failed to save mention roles.",
+      "removeError": "Failed to remove mention role.",
+      "invalidId": "Role ID must be a 17–20 digit Discord snowflake."
+    },
+    "members": {
+      "title": "Announcement pool",
+      "hint": "Events created by users in this pool will be posted to your Discord channel.",
+      "removeOwner": "You cannot remove yourself from the pool.",
+      "removeAriaLabel": "Remove {name} from the announcement pool",
+      "addPlaceholder": "Search by username or display name",
+      "add": "Add",
+      "addError": "Failed to add member.",
+      "removeError": "Failed to remove member.",
+      "noResults": "No users found.",
+      "owner": "Owner"
+    }
+  },
   "auth": {
     "createAccount": "Create Account",
     "signIn": "Sign In",
@@ -180,7 +236,10 @@
     "noAccount": "No account yet?",
     "createOne": "Create one",
     "hasAccount": "Already have an account?",
-    "authFailed": "Authentication failed"
+    "authFailed": "Authentication failed",
+    "emailNotVerified": "Please verify your email address before signing in.",
+    "resendVerificationEmail": "Resend verification email",
+    "forgotPassword": "Forgot your password?"
   },
   "authCallback": {
     "oneMoreStep": "One more step",
@@ -201,6 +260,56 @@
     "rateLimited": "Too many requests. Please wait a moment and try again.",
     "failed": "Sign-in failed. Please try again.",
     "completeFailed": "Failed to complete sign-up."
+  },
+  "verifyEmail": {
+    "verifying": "Verifying your email address…",
+    "successTitle": "Email Verified!",
+    "successSubtitle": "Your account is confirmed. Redirecting you to onboarding…",
+    "errorTitle": "Verification Failed",
+    "failed": "Email verification failed. Please try again.",
+    "missingToken": "No verification token found. Please use the link from your email.",
+    "requestNew": "Request a new link"
+  },
+  "verifyEmailPending": {
+    "title": "Check Your Inbox",
+    "subtitle": "We sent a verification link to:",
+    "note": "The link expires in 24 hours. Check your spam folder if you don't see it.",
+    "rateLimitHint": "You can request a new verification email about once per minute.",
+    "spamHint": "Email can arrive in your spam/junk folder.",
+    "missingEmail": "No email address was provided for this page.",
+    "resendLabel": "Didn't receive it?",
+    "emailPlaceholder": "you{'@'}example.com",
+    "sending": "Sending\u2026",
+    "resendBtn": "Resend email",
+    "resendUnavailable": "Resend is unavailable here. Go back to sign in and request a new verification link.",
+    "resendFailed": "Failed to resend. Please try again."
+  },
+  "forgotPassword": {
+    "title": "Forgot your password?",
+    "subtitle": "Enter your email address and we'll send you a reset link.",
+    "rateLimitHint": "You can request a new reset email about once per minute.",
+    "spamHint": "Email can arrive in your spam/junk folder.",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "you{'@'}example.com",
+    "submitting": "Sending\u2026",
+    "submitBtn": "Send reset link",
+    "submitError": "Something went wrong. Please try again.",
+    "successTitle": "Check Your Inbox",
+    "successSubtitle": "If an account with that email exists, you'll receive a reset link shortly.",
+    "backToLogin": "Back to sign in"
+  },
+  "resetPassword": {
+    "title": "Set a new password",
+    "newPasswordLabel": "New password",
+    "confirmLabel": "Confirm password",
+    "submitting": "Updating\u2026",
+    "submitBtn": "Update password",
+    "successTitle": "Password Updated",
+    "successSubtitle": "Your password has been changed. Redirecting to sign in\u2026",
+    "errorTitle": "Reset Failed",
+    "invalidToken": "This reset link is invalid or has expired.",
+    "missingToken": "No reset token found. Please use the link from your email.",
+    "requestNew": "Request a new link"
   },
   "notFound": {
     "eyebrow": "Signal Lost",
@@ -377,6 +486,11 @@
     "requireDiscordHint": "Reject submissions without a Discord handle",
     "requireBnet": "Require Battle.net tag",
     "requireBnetHint": "Reject submissions without a Battle.net tag",
+    "discordSection": "Discord",
+    "discordAnnounce": "Post to Discord",
+    "discordAnnounceHint": "The bot will announce this event in your server when it goes live.",
+    "noGuildHint": "No Discord server connected.",
+    "addGuildLink": "Set up the bot →",
     "creating": "Creating...",
     "createBtn": "Create event",
     "cancel": "Cancel",
@@ -644,6 +758,13 @@
     "requireDiscordHint": "Submissions without a Discord handle will be rejected",
     "requireBnet": "Require Battle.net tag",
     "requireBnetHint": "Submissions without a Battle.net tag will be rejected",
+    "discordSection": "Discord",
+    "discordAnnounce": "Post to Discord",
+    "discordAnnounceHint": "The bot will announce this event in your server when it goes live. The server's announcements toggle must also be on.",
+    "eventDetailsLabel": "Event details",
+    "formatSection": "Format",
+    "noGuildHint": "No Discord server connected.",
+    "addGuildLink": "Set up the bot →",
     "savingSettings": "Saving...",
     "saveSettings": "Save event settings",
     "resetChanges": "Reset changes",

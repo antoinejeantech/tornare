@@ -21,6 +21,11 @@ import FaqPage from './pages/FaqPage.vue'
 import SupportPage from './pages/SupportPage.vue'
 import NotFoundPage from './pages/NotFoundPage.vue'
 import OnboardingPage from './pages/OnboardingPage.vue'
+import DiscordGuildPage from './pages/DiscordGuildPage.vue'
+import VerifyEmailPage from './pages/VerifyEmailPage.vue'
+import VerifyEmailPendingPage from './pages/VerifyEmailPendingPage.vue'
+import ForgotPasswordPage from './pages/ForgotPasswordPage.vue'
+import ResetPasswordPage from './pages/ResetPasswordPage.vue'
 
 const pinia = createPinia()
 
@@ -40,6 +45,11 @@ const router = createRouter({
 		{ path: '/login', name: 'login', component: AuthPage, meta: { title: 'Sign In | Tornare' } },
 		{ path: '/register', name: 'register', component: AuthPage, meta: { title: 'Create Account | Tornare' } },
 		{ path: '/onboarding', name: 'onboarding', component: OnboardingPage, meta: { title: 'Set up your account | Tornare' } },
+		{ path: '/verify-email', name: 'verify-email', component: VerifyEmailPage, meta: { title: 'Verify Email | Tornare' } },
+		{ path: '/verify-email/pending', name: 'verify-email-pending', component: VerifyEmailPendingPage, meta: { title: 'Check Your Email | Tornare' } },
+		{ path: '/forgot-password', name: 'forgot-password', component: ForgotPasswordPage, meta: { title: 'Forgot Password | Tornare' } },
+		{ path: '/reset-password', name: 'reset-password', component: ResetPasswordPage, meta: { title: 'Reset Password | Tornare' } },
+		{ path: '/discord', name: 'discord-guild', component: DiscordGuildPage, meta: { title: 'Discord Bot | Tornare', requiresAuth: true } },
 		{ path: '/auth/callback', name: 'auth-callback', component: AuthCallbackPage, meta: { title: 'Signing in… | Tornare' } },
 		{ path: '/events/:id', name: 'event', component: EventPage, meta: { title: 'Event Setup | Tornare' } },
 		{ path: '/join/:token', name: 'join-event', component: JoinEventPage, meta: { title: 'Join Event | Tornare' } },
@@ -56,7 +66,7 @@ router.beforeEach(async (to) => {
   // actions, keeping authStore.isAuthenticated and the module-level access token consistent.
   authStore.syncTokensFromStorage()
 
-  if ((to.name === 'login' || to.name === 'register') && authStore.isAuthenticated) {
+  if ((to.name === 'login' || to.name === 'register' || to.name === 'verify-email-pending') && authStore.isAuthenticated) {
     return { name: 'events' }
   }
 

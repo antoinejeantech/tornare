@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
+      bot: ${{ steps.filter.outputs.bot }}
       frontend: ${{ steps.filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
@@ -37,13 +38,15 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+            bot:
+              - 'bot/**'
             frontend:
               - 'frontend/**'
 
   backend:
     name: Cargo Check And Test
     needs: changes
-    if: needs.changes.outputs.backend == 'true' || (needs.changes.outputs.backend == 'false' && needs.changes.outputs.frontend == 'false')
+    if: needs.changes.outputs.backend == 'true' || (needs.changes.outputs.backend == 'false' && needs.changes.outputs.bot == 'false' && needs.changes.outputs.frontend == 'false')
     runs-on: ubuntu-latest
 
     services:
@@ -72,15 +75,52 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Build tests (compile once)
-        run: cargo test --no-run
+        run: cargo test -p tornare --no-run
 
       - name: Run cargo test
-        run: cargo test -- --test-threads=1
+        run: cargo test -p tornare -- --test-threads=1
+
+  bot:
+    name: Bot Check And Test
+    needs: changes
+    if: needs.changes.outputs.bot == 'true' || (needs.changes.outputs.backend == 'false' && needs.changes.outputs.bot == 'false' && needs.changes.outputs.frontend == 'false')
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build tests (compile once)
+        run: cargo test -p tornare-bot --no-run
+
+      - name: Run cargo test
+        run: cargo test -p tornare-bot -- --test-threads=1
 
   frontend:
     name: Frontend Type Check
     needs: changes
-    if: needs.changes.outputs.frontend == 'true' || (needs.changes.outputs.backend == 'false' && needs.changes.outputs.frontend == 'false')
+    if: needs.changes.outputs.frontend == 'true' || (needs.changes.outputs.backend == 'false' && needs.changes.outputs.bot == 'false' && needs.changes.outputs.frontend == 'false')
     runs-on: ubuntu-latest
 
     steps:

@@ -5,7 +5,7 @@
 
 mod common;
 
-use common::{register, spawn_test_server};
+use common::{register_verified, spawn_test_server};
 use reqwest::Client;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -21,7 +21,7 @@ async fn disconnect_battlenet_is_blocked_when_user_has_no_password(pool: PgPool)
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let body = register(&client, &base, "bnetonly@test.local", "bnetonly").await;
+    let body = register_verified(&client, &pool, &base, "bnetonly@test.local", "bnetonly").await;
     let token = body["access_token"].as_str().expect("must have token").to_string();
     let user_id = Uuid::parse_str(
         body["user"]["id"].as_str().expect("must have user.id"),
@@ -64,7 +64,7 @@ async fn disconnect_battlenet_succeeds_when_user_has_password(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let body = register(&client, &base, "bnetpwd@test.local", "bnetpwd").await;
+    let body = register_verified(&client, &pool, &base, "bnetpwd@test.local", "bnetpwd").await;
     let token = body["access_token"].as_str().expect("must have token").to_string();
     let user_id = Uuid::parse_str(
         body["user"]["id"].as_str().expect("must have user.id"),
@@ -101,7 +101,7 @@ async fn disconnect_battlenet_hard_deletes_identity(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let body = register(&client, &base, "bnetsoft@test.local", "bnetsoft").await;
+    let body = register_verified(&client, &pool, &base, "bnetsoft@test.local", "bnetsoft").await;
     let token = body["access_token"].as_str().expect("must have token").to_string();
     let user_id = Uuid::parse_str(
         body["user"]["id"].as_str().expect("must have user.id"),
@@ -148,7 +148,7 @@ async fn me_endpoint_reports_has_password_for_password_account(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let body = register(&client, &base, "haspwd@test.local", "haspwd").await;
+    let body = register_verified(&client, &pool, &base, "haspwd@test.local", "haspwd").await;
     let token = body["access_token"].as_str().expect("must have token").to_string();
 
     let res = client
@@ -264,7 +264,7 @@ async fn ensure_bnet_identity_inserts_new_active_row(pool: PgPool) {
 
 #[sqlx::test]
 async fn disconnect_battlenet_without_auth_is_rejected(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
     let res = client

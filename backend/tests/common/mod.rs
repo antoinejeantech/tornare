@@ -11,20 +11,46 @@ use uuid::Uuid;
 /// Bind to an OS-assigned port, spawn the app, and return the base URL.
 #[allow(dead_code)]
 pub async fn spawn_test_server(pool: PgPool) -> String {
+    spawn_test_server_with_config(pool, default_test_config()).await
+}
+
+/// Returns the base AppConfig used in tests. Use struct update syntax to
+/// override individual fields:
+///   AppConfig { discord_bot_public_key: key, ..default_test_config() }
+#[allow(dead_code)]
+pub fn default_test_config() -> AppConfig {
+    AppConfig {
+        is_production: false,
+        jwt_secret: "e2e-test-secret-dev-only-do-not-use-in-prod".to_string(),
+        cors_allowed_origins: vec!["*".to_string()],
+        battlenet_client_id: String::new(),
+        battlenet_client_secret: String::new(),
+        battlenet_redirect_uri: String::new(),
+        discord_client_id: String::new(),
+        discord_client_secret: String::new(),
+        discord_redirect_uri: String::new(),
+        discord_bot_public_key: String::new(),
+        discord_bot_token: String::new(),
+        frontend_url: "http://localhost:5173".to_string(),
+        email_driver: tornare::app::state::EmailDriver::Smtp,
+        from_email: "noreply@tornare.gg".to_string(),
+        resend_api_key: String::new(),
+        smtp_host: "localhost".to_string(),
+        smtp_port: 1025,
+        smtp_username: None,
+        smtp_password: None,
+        smtp_tls_mode: tornare::app::state::SmtpTlsMode::None,
+        smtp_dev_redirect_to: None,
+    }
+}
+
+/// Spawn a test server using the provided AppConfig.
+#[allow(dead_code)]
+pub async fn spawn_test_server_with_config(pool: PgPool, config: AppConfig) -> String {
     let state = AppState {
         pool,
         rate_limiter: RateLimiter::new(),
-        config: AppConfig {
-            jwt_secret: "e2e-test-secret-dev-only-do-not-use-in-prod".to_string(),
-            cors_allowed_origins: vec!["*".to_string()],
-            battlenet_client_id: String::new(),
-            battlenet_client_secret: String::new(),
-            battlenet_redirect_uri: String::new(),
-            discord_client_id: String::new(),
-            discord_client_secret: String::new(),
-            discord_redirect_uri: String::new(),
-            frontend_url: "http://localhost:5173".to_string(),
-        },
+        config,
     };
 
     let app = build_app(state);
@@ -56,6 +82,29 @@ pub async fn register(client: &Client, base: &str, email: &str, username: &str) 
         .json()
         .await
         .expect("register response is not valid JSON")
+}
+
+/// Register a user, verify their email directly in the DB, then log in.
+/// Returns the login `AuthSession` JSON (contains `access_token` and `user`).
+/// Use this instead of `register()` in tests that need an authenticated session,
+/// since email verification is now required before login succeeds.
+#[allow(dead_code)]
+pub async fn register_verified(
+    client: &Client,
+    pool: &PgPool,
+    base: &str,
+    email: &str,
+    username: &str,
+) -> Value {
+    register(client, base, email, username).await;
+
+    sqlx::query("UPDATE users SET email_verified = TRUE WHERE email = $1")
+        .bind(email)
+        .execute(pool)
+        .await
+        .expect("failed to mark email verified in test");
+
+    login(client, base, email).await
 }
 
 #[allow(dead_code)]

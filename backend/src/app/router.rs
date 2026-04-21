@@ -13,7 +13,7 @@ use tracing::{info_span, Level};
 
 use crate::{
     app::state::AppState,
-    features::{auth, events, matches, system, users},
+    features::{auth, discord, events, matches, system, users},
 };
 
 pub fn build_app(state: AppState) -> Router {
@@ -79,6 +79,10 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/auth/me", get(auth::me))
         .route("/api/auth/refresh", post(auth::refresh))
         .route("/api/auth/logout", post(auth::logout))
+        .route("/api/auth/verify-email", get(auth::verify_email))
+        .route("/api/auth/resend-verification", post(auth::resend_verification))
+        .route("/api/auth/forgot-password", post(auth::forgot_password))
+        .route("/api/auth/reset-password", post(auth::reset_password))
         .route("/api/auth/battlenet/authorize", get(auth::battlenet_authorize))
         .route("/api/auth/battlenet/callback", get(auth::battlenet_callback))
         .route("/api/auth/battlenet/complete", post(auth::battlenet_complete_signup))
@@ -232,6 +236,31 @@ pub fn build_app(state: AppState) -> Router {
         .route(
             "/api/matches/{match_id}",
             get(matches::get_match).delete(matches::delete_match),
+        )
+        // Discord bot guild management
+        .route("/api/discord/interactions", post(discord::handle_interactions))
+        .route("/api/discord/invite", get(discord::get_bot_invite_url))
+        .route("/api/discord/guilds", get(discord::get_my_guilds))
+        .route("/api/discord/guild", put(discord::upsert_my_guild))
+        .route(
+            "/api/discord/guild/{guild_id}",
+            delete(discord::delete_my_guild),
+        )
+        .route(
+            "/api/discord/guild/{guild_id}/announcements",
+            patch(discord::toggle_announcements),
+        )
+        .route(
+            "/api/discord/guild/{guild_id}/members",
+            get(discord::list_guild_members).post(discord::add_guild_member),
+        )
+        .route(
+            "/api/discord/guild/{guild_id}/members/{user_id}",
+            delete(discord::remove_guild_member),
+        )
+        .route(
+            "/api/discord/guild/{guild_id}/mention-roles",
+            patch(discord::set_mention_roles),
         )
         .with_state(state)
         .layer(
