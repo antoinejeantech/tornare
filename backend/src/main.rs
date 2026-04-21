@@ -56,6 +56,7 @@ async fn main() {
         .unwrap_or(1025);
     let smtp_username = env::var("SMTP_USERNAME").ok().filter(|v| !v.trim().is_empty());
     let smtp_password = env::var("SMTP_PASSWORD").ok().filter(|v| !v.trim().is_empty());
+    let smtp_dev_redirect_to = env::var("DEV_SMTP_REDIRECT_TO").ok().filter(|v| !v.trim().is_empty());
     let smtp_tls_mode = match env::var("SMTP_TLS_MODE")
         .unwrap_or_else(|_| "none".to_string())
         .to_lowercase()
@@ -118,6 +119,7 @@ async fn main() {
             smtp_username,
             smtp_password,
             smtp_tls_mode,
+            smtp_dev_redirect_to,
         },
     };
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")

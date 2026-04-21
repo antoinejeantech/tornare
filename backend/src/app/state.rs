@@ -56,6 +56,11 @@ pub struct AppConfig {
     pub smtp_password: Option<String>,
     /// SMTP TLS mode.
     pub smtp_tls_mode: SmtpTlsMode,
+    /// In non-production with Gmail SMTP, redirect all outgoing emails to this
+    /// address to prevent accidental delivery to real users. Set via
+    /// `DEV_SMTP_REDIRECT_TO`. When unset, emails go to the real recipient
+    /// (a warning is logged).
+    pub smtp_dev_redirect_to: Option<String>,
 }
 
 #[derive(Clone)]

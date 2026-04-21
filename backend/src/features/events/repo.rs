@@ -410,12 +410,12 @@ pub async fn update_event_details(
     max_players: i32,
     require_discord: bool,
     require_battletag: bool,
-    discord_announce: bool,
+    discord_announce: Option<bool>,
 ) -> Result<bool, crate::shared::errors::ApiError> {
     let updated = sqlx::query(
         "UPDATE events
          SET name = $1, description = $2, start_date = $3, event_type = $4, format = $5, max_players = $6,
-             require_discord = $7, require_battletag = $8, discord_announce = $9
+             require_discord = $7, require_battletag = $8, discord_announce = COALESCE($9::bool, discord_announce)
             WHERE id = $10 AND deleted_at IS NULL
          RETURNING id",
     )

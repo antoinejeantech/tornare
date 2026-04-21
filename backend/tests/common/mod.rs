@@ -40,6 +40,7 @@ pub fn default_test_config() -> AppConfig {
         smtp_username: None,
         smtp_password: None,
         smtp_tls_mode: tornare::app::state::SmtpTlsMode::None,
+        smtp_dev_redirect_to: None,
     }
 }
 

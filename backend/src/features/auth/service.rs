@@ -324,24 +324,26 @@ pub async fn verify_email(state: &AppState, raw_token: &str) -> Result<AuthRespo
 }
 
 /// Sends a fresh verification email, with a 60-second per-user rate limit.
+/// Always returns the same generic 200 response regardless of account state to
+/// prevent account enumeration (verified/unverified/non-existent are indistinguishable
+/// to the caller). Cooldown is enforced silently server-side.
 pub async fn resend_verification(
     state: &AppState,
     email: &str,
 ) -> Result<MessageResponse, ApiError> {
+    let generic_ok = MessageResponse {
+        message: "If an account with that email exists and needs verification, a new email has been sent.".to_string(),
+    };
+
     let normalized_email = normalize_email(email)?;
 
-    // Always return a generic message to avoid account enumeration.
     let Some(login) = repo::find_user_login_by_email(&state.pool, &normalized_email).await? else {
-        return Ok(MessageResponse {
-            message: "If an account with that email exists, a verification email has been sent."
-                .to_string(),
-        });
+        return Ok(generic_ok);
     };
 
     if login.email_verified {
-        return Ok(MessageResponse {
-            message: "This email address is already verified.".to_string(),
-        });
+        tracing::debug!(%normalized_email, "resend_verification: email already verified, skipping silently");
+        return Ok(generic_ok);
     }
 
     const RESEND_COOLDOWN_SECONDS: i64 = 60;
@@ -349,18 +351,15 @@ pub async fn resend_verification(
         let age = (OffsetDateTime::now_utc() - latest).whole_seconds();
         if age < RESEND_COOLDOWN_SECONDS {
             let wait = RESEND_COOLDOWN_SECONDS - age;
-            return Err(too_many_requests(&format!(
-                "Please wait {wait} seconds before requesting another verification email"
-            )));
+            tracing::debug!(user_id = %login.id, wait_secs = wait, "resend_verification: cooldown active, skipping silently");
+            return Ok(generic_ok);
         }
     }
 
     let raw_token = repo::create_verification_token(&state.pool, login.id).await?;
     auth_email::send_verification_email(&state.config, &normalized_email, &raw_token).await?;
 
-    Ok(MessageResponse {
-        message: "Verification email sent. Please check your inbox.".to_string(),
-    })
+    Ok(generic_ok)
 }
 
 /// Sends a password reset email. Always returns a generic success message (anti-enumeration).

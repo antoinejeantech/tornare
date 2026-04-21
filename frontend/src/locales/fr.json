@@ -274,7 +274,7 @@
     "title": "Vérifiez votre boîte de réception",
     "subtitle": "Nous avons envoyé un lien de vérification à :",
     "note": "Le lien expire dans 24 heures. Vérifiez vos spams si vous ne le voyez pas.",
-    "rateLimitHint": "Vous pouvez demander un nouvel email de réinitialisation environ une fois par minute.",
+    "rateLimitHint": "Vous pouvez demander un nouvel email de vérification environ une fois par minute.",
     "spamHint": "L'email peut arriver dans vos spams/indésirables.",
     "missingEmail": "Aucune adresse email n'a été fournie pour cette page.",
     "resendLabel": "Vous ne l'avez pas reçu ?",

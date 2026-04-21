@@ -82,6 +82,7 @@ make up
 | `SMTP_TLS_MODE` | SMTP TLS mode: `none`, `starttls`, or `implicit` |
 | `SMTP_USERNAME` | Optional SMTP username (authenticated relays like Gmail) |
 | `SMTP_PASSWORD` | Optional SMTP password/app password |
+| `DEV_SMTP_REDIRECT_TO` | Non-production only: when using Gmail SMTP, redirect all outgoing emails to this address instead of real recipients. Unset = send to real recipient (with a warning logged) |
 
 ### Mailer configuration
 
@@ -140,7 +141,7 @@ When `EMAIL_DRIVER=resend`, SMTP variables can stay unset.
   SMTP_USERNAME=your_gmail@gmail.com
   SMTP_PASSWORD=your_16_char_app_password
 
-Note: in non-production, Tornare protects against accidental leakage when using Gmail SMTP by redirecting outgoing emails to a fixed safety inbox.
+Note: in non-production, set `DEV_SMTP_REDIRECT_TO=your@inbox.example` to redirect all outgoing emails to a safe inbox. If unset while using Gmail SMTP in dev, emails go to real recipients with a server-side warning.
 
 ### `frontend/.env`
 

@@ -72,8 +72,9 @@ pub struct UpdateEventInput {
     pub require_discord: bool,
     #[serde(default)]
     pub require_battletag: bool,
-    #[serde(default = "default_true")]
-    pub discord_announce: bool,
+    /// When absent from the request body, `None` means "keep the existing value".
+    /// Defaults to `true` only on event creation (see `CreateEventInput`).
+    pub discord_announce: Option<bool>,
 }
 
 impl UpdateEventInput {

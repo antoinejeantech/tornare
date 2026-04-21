@@ -6,8 +6,6 @@ use tera::{Context, Tera};
 use crate::app::state::{AppConfig, EmailDriver, SmtpTlsMode};
 use crate::shared::errors::{internal_error, ApiError};
 
-const DEV_GMAIL_REDIRECT_TO: &str = "antoinejeanmec@hotmail.fr";
-
 /// Send a verification email to `to` containing a link with `raw_token`.
 /// Dispatches to the SMTP (Mailpit) or Resend backend based on `config.email_driver`.
 pub async fn send_verification_email(
@@ -100,20 +98,37 @@ async fn send_via_smtp(
         .parse()
         .map_err(|e| internal_error(format!("Invalid FROM_EMAIL config: {e}")))?;
 
-    let effective_to = if should_redirect_dev_gmail_recipient(config) {
-        tracing::warn!(
-            original_to = %to,
-            redirected_to = %DEV_GMAIL_REDIRECT_TO,
-            "Dev Gmail SMTP safeguard redirected email recipient"
-        );
-        DEV_GMAIL_REDIRECT_TO
-    } else {
-        to
+    let redirect_to: Option<&str> =
+        if !config.is_production && config.smtp_host.eq_ignore_ascii_case("smtp.gmail.com") {
+            config.smtp_dev_redirect_to.as_deref()
+        } else {
+            None
+        };
+
+    let actual_to: &str = match redirect_to {
+        Some(r) => {
+            tracing::warn!(
+                original_to = %to,
+                redirected_to = %r,
+                "Dev Gmail SMTP safeguard: redirecting outgoing email to DEV_SMTP_REDIRECT_TO"
+            );
+            r
+        }
+        None => {
+            if !config.is_production && config.smtp_host.eq_ignore_ascii_case("smtp.gmail.com") {
+                tracing::warn!(
+                    %to,
+                    "Dev Gmail SMTP active but DEV_SMTP_REDIRECT_TO is not set; \
+                     sending to real recipient. Set DEV_SMTP_REDIRECT_TO to redirect."
+                );
+            }
+            to
+        }
     };
 
-    let to_mailbox = effective_to
+    let to_mailbox = actual_to
         .parse()
-        .map_err(|e| internal_error(format!("Invalid recipient address '{effective_to}': {e}")))?;
+        .map_err(|e| internal_error(format!("Invalid recipient address '{actual_to}': {e}")))?;
 
     let email = Message::builder()
         .from(from_mailbox)
@@ -159,10 +174,6 @@ async fn send_via_smtp(
         .map_err(|e| internal_error(format!("SMTP send failed: {e}")))?;
 
     Ok(())
-}
-
-fn should_redirect_dev_gmail_recipient(config: &AppConfig) -> bool {
-    !config.is_production && config.smtp_host.eq_ignore_ascii_case("smtp.gmail.com")
 }
 
 async fn send_via_resend(
