@@ -64,6 +64,7 @@ make up
 | `DATABASE_URL` | Postgres connection string |
 | `JWT_SECRET` | Signing secret for auth tokens |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins (e.g. `https://app.example.com,http://localhost:5173`) |
+| `APP_ENV` | Runtime mode (`development` by default, `production`/`prod` enables stricter checks) |
 | `DISCORD_BOT_PUBLIC_KEY` | Ed25519 public key from the Discord developer portal — **required** for slash commands |
 | `DISCORD_BOT_TOKEN` | Bot token — used to verify channel permissions at `/setup` time |
 | `DISCORD_CLIENT_ID` | Discord OAuth app client ID |
@@ -72,6 +73,74 @@ make up
 | `BATTLENET_CLIENT_ID` | Battle.net OAuth app client ID |
 | `BATTLENET_CLIENT_SECRET` | Battle.net OAuth app client secret |
 | `BATTLENET_REDIRECT_URI` | Battle.net OAuth redirect URI |
+| `FRONTEND_URL` | Frontend base URL used in email links |
+| `EMAIL_DRIVER` | Email backend: `smtp` (default) or `resend` |
+| `FROM_EMAIL` | Sender address for verification/reset emails |
+| `RESEND_API_KEY` | Required when `EMAIL_DRIVER=resend` |
+| `SMTP_HOST` | Required when `EMAIL_DRIVER=smtp` |
+| `SMTP_PORT` | SMTP port (default: `1025`) |
+| `SMTP_TLS_MODE` | SMTP TLS mode: `none`, `starttls`, or `implicit` |
+| `SMTP_USERNAME` | Optional SMTP username (authenticated relays like Gmail) |
+| `SMTP_PASSWORD` | Optional SMTP password/app password |
+
+### Mailer configuration
+
+Tornare supports 2 mailer backends:
+
+1. `smtp` (default): direct SMTP transport. Best for local dev with Mailpit.
+2. `resend`: Resend REST API. Typical production setup.
+
+SMTP TLS modes:
+
+1. `none`: no TLS upgrade (ideal for local Mailpit).
+2. `starttls`: STARTTLS upgrade (recommended for Gmail on port 587).
+3. `implicit`: TLS from connection start (common on port 465).
+
+#### Dev with Mailpit (Docker compose)
+
+Use these values in `backend/.env` when backend runs in Docker compose (`make up` / `make dev`):
+
+  EMAIL_DRIVER=smtp
+  FROM_EMAIL=noreply@tornare.gg
+  SMTP_HOST=mailpit
+  SMTP_PORT=1025
+  SMTP_TLS_MODE=none
+
+Mailpit endpoints:
+
+1. SMTP: `mailpit:1025` from containers
+2. Web UI from host: http://localhost:8025
+
+#### Dev with Mailpit (backend running on host)
+
+If you run backend directly on macOS/Linux host (not inside compose), use:
+
+  EMAIL_DRIVER=smtp
+  FROM_EMAIL=noreply@tornare.gg
+  SMTP_HOST=localhost
+  SMTP_PORT=1025
+  SMTP_TLS_MODE=none
+
+#### Resend (production-style)
+
+  APP_ENV=production
+  EMAIL_DRIVER=resend
+  FROM_EMAIL=noreply@your-domain.com
+  RESEND_API_KEY=re_xxxxxxxxxxxx
+
+When `EMAIL_DRIVER=resend`, SMTP variables can stay unset.
+
+#### Gmail SMTP (optional)
+
+  EMAIL_DRIVER=smtp
+  FROM_EMAIL=your_gmail@gmail.com
+  SMTP_HOST=smtp.gmail.com
+  SMTP_PORT=587
+  SMTP_TLS_MODE=starttls
+  SMTP_USERNAME=your_gmail@gmail.com
+  SMTP_PASSWORD=your_16_char_app_password
+
+Note: in non-production, Tornare protects against accidental leakage when using Gmail SMTP by redirecting outgoing emails to a fixed safety inbox.
 
 ### `frontend/.env`
 
