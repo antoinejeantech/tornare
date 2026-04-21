@@ -33,7 +33,7 @@ bootstrap:
 	@test -f bot/.env || cp bot/.env.example bot/.env
 
 up:
-	docker compose --profile production up --build backend bot frontend
+	docker compose --profile production up --build mailpit backend bot frontend
 
 dev:
 	docker compose stop backend 2>/dev/null || true

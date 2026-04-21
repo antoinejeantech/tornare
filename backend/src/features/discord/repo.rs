@@ -85,6 +85,16 @@ pub async fn upsert_guild(
     guild_name: Option<&str>,
     channel_id: &str,
 ) -> Result<DiscordGuild, ApiError> {
+    // Detect a soft-deleted guild being reclaimed so we can clear the stale
+    // member pool after the upsert (avoid cross-account data leak).
+    let is_reclaim: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM discord_guilds WHERE guild_id = $1 AND deleted_at IS NOT NULL)",
+    )
+    .bind(guild_id)
+    .fetch_one(pool)
+    .await
+    .map_err(internal_error)?;
+
     let row = sqlx::query(
         "INSERT INTO discord_guilds (id, guild_id, guild_name, owner_user_id, channel_id)
          VALUES (gen_random_uuid(), $1, $2, $3, $4)
@@ -105,6 +115,17 @@ pub async fn upsert_guild(
     .map_err(internal_error)?;
 
     let guild = row_to_guild(&row);
+
+    if is_reclaim {
+        // Purge the previous owner's announcement pool so the new owner starts
+        // fresh. discord_guild_posts is intentionally left intact to prevent
+        // re-announcing events that were already posted.
+        sqlx::query("DELETE FROM discord_guild_members WHERE discord_guild_id = $1")
+            .bind(guild.id)
+            .execute(pool)
+            .await
+            .map_err(internal_error)?;
+    }
 
     // Ensure the owner is in the member pool.
     sqlx::query(
@@ -163,8 +184,22 @@ pub async fn upsert_guild_from_slash(
 
     let guild = row_to_guild(&row);
 
-    // Ensure the owner is in the member pool (if we resolved one).
+    // On reclaim, purge any members that belonged to the previous owner so the
+    // new owner starts with a clean announcement pool. Deleting rows where
+    // user_id != current_owner is a no-op on a normal (non-reclaim) upsert.
+    // discord_guild_posts is left intact to avoid re-announcing old events.
     if let Some(uid) = guild.owner_user_id {
+        sqlx::query(
+            "DELETE FROM discord_guild_members
+             WHERE discord_guild_id = $1 AND user_id != $2",
+        )
+        .bind(guild.id)
+        .bind(uid)
+        .execute(pool)
+        .await
+        .map_err(internal_error)?;
+
+        // Ensure the owner is in the member pool.
         sqlx::query(
             "INSERT INTO discord_guild_members (discord_guild_id, user_id) \
              VALUES ($1, $2) ON CONFLICT DO NOTHING",
