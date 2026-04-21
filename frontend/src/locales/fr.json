@@ -191,6 +191,7 @@
       "title": "Pool d'annonces",
       "hint": "Les événements créés par les utilisateurs de ce pool seront publiés dans votre salon Discord.",
       "removeOwner": "Vous ne pouvez pas vous retirer du pool.",
+      "removeAriaLabel": "Retirer {name} du pool d'annonces",
       "addPlaceholder": "Rechercher par pseudo ou nom",
       "add": "Ajouter",
       "addError": "Échec de l'ajout du membre.",

@@ -5,7 +5,7 @@
 
 mod common;
 
-use common::{default_test_config, register, spawn_test_server, spawn_test_server_with_config};
+use common::{default_test_config, register_verified, spawn_test_server, spawn_test_server_with_config};
 use tornare::app::state::AppConfig;
 use ed25519_dalek::{Signer, SigningKey};
 use reqwest::Client;
@@ -24,7 +24,7 @@ async fn disconnect_discord_is_blocked_when_user_has_no_password(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let body = register(&client, &base, "discordonly@test.local", "discordonly").await;
+    let body = register_verified(&client, &pool, &base, "discordonly@test.local", "discordonly").await;
     let token = body["access_token"].as_str().expect("must have token").to_string();
     let user_id = Uuid::parse_str(
         body["user"]["id"].as_str().expect("must have user.id"),
@@ -67,7 +67,7 @@ async fn disconnect_discord_succeeds_when_user_has_password(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let body = register(&client, &base, "discordpwd@test.local", "discordpwd").await;
+    let body = register_verified(&client, &pool, &base, "discordpwd@test.local", "discordpwd").await;
     let token = body["access_token"].as_str().expect("must have token").to_string();
     let user_id = Uuid::parse_str(
         body["user"]["id"].as_str().expect("must have user.id"),
@@ -104,7 +104,7 @@ async fn disconnect_discord_hard_deletes_identity(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let body = register(&client, &base, "discordsoft@test.local", "discordsoft").await;
+    let body = register_verified(&client, &pool, &base, "discordsoft@test.local", "discordsoft").await;
     let token = body["access_token"].as_str().expect("must have token").to_string();
     let user_id = Uuid::parse_str(
         body["user"]["id"].as_str().expect("must have user.id"),
@@ -151,7 +151,7 @@ async fn disconnect_discord_hard_deletes_identity(pool: PgPool) {
 /// GET /api/discord/guilds without an auth token must return 401.
 #[sqlx::test]
 async fn guild_listing_requires_auth(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
     let res = client
         .get(format!("{base}/api/discord/guilds"))
@@ -164,7 +164,7 @@ async fn guild_listing_requires_auth(pool: PgPool) {
 /// PUT /api/discord/guild without an auth token must return 401.
 #[sqlx::test]
 async fn guild_upsert_requires_auth(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
     let res = client
         .put(format!("{base}/api/discord/guild"))
@@ -178,9 +178,9 @@ async fn guild_upsert_requires_auth(pool: PgPool) {
 /// A user who has not linked a Discord account cannot register a guild.
 #[sqlx::test]
 async fn guild_upsert_requires_discord_identity(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
-    let body = register(&client, &base, "nodiscord@test.local", "nodiscord").await;
+    let body = register_verified(&client, &pool, &base, "nodiscord@test.local", "nodiscord").await;
     let token = body["access_token"].as_str().unwrap().to_string();
 
     let res = client
@@ -198,7 +198,7 @@ async fn guild_upsert_requires_discord_identity(pool: PgPool) {
 async fn guild_upsert_succeeds_for_discord_user(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
-    let body = register(&client, &base, "hasdiscord@test.local", "hasdiscord").await;
+    let body = register_verified(&client, &pool, &base, "hasdiscord@test.local", "hasdiscord").await;
     let token = body["access_token"].as_str().unwrap().to_string();
     let user_id = uuid::Uuid::parse_str(body["user"]["id"].as_str().unwrap()).unwrap();
 
@@ -239,7 +239,7 @@ async fn guild_takeover_by_other_user_is_rejected(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let body_a = register(&client, &base, "owner_a@test.local", "owner_a").await;
+    let body_a = register_verified(&client, &pool, &base, "owner_a@test.local", "owner_a").await;
     let token_a = body_a["access_token"].as_str().unwrap().to_string();
     let user_a = uuid::Uuid::parse_str(body_a["user"]["id"].as_str().unwrap()).unwrap();
     sqlx::query(
@@ -260,7 +260,7 @@ async fn guild_takeover_by_other_user_is_rejected(pool: PgPool) {
         .unwrap();
     assert_eq!(res.status().as_u16(), 200, "first registration must succeed");
 
-    let body_b = register(&client, &base, "owner_b@test.local", "owner_b").await;
+    let body_b = register_verified(&client, &pool, &base, "owner_b@test.local", "owner_b").await;
     let token_b = body_b["access_token"].as_str().unwrap().to_string();
     let user_b = uuid::Uuid::parse_str(body_b["user"]["id"].as_str().unwrap()).unwrap();
     sqlx::query(
@@ -287,7 +287,7 @@ async fn guild_takeover_by_other_user_is_rejected(pool: PgPool) {
 async fn guild_soft_delete_hides_guild_from_listing(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
-    let body = register(&client, &base, "delowner@test.local", "delowner").await;
+    let body = register_verified(&client, &pool, &base, "delowner@test.local", "delowner").await;
     let token = body["access_token"].as_str().unwrap().to_string();
     let user_id = uuid::Uuid::parse_str(body["user"]["id"].as_str().unwrap()).unwrap();
 
@@ -339,7 +339,7 @@ async fn soft_deleted_guild_can_be_reclaimed_by_new_owner(pool: PgPool) {
     let client = Client::new();
 
     // First owner registers then removes.
-    let body_a = register(&client, &base, "reclaim_a@test.local", "reclaim_a").await;
+    let body_a = register_verified(&client, &pool, &base, "reclaim_a@test.local", "reclaim_a").await;
     let token_a = body_a["access_token"].as_str().unwrap().to_string();
     let user_a = uuid::Uuid::parse_str(body_a["user"]["id"].as_str().unwrap()).unwrap();
     sqlx::query(
@@ -365,7 +365,7 @@ async fn soft_deleted_guild_can_be_reclaimed_by_new_owner(pool: PgPool) {
         .unwrap();
 
     // Second owner can now claim the same guild_id.
-    let body_b = register(&client, &base, "reclaim_b@test.local", "reclaim_b").await;
+    let body_b = register_verified(&client, &pool, &base, "reclaim_b@test.local", "reclaim_b").await;
     let token_b = body_b["access_token"].as_str().unwrap().to_string();
     let user_b = uuid::Uuid::parse_str(body_b["user"]["id"].as_str().unwrap()).unwrap();
     sqlx::query(
@@ -395,7 +395,7 @@ async fn soft_deleted_guild_can_be_reclaimed_by_new_owner(pool: PgPool) {
 #[sqlx::test]
 async fn interactions_without_public_key_returns_401(pool: PgPool) {
     // The default test server has an empty discord_bot_public_key (fail-closed).
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
     let res = client
         .post(format!("{base}/api/discord/interactions"))

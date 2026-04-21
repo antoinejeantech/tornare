@@ -124,7 +124,8 @@ pub async fn post_event(
 ) -> anyhow::Result<()> {
     let row = sqlx::query(
         "SELECT \
-             e.name, e.description, e.event_type, e.start_date, \
+             e.name, e.description, e.event_type, \
+             to_char(e.start_date AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') AS start_date, \
              e.format, e.max_players, \
              e.public_signup_enabled, e.signup_token, \
              u.display_name AS organizer_name \

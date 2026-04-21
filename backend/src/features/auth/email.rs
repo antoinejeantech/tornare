@@ -27,7 +27,7 @@ pub async fn send_verification_email(
     }
 }
 
-fn build_verify_html(verify_url: &str) -> Result<String, ApiError> {
+pub fn build_verify_html(verify_url: &str) -> Result<String, ApiError> {
     let mut ctx = Context::new();
     ctx.insert("cta_url", verify_url);
     render_email("verify_email", &ctx)
@@ -59,7 +59,7 @@ pub async fn send_password_reset_email(
     }
 }
 
-fn build_reset_html(reset_url: &str) -> Result<String, ApiError> {
+pub fn build_reset_html(reset_url: &str) -> Result<String, ApiError> {
     let mut ctx = Context::new();
     ctx.insert("cta_url", reset_url);
     render_email("password_reset", &ctx)
@@ -155,3 +155,5 @@ async fn send_via_resend(
 
     Ok(())
 }
+
+

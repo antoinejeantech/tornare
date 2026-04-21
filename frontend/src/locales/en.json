@@ -191,6 +191,7 @@
       "title": "Announcement pool",
       "hint": "Events created by users in this pool will be posted to your Discord channel.",
       "removeOwner": "You cannot remove yourself from the pool.",
+      "removeAriaLabel": "Remove {name} from the announcement pool",
       "addPlaceholder": "Search by username or display name",
       "add": "Add",
       "addError": "Failed to add member.",

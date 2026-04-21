@@ -239,9 +239,10 @@ onMounted(load)
                 v-else
                 class="remove-btn"
                 :disabled="removingMember[guild.guild_id] === member.user_id"
+                :aria-label="t('discord.members.removeAriaLabel', { name: member.display_name })"
                 @click="removeMember(guild.guild_id, member.user_id, guild)"
               >
-                <span class="material-symbols-rounded">close</span>
+                <span class="material-symbols-rounded" aria-hidden="true">close</span>
               </button>
             </li>
           </ul>
@@ -268,7 +269,11 @@ onMounted(load)
                     v-for="user in memberSearchResults[guild.guild_id]"
                     :key="user.id"
                     class="search-result"
+                    role="option"
+                    tabindex="0"
                     @click="addMember(guild.guild_id, user)"
+                    @keydown.enter.prevent="addMember(guild.guild_id, user)"
+                    @keydown.space.prevent="addMember(guild.guild_id, user)"
                   >
                     <span class="member-name">{{ user.display_name }}</span>
                     <span v-if="user.username" class="member-username">@{{ user.username }}</span>

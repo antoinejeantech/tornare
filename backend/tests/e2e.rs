@@ -20,7 +20,7 @@
 
 mod common;
 
-use common::{find_named_item, login, register, spawn_test_server};
+use common::{find_named_item, login, register_verified, spawn_test_server};
 use reqwest::Client;
 use serde_json::{json, Value};
 use sqlx::PgPool;
@@ -28,11 +28,11 @@ use sqlx::PgPool;
 /// Happy-path flow: register → login → create event → manage roster/teams/match → fetch event.
 #[sqlx::test]
 async fn user_can_register_login_create_and_read_event(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    // 1. Register — should return an AuthResponse with tokens + user.
-    let body = register(&client, &base, "alice@test.local", "alice").await;
+    // 1. Register + verify email + login — should return an AuthResponse with tokens + user.
+    let body = register_verified(&client, &pool, &base, "alice@test.local", "alice").await;
     assert!(
         body["access_token"].is_string(),
         "register must return an access_token; got: {body}"
@@ -298,11 +298,11 @@ async fn user_can_register_login_create_and_read_event(pool: PgPool) {
 /// match already has both slots occupied (next match is full).
 #[sqlx::test]
 async fn tourney_winner_propagation_blocked_when_next_match_is_full(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    // 1. Register + login.
-    let body = register(&client, &base, "bob@test.local", "bob").await;
+    // 1. Register + verify email + login.
+    let body = register_verified(&client, &pool, &base, "bob@test.local", "bob").await;
     let token = body["access_token"].as_str().unwrap().to_string();
 
     // 2. Create a TOURNEY event.

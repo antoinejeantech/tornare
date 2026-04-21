@@ -6,7 +6,7 @@
 
 mod common;
 
-use common::{find_named_item, count_team_role, register, spawn_test_server};
+use common::{find_named_item, count_team_role, register_verified, spawn_test_server};
 use reqwest::Client;
 use serde_json::{json, Value};
 use sqlx::PgPool;
@@ -19,7 +19,7 @@ use uuid::Uuid;
 /// Creating an event without a token must return 401.
 #[sqlx::test]
 async fn create_event_without_auth_is_rejected(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
     let res = client
@@ -51,7 +51,7 @@ async fn legacy_flex_players_do_not_break_events_listing(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "owner-flex@test.local", "owner_flex").await;
+    let owner = register_verified(&client, &pool, &base, "owner-flex@test.local", "owner_flex").await;
     let token = owner["access_token"]
         .as_str()
         .expect("owner response must include access token")
@@ -142,10 +142,10 @@ async fn legacy_flex_players_do_not_break_events_listing(pool: PgPool) {
 
 #[sqlx::test]
 async fn auto_balance_requires_exactly_two_teams(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "owner4@test.local", "owner4").await;
+    let owner = register_verified(&client, &pool, &base, "owner4@test.local", "owner4").await;
     assert!(owner["access_token"].is_string(), "owner registration failed: {owner}");
     let token = owner["access_token"].as_str().unwrap().to_string();
 
@@ -188,10 +188,10 @@ async fn auto_balance_requires_exactly_two_teams(pool: PgPool) {
 /// Auto-balance in 5v5 must always produce 1 Tank, 2 DPS, 2 Supports per team.
 #[sqlx::test]
 async fn auto_balance_5v5_enforces_exact_role_shape(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "owner3@test.local", "owner3").await;
+    let owner = register_verified(&client, &pool, &base, "owner3@test.local", "owner3").await;
     assert!(owner["access_token"].is_string(), "owner registration failed: {owner}");
     let token = owner["access_token"].as_str().unwrap().to_string();
 
@@ -299,10 +299,10 @@ async fn auto_balance_5v5_enforces_exact_role_shape(pool: PgPool) {
 /// Team assignment with explicit assigned_role must not change the player's preferred role.
 #[sqlx::test]
 async fn team_assignment_with_role_does_not_change_preferred_role(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "owner2@test.local", "owner2").await;
+    let owner = register_verified(&client, &pool, &base, "owner2@test.local", "owner2").await;
     assert!(owner["access_token"].is_string(), "owner registration failed: {owner}");
     let token = owner["access_token"].as_str().unwrap().to_string();
 
@@ -376,10 +376,10 @@ async fn team_assignment_with_role_does_not_change_preferred_role(pool: PgPool) 
 /// Public signup flow: submit a request, then the owner accepts it.
 #[sqlx::test]
 async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "owner@test.local", "owner").await;
+    let owner = register_verified(&client, &pool, &base, "owner@test.local", "owner").await;
     assert!(owner["access_token"].is_string(), "owner registration failed: {owner}");
     let token = owner["access_token"].as_str().unwrap().to_string();
 
@@ -480,11 +480,11 @@ async fn public_signup_request_can_be_submitted_and_accepted(pool: PgPool) {
 
 #[sqlx::test]
 async fn authenticated_public_signup_preserves_linked_user_and_reported_handles(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "owner-linked@test.local", "owner_linked").await;
-    let submitter = register(&client, &base, "submitter-linked@test.local", "submitter_linked").await;
+    let owner = register_verified(&client, &pool, &base, "owner-linked@test.local", "owner_linked").await;
+    let submitter = register_verified(&client, &pool, &base, "submitter-linked@test.local", "submitter_linked").await;
 
     let owner_token = owner["access_token"]
         .as_str()
@@ -609,7 +609,7 @@ async fn deleting_event_soft_deletes_it_and_hides_it(pool: PgPool) {
     let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "softdelete@test.local", "softdelete").await;
+    let owner = register_verified(&client, &pool, &base, "softdelete@test.local", "softdelete").await;
     assert!(owner["access_token"].is_string(), "owner registration failed: {owner}");
     let token = owner["access_token"].as_str().unwrap().to_string();
 
@@ -697,10 +697,10 @@ async fn deleting_event_soft_deletes_it_and_hides_it(pool: PgPool) {
 /// New events start as DRAFT.
 #[sqlx::test]
 async fn new_event_defaults_to_draft(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "draft-default@test.local", "draft_default").await;
+    let owner = register_verified(&client, &pool, &base, "draft-default@test.local", "draft_default").await;
     let token = owner["access_token"].as_str().unwrap().to_string();
 
     let res = client
@@ -730,10 +730,10 @@ async fn new_event_defaults_to_draft(pool: PgPool) {
 /// Verifies listing visibility at each stage.
 #[sqlx::test]
 async fn event_lifecycle_publish_unpublish_end(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "lifecycle@test.local", "lifecycle").await;
+    let owner = register_verified(&client, &pool, &base, "lifecycle@test.local", "lifecycle").await;
     let token = owner["access_token"].as_str().unwrap().to_string();
 
     let res = client
@@ -833,10 +833,10 @@ async fn event_lifecycle_publish_unpublish_end(pool: PgPool) {
 /// Once ENDED an event cannot be published, unpublished, or ended again.
 #[sqlx::test]
 async fn ended_event_is_terminal(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "terminal@test.local", "terminal").await;
+    let owner = register_verified(&client, &pool, &base, "terminal@test.local", "terminal").await;
     let token = owner["access_token"].as_str().unwrap().to_string();
 
     let event_id = create_and_publish_event(&client, &base, &token, "Terminal Event").await;
@@ -867,10 +867,10 @@ async fn ended_event_is_terminal(pool: PgPool) {
 /// A DRAFT event cannot be ended directly; it must be published first.
 #[sqlx::test]
 async fn draft_event_cannot_be_ended_directly(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "draftend@test.local", "draftend").await;
+    let owner = register_verified(&client, &pool, &base, "draftend@test.local", "draftend").await;
     let token = owner["access_token"].as_str().unwrap().to_string();
 
     let res = client
@@ -907,10 +907,10 @@ async fn draft_event_cannot_be_ended_directly(pool: PgPool) {
 /// via the owner-scoped listing (?owner=mine).
 #[sqlx::test]
 async fn draft_events_visible_to_owner_in_owner_scoped_listing(pool: PgPool) {
-    let base = spawn_test_server(pool).await;
+    let base = spawn_test_server(pool.clone()).await;
     let client = Client::new();
 
-    let owner = register(&client, &base, "draftvis@test.local", "draftvis").await;
+    let owner = register_verified(&client, &pool, &base, "draftvis@test.local", "draftvis").await;
     let token = owner["access_token"].as_str().unwrap().to_string();
 
     let res = client
