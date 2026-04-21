@@ -2,7 +2,7 @@ mod app;
 mod features;
 mod shared;
 
-use app::{router::build_app, state::{AppConfig, AppState}};
+use app::{router::build_app, state::{AppConfig, AppState, SmtpTlsMode}};
 use app::security::RateLimiter;
 use dotenvy::{dotenv, from_filename};
 use shared::db::init_schema;
@@ -54,6 +54,18 @@ async fn main() {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(1025);
+    let smtp_username = env::var("SMTP_USERNAME").ok().filter(|v| !v.trim().is_empty());
+    let smtp_password = env::var("SMTP_PASSWORD").ok().filter(|v| !v.trim().is_empty());
+    let smtp_tls_mode = match env::var("SMTP_TLS_MODE")
+        .unwrap_or_else(|_| "none".to_string())
+        .to_lowercase()
+        .as_str()
+    {
+        "none" => SmtpTlsMode::None,
+        "starttls" => SmtpTlsMode::StartTls,
+        "implicit" => SmtpTlsMode::Implicit,
+        other => panic!("Invalid SMTP_TLS_MODE '{other}'. Expected one of: none, starttls, implicit"),
+    };
 
     if is_production && jwt_secret == "dev-only-change-me" {
         panic!("JWT_SECRET must be set to a strong value in production");
@@ -86,6 +98,7 @@ async fn main() {
         pool,
         rate_limiter: RateLimiter::new(),
         config: AppConfig {
+            is_production,
             jwt_secret,
             cors_allowed_origins,
             battlenet_client_id,
@@ -102,6 +115,9 @@ async fn main() {
             resend_api_key,
             smtp_host,
             smtp_port,
+            smtp_username,
+            smtp_password,
+            smtp_tls_mode,
         },
     };
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8000")

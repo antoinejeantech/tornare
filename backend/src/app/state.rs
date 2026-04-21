@@ -11,9 +11,22 @@ pub enum EmailDriver {
     Resend,
 }
 
+/// TLS behavior for SMTP transport.
+#[derive(Clone, Copy)]
+pub enum SmtpTlsMode {
+    /// No TLS upgrade (useful for local Mailpit).
+    None,
+    /// STARTTLS (recommended for Gmail on port 587).
+    StartTls,
+    /// Implicit TLS from connect (common on port 465).
+    Implicit,
+}
+
 /// Configuration values loaded from environment variables at startup.
 #[derive(Clone)]
 pub struct AppConfig {
+    /// Whether the app is running in production mode.
+    pub is_production: bool,
     pub jwt_secret: String,
     pub cors_allowed_origins: Vec<String>,
     pub battlenet_client_id: String,
@@ -37,6 +50,12 @@ pub struct AppConfig {
     pub smtp_host: String,
     /// SMTP port (only required when email_driver = Smtp, default 1025 for Mailpit).
     pub smtp_port: u16,
+    /// Optional SMTP username for authenticated relays (e.g. Gmail).
+    pub smtp_username: Option<String>,
+    /// Optional SMTP password/app-password for authenticated relays.
+    pub smtp_password: Option<String>,
+    /// SMTP TLS mode.
+    pub smtp_tls_mode: SmtpTlsMode,
 }
 
 #[derive(Clone)]

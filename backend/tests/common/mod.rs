@@ -20,6 +20,7 @@ pub async fn spawn_test_server(pool: PgPool) -> String {
 #[allow(dead_code)]
 pub fn default_test_config() -> AppConfig {
     AppConfig {
+        is_production: false,
         jwt_secret: "e2e-test-secret-dev-only-do-not-use-in-prod".to_string(),
         cors_allowed_origins: vec!["*".to_string()],
         battlenet_client_id: String::new(),
@@ -36,6 +37,9 @@ pub fn default_test_config() -> AppConfig {
         resend_api_key: String::new(),
         smtp_host: "localhost".to_string(),
         smtp_port: 1025,
+        smtp_username: None,
+        smtp_password: None,
+        smtp_tls_mode: tornare::app::state::SmtpTlsMode::None,
     }
 }
 

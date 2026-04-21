@@ -3,8 +3,10 @@ use std::time::Duration;
 
 use tera::{Context, Tera};
 
-use crate::app::state::{AppConfig, EmailDriver};
+use crate::app::state::{AppConfig, EmailDriver, SmtpTlsMode};
 use crate::shared::errors::{internal_error, ApiError};
+
+const DEV_GMAIL_REDIRECT_TO: &str = "antoinejeanmec@hotmail.fr";
 
 /// Send a verification email to `to` containing a link with `raw_token`.
 /// Dispatches to the SMTP (Mailpit) or Resend backend based on `config.email_driver`.
@@ -89,6 +91,8 @@ async fn send_via_smtp(
 ) -> Result<(), ApiError> {
     use lettre::{
         message::{header::ContentType, Message},
+        transport::smtp::authentication::Credentials,
+        transport::smtp::client::{Tls, TlsParameters},
         AsyncSmtpTransport, AsyncTransport, Tokio1Executor,
     };
 
@@ -96,9 +100,20 @@ async fn send_via_smtp(
         .parse()
         .map_err(|e| internal_error(format!("Invalid FROM_EMAIL config: {e}")))?;
 
-    let to_mailbox = to
+    let effective_to = if should_redirect_dev_gmail_recipient(config) {
+        tracing::warn!(
+            original_to = %to,
+            redirected_to = %DEV_GMAIL_REDIRECT_TO,
+            "Dev Gmail SMTP safeguard redirected email recipient"
+        );
+        DEV_GMAIL_REDIRECT_TO
+    } else {
+        to
+    };
+
+    let to_mailbox = effective_to
         .parse()
-        .map_err(|e| internal_error(format!("Invalid recipient address '{to}': {e}")))?;
+        .map_err(|e| internal_error(format!("Invalid recipient address '{effective_to}': {e}")))?;
 
     let email = Message::builder()
         .from(from_mailbox)
@@ -108,9 +123,35 @@ async fn send_via_smtp(
         .body(html.to_string())
         .map_err(|e| internal_error(format!("Failed to build email message: {e}")))?;
 
-    let transport = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.smtp_host)
+    let tls = match config.smtp_tls_mode {
+        SmtpTlsMode::None => Tls::None,
+        SmtpTlsMode::StartTls => Tls::Required(
+            TlsParameters::new(config.smtp_host.clone())
+                .map_err(|e| internal_error(format!("Invalid SMTP STARTTLS host '{}': {e}", config.smtp_host)))?,
+        ),
+        SmtpTlsMode::Implicit => Tls::Wrapper(
+            TlsParameters::new(config.smtp_host.clone())
+                .map_err(|e| internal_error(format!("Invalid SMTP implicit TLS host '{}': {e}", config.smtp_host)))?,
+        ),
+    };
+
+    let mut builder = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.smtp_host)
         .port(config.smtp_port)
-        .build();
+        .tls(tls);
+
+    match (&config.smtp_username, &config.smtp_password) {
+        (Some(username), Some(password)) => {
+            builder = builder.credentials(Credentials::new(username.clone(), password.clone()));
+        }
+        (None, None) => {}
+        _ => {
+            return Err(internal_error(
+                "SMTP credentials are partially configured. Set both SMTP_USERNAME and SMTP_PASSWORD, or neither.",
+            ));
+        }
+    }
+
+    let transport = builder.build();
 
     transport
         .send(email)
@@ -118,6 +159,10 @@ async fn send_via_smtp(
         .map_err(|e| internal_error(format!("SMTP send failed: {e}")))?;
 
     Ok(())
+}
+
+fn should_redirect_dev_gmail_recipient(config: &AppConfig) -> bool {
+    !config.is_production && config.smtp_host.eq_ignore_ascii_case("smtp.gmail.com")
 }
 
 async fn send_via_resend(
