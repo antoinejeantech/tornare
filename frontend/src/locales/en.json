@@ -287,6 +287,7 @@
     "emailPlaceholder": "you{'@'}example.com",
     "submitting": "Sending\u2026",
     "submitBtn": "Send reset link",
+    "submitError": "Something went wrong. Please try again.",
     "successTitle": "Check Your Inbox",
     "successSubtitle": "If an account with that email exists, you'll receive a reset link shortly.",
     "backToLogin": "Back to sign in"

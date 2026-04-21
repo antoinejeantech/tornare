@@ -602,16 +602,20 @@ pub async fn find_token_by_hash(
     }))
 }
 
+/// Atomically claims a verification token by setting `used_at`, guarded by
+/// `used_at IS NULL`. Returns `true` if the token was claimed, `false` if a
+/// concurrent request already claimed it.
 pub async fn mark_token_used(
     pool: &PgPool,
     token_id: Uuid,
-) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE email_verification_tokens SET used_at = NOW() WHERE id = $1")
-        .bind(token_id)
-        .execute(pool)
-        .await
-        .map_err(internal_error)?;
-    Ok(())
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let result =
+        sqlx::query("UPDATE email_verification_tokens SET used_at = NOW() WHERE id = $1 AND used_at IS NULL")
+            .bind(token_id)
+            .execute(pool)
+            .await
+            .map_err(internal_error)?;
+    Ok(result.rows_affected() > 0)
 }
 
 pub async fn mark_email_verified(
@@ -698,16 +702,20 @@ pub async fn find_reset_token_by_hash(
     }))
 }
 
+/// Atomically claims a password reset token by setting `used_at`, guarded by
+/// `used_at IS NULL`. Returns `true` if the token was claimed, `false` if a
+/// concurrent request already claimed it.
 pub async fn mark_reset_token_used(
     pool: &PgPool,
     token_id: Uuid,
-) -> Result<(), crate::shared::errors::ApiError> {
-    sqlx::query("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1")
-        .bind(token_id)
-        .execute(pool)
-        .await
-        .map_err(internal_error)?;
-    Ok(())
+) -> Result<bool, crate::shared::errors::ApiError> {
+    let result =
+        sqlx::query("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1 AND used_at IS NULL")
+            .bind(token_id)
+            .execute(pool)
+            .await
+            .map_err(internal_error)?;
+    Ok(result.rows_affected() > 0)
 }
 
 /// Returns the `created_at` of the most recent reset token for rate-limiting.

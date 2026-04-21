@@ -74,9 +74,14 @@ watch(() => props.open, async (open) => {
   if (open) {
     try {
       const guilds = await getDiscordGuilds()
-      hasGuild.value = guilds.length > 0
+      // Guard against the modal being closed while the request was in-flight.
+      if (props.open) {
+        hasGuild.value = guilds.length > 0
+      }
     } catch {
-      hasGuild.value = false
+      if (props.open) {
+        hasGuild.value = false
+      }
     }
   } else {
     reset()

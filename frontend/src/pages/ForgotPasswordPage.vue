@@ -9,13 +9,17 @@ const authStore = useAuthStore()
 const email = ref('')
 const submitting = ref(false)
 const submitted = ref(false)
+const submitError = ref('')
 
 async function submit() {
   if (!email.value.trim() || submitting.value) return
   submitting.value = true
+  submitError.value = ''
   try {
     await authStore.forgotPassword(email.value.trim())
     submitted.value = true
+  } catch {
+    submitError.value = t('forgotPassword.submitError')
   } finally {
     submitting.value = false
   }
@@ -46,6 +50,7 @@ async function submit() {
           <button type="submit" class="btn-primary" :disabled="submitting || !email.trim()">
             {{ submitting ? t('forgotPassword.submitting') : t('forgotPassword.submitBtn') }}
           </button>
+          <p v-if="submitError" class="field-error" role="alert">{{ submitError }}</p>
         </form>
       </template>
 

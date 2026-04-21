@@ -314,7 +314,9 @@ pub async fn verify_email(state: &AppState, raw_token: &str) -> Result<AuthRespo
         ));
     }
 
-    repo::mark_token_used(&state.pool, token.id).await?;
+    if !repo::mark_token_used(&state.pool, token.id).await? {
+        return Err(bad_request("This verification link has already been used"));
+    }
     repo::mark_email_verified(&state.pool, token.user_id).await?;
 
     let user = get_auth_user_by_id(state, token.user_id).await?;
@@ -429,8 +431,12 @@ pub async fn reset_password(
     }
 
     let password_hash = hash_password(&payload.new_password)?;
+    // Claim the token atomically before updating the password so that
+    // concurrent reset requests with the same token cannot both succeed.
+    if !repo::mark_reset_token_used(&state.pool, token.id).await? {
+        return Err(bad_request("This reset link has already been used"));
+    }
     repo::update_user_password(&state.pool, token.user_id, &password_hash).await?;
-    repo::mark_reset_token_used(&state.pool, token.id).await?;
     // Resetting password also proves email ownership.
     repo::mark_email_verified(&state.pool, token.user_id).await?;
 
