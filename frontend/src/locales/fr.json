@@ -187,6 +187,16 @@
     "form": {
       "disconnect": "Déconnecter le serveur"
     },
+    "mentionRoles": {
+      "title": "Rôles mentionnés",
+      "hint": "Ces rôles Discord seront @mentionnés dans chaque annonce.",
+      "none": "Aucun rôle configuré.",
+      "addPlaceholder": "ID du rôle (ex. 123456789012345678)",
+      "add": "Ajouter",
+      "addError": "Échec de l'enregistrement des rôles mentionnés.",
+      "removeError": "Échec de la suppression du rôle mentionné.",
+      "invalidId": "L'ID du rôle doit être un snowflake Discord de 17 à 20 chiffres."
+    },
     "members": {
       "title": "Pool d'annonces",
       "hint": "Les événements créés par les utilisateurs de ce pool seront publiés dans votre salon Discord.",

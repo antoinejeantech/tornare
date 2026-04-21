@@ -10,7 +10,7 @@ use crate::{
 use super::{
     models::{
         AddGuildMemberInput, BotInviteUrl, DiscordGuild, GuildMember,
-        ToggleAnnouncementsInput, UpsertGuildInput,
+        SetMentionRolesInput, ToggleAnnouncementsInput, UpsertGuildInput,
     },
     repo,
 };
@@ -156,6 +156,27 @@ pub async fn remove_guild_member(
 
     repo::remove_guild_member(&state.pool, guild.id, target_user_id, owner_uid).await?;
     repo::list_guild_members(&state.pool, guild.id).await
+}
+
+pub async fn set_mention_roles(
+    state: &AppState,
+    user_id: Uuid,
+    guild_id: &str,
+    input: SetMentionRolesInput,
+) -> Result<DiscordGuild, ApiError> {
+    // Validate: every role ID must be a Discord snowflake (17-20 decimal digits).
+    for role_id in &input.roles {
+        if !role_id.chars().all(|c| c.is_ascii_digit())
+            || role_id.len() < 17
+            || role_id.len() > 20
+        {
+            return Err(bad_request("INVALID_ROLE_ID"));
+        }
+    }
+
+    repo::set_mention_roles(&state.pool, user_id, guild_id, &input.roles)
+        .await?
+        .ok_or_else(|| not_found("No Discord guild configured"))
 }
 
 pub fn get_bot_invite_url(state: &AppState) -> BotInviteUrl {

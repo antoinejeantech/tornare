@@ -258,6 +258,10 @@ pub fn build_app(state: AppState) -> Router {
             "/api/discord/guild/{guild_id}/members/{user_id}",
             delete(discord::remove_guild_member),
         )
+        .route(
+            "/api/discord/guild/{guild_id}/mention-roles",
+            patch(discord::set_mention_roles),
+        )
         .with_state(state)
         .layer(
             TraceLayer::new_for_http().make_span_with(|request: &Request<_>| {

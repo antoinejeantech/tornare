@@ -10,6 +10,7 @@ pub struct DiscordGuild {
     pub owner_user_id: Option<Uuid>,
     pub channel_id: String,
     pub announcements_enabled: bool,
+    pub mention_roles: Vec<String>,
     pub last_post_error: Option<String>,
     #[serde(
         skip_serializing_if = "Option::is_none",
@@ -45,6 +46,11 @@ pub struct UpsertGuildInput {
 #[derive(Debug, Deserialize)]
 pub struct ToggleAnnouncementsInput {
     pub enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetMentionRolesInput {
+    pub roles: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]

@@ -10,6 +10,7 @@ import {
   listGuildMembers,
   removeGuildMember,
   searchUsers,
+  setGuildMentionRoles,
   toggleDiscordAnnouncements,
 } from '../lib/api'
 import type { DiscordGuild, GuildMember, UserSearchResult } from '../lib/api'
@@ -33,6 +34,9 @@ const addingMember = ref<Record<string, boolean>>({})
 const removingMember = ref<Record<string, string | null>>({})
 const toggling = ref<Record<string, boolean>>({})
 const disconnecting = ref<Record<string, boolean>>({})
+const roleInput = ref<Record<string, string>>({})
+const roleInputError = ref<Record<string, string>>({})
+const savingRoles = ref<Record<string, boolean>>({})
 
 async function load() {
   loading.value = true
@@ -130,6 +134,49 @@ async function removeMember(guildId: string, userId: string, guild: DiscordGuild
   }
 }
 
+const SNOWFLAKE_RE = /^\d{17,20}$/
+
+async function addRole(guildId: string, guild: DiscordGuild) {
+  const id = (roleInput.value[guildId] ?? '').trim()
+  if (!SNOWFLAKE_RE.test(id)) {
+    roleInputError.value[guildId] = t('discord.mentionRoles.invalidId')
+    return
+  }
+  roleInputError.value[guildId] = ''
+  const currentRoles = guild.mention_roles ?? []
+  if (currentRoles.includes(id)) {
+    roleInput.value[guildId] = ''
+    return
+  }
+  savingRoles.value[guildId] = true
+  try {
+    const updated = await setGuildMentionRoles(guildId, [...currentRoles, id])
+    const idx = guilds.value.findIndex(g => g.guild_id === guildId)
+    if (idx !== -1) guilds.value[idx] = updated
+    roleInput.value[guildId] = ''
+  } catch (e) {
+    alert.error(e instanceof ApiHttpError ? e.message : t('discord.mentionRoles.addError'))
+  } finally {
+    savingRoles.value[guildId] = false
+  }
+}
+
+async function removeRole(guildId: string, roleId: string, guild: DiscordGuild) {
+  savingRoles.value[guildId] = true
+  try {
+    const updated = await setGuildMentionRoles(
+      guildId,
+      (guild.mention_roles ?? []).filter(r => r !== roleId),
+    )
+    const idx = guilds.value.findIndex(g => g.guild_id === guildId)
+    if (idx !== -1) guilds.value[idx] = updated
+  } catch (e) {
+    alert.error(e instanceof ApiHttpError ? e.message : t('discord.mentionRoles.removeError'))
+  } finally {
+    savingRoles.value[guildId] = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -213,6 +260,58 @@ onMounted(load)
                 : t('common.disabled') }}
             </span>
           </button>
+        </div>
+
+        <!-- Mention roles section -->
+        <div class="mention-roles-section">
+          <div class="members-header">
+            <span class="section-label">{{ t('discord.mentionRoles.title') }}</span>
+            <span class="hint">{{ t('discord.mentionRoles.hint') }}</span>
+          </div>
+
+          <div class="role-chips">
+            <span
+              v-for="roleId in guild.mention_roles ?? []"
+              :key="roleId"
+              class="role-chip"
+            >
+              <span class="role-id">{{ roleId }}</span>
+              <button
+                class="role-remove-btn"
+                :disabled="savingRoles[guild.guild_id]"
+                :aria-label="`Remove role ${roleId}`"
+                @click="removeRole(guild.guild_id, roleId, guild)"
+              >
+                <span class="material-symbols-rounded" aria-hidden="true">close</span>
+              </button>
+            </span>
+            <span v-if="!(guild.mention_roles ?? []).length" class="hint">
+              {{ t('discord.mentionRoles.none') }}
+            </span>
+          </div>
+
+          <div class="add-role">
+            <div class="role-input-row">
+              <input
+                v-model="roleInput[guild.guild_id]"
+                type="text"
+                class="search-input"
+                :placeholder="t('discord.mentionRoles.addPlaceholder')"
+                :disabled="savingRoles[guild.guild_id]"
+                @keydown.enter.prevent="addRole(guild.guild_id, guild)"
+              />
+              <button
+                class="btn btn-add"
+                :disabled="savingRoles[guild.guild_id] || !(roleInput[guild.guild_id] ?? '').trim()"
+                @click="addRole(guild.guild_id, guild)"
+              >
+                {{ t('discord.mentionRoles.add') }}
+              </button>
+            </div>
+            <span v-if="roleInputError[guild.guild_id]" class="field-error">
+              {{ roleInputError[guild.guild_id] }}
+            </span>
+          </div>
         </div>
 
         <!-- Members section -->
@@ -722,5 +821,80 @@ onMounted(load)
   text-align: center;
   padding: 3rem;
   color: var(--color-text-muted, #888);
+}
+
+/* Mention roles */
+.mention-roles-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border, #2a2a3e);
+}
+
+.role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-height: 1.5rem;
+  align-items: center;
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #5865f215;
+  border: 1px solid #5865f240;
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+}
+
+.role-id {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #818cf8;
+}
+
+.role-remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted, #888);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.role-remove-btn:hover:not(:disabled) { color: #ed4245; }
+
+.role-remove-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.add-role { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.role-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-add {
+  background: #5865f2;
+  color: #fff;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.88rem;
+  align-self: auto;
+}
+
+.btn-add:hover:not(:disabled) { opacity: 0.85; }
+
+.field-error {
+  font-size: 0.78rem;
+  color: #f87171;
 }
 </style>

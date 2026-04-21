@@ -17,7 +17,7 @@ use crate::{
 use super::{
     models::{
         AddGuildMemberInput, BotInviteUrl, DiscordGuild, GuildMember,
-        ToggleAnnouncementsInput, UpsertGuildInput,
+        SetMentionRolesInput, ToggleAnnouncementsInput, UpsertGuildInput,
     },
     service,
 };
@@ -111,4 +111,17 @@ pub async fn get_bot_invite_url(
 ) -> ApiResult<BotInviteUrl> {
     require_authenticated_user_id(&state, &headers)?;
     Ok(Json(service::get_bot_invite_url(&state)))
+}
+
+/// PATCH /api/discord/guild/:guild_id/mention-roles
+pub async fn set_mention_roles(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(guild_id): Path<String>,
+    Json(payload): Json<SetMentionRolesInput>,
+) -> ApiResult<DiscordGuild> {
+    let user_id = require_authenticated_user_id(&state, &headers)?;
+    service::set_mention_roles(&state, user_id, &guild_id, payload)
+        .await
+        .map(Json)
 }

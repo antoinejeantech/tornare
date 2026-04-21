@@ -187,6 +187,16 @@
     "form": {
       "disconnect": "Disconnect server"
     },
+    "mentionRoles": {
+      "title": "Mentioned roles",
+      "hint": "These Discord roles will be @mentioned in every announcement post.",
+      "none": "No roles configured.",
+      "addPlaceholder": "Role ID (e.g. 123456789012345678)",
+      "add": "Add",
+      "addError": "Failed to save mention roles.",
+      "removeError": "Failed to remove mention role.",
+      "invalidId": "Role ID must be a 17–20 digit Discord snowflake."
+    },
     "members": {
       "title": "Announcement pool",
       "hint": "Events created by users in this pool will be posted to your Discord channel.",

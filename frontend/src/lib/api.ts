@@ -187,6 +187,7 @@ export interface DiscordGuild {
   owner_user_id: string | null
   channel_id: string
   announcements_enabled: boolean
+  mention_roles: string[]
   last_post_error?: string | null
   last_post_error_at?: string | null
 }
@@ -241,5 +242,12 @@ export function addGuildMember(guildId: string, userId: string): Promise<GuildMe
 export function removeGuildMember(guildId: string, userId: string): Promise<GuildMember[]> {
   return apiCall<GuildMember[]>(`/api/discord/guild/${guildId}/members/${userId}`, {
     method: 'DELETE',
+  })
+}
+
+export function setGuildMentionRoles(guildId: string, roles: string[]): Promise<DiscordGuild> {
+  return apiCall<DiscordGuild>(`/api/discord/guild/${guildId}/mention-roles`, {
+    method: 'PATCH',
+    body: JSON.stringify({ roles }),
   })
 }

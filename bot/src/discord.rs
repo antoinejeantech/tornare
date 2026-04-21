@@ -33,6 +33,7 @@ impl DiscordHttp {
         &self,
         channel_id: &str,
         ev: &EventEmbed,
+        mention_content: Option<&str>,
     ) -> Result<String> {
         const TORNARE_LOGO: &str = "https://tornare.vercel.app/pwa-icon-192.png";
 
@@ -99,7 +100,11 @@ impl DiscordHttp {
         }
         let components = vec![json!({"type": 1, "components": buttons})];
 
-        let body = json!({"embeds": [embed], "components": components});
+        let content = mention_content
+            .map(|s| Value::String(s.to_string()))
+            .unwrap_or(Value::Null);
+
+        let body = json!({"content": content, "embeds": [embed], "components": components});
 
         debug!("Posting embed for {}", ev.event_url);
 

@@ -9,12 +9,13 @@ pub struct Guild {
     pub id: Uuid,
     pub guild_id: String,
     pub channel_id: String,
+    pub mention_roles: Vec<String>,
 }
 
 /// Load all guilds with announcements enabled.
 pub async fn fetch_guilds(pool: &PgPool) -> anyhow::Result<Vec<Guild>> {
     let rows = sqlx::query(
-        "SELECT id, guild_id, channel_id \
+        "SELECT id, guild_id, channel_id, mention_roles \
          FROM discord_guilds \
          WHERE announcements_enabled = TRUE AND deleted_at IS NULL",
     )
@@ -27,6 +28,7 @@ pub async fn fetch_guilds(pool: &PgPool) -> anyhow::Result<Vec<Guild>> {
             id: r.get("id"),
             guild_id: r.get("guild_id"),
             channel_id: r.get("channel_id"),
+            mention_roles: r.get("mention_roles"),
         })
         .collect())
 }
@@ -121,6 +123,7 @@ pub async fn post_event(
     channel_id: &str,
     frontend_url: &str,
     event_id: Uuid,
+    mention_roles: &[String],
 ) -> anyhow::Result<()> {
     let row = sqlx::query(
         "SELECT \
@@ -161,7 +164,19 @@ pub async fn post_event(
         event_url,
     };
 
-    let message_id = http.post_event_embed(channel_id, &embed).await?;
+    let mention_content = if mention_roles.is_empty() {
+        None
+    } else {
+        Some(
+            mention_roles
+                .iter()
+                .map(|id| format!("<@&{id}>"))
+                .collect::<Vec<_>>()
+                .join(" "),
+        )
+    };
+
+    let message_id = http.post_event_embed(channel_id, &embed, mention_content.as_deref()).await?;
     info!(
         "Posted Discord message {message_id} for event '{}' ({event_id}) -> channel {channel_id}",
         embed.name
@@ -206,7 +221,7 @@ pub async fn run_poll(pool: &PgPool, http: &DiscordHttp, frontend_url: &str) {
         let mut last_error: Option<String> = None;
 
         for event_id in pending {
-            match post_event(pool, http, &guild.channel_id, frontend_url, event_id).await {
+            match post_event(pool, http, &guild.channel_id, frontend_url, event_id, &guild.mention_roles).await {
                 Ok(()) => {
                     if let Err(e) = mark_event_posted(pool, guild.id, event_id).await {
                         error!(

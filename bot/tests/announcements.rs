@@ -183,3 +183,27 @@ async fn post_event_query_decodes_start_date_as_string(pool: PgPool) {
         "decoded start_date should end with 'Z' (UTC ISO-8601); got: {date_str}"
     );
 }
+
+/// Guilds fetched by `fetch_guilds` must include their configured `mention_roles`.
+#[sqlx::test(migrations = "../backend/migrations")]
+async fn fetch_guilds_returns_mention_roles(pool: PgPool) {
+    // Insert a guild with two mention roles configured.
+    sqlx::query(
+        "INSERT INTO discord_guilds \
+         (id, guild_id, channel_id, announcements_enabled, mention_roles) \
+         VALUES (gen_random_uuid(), 'guild-mentionroles', 'ch-mr', true, \
+                 ARRAY['111111111111111111', '222222222222222222'])",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let guilds = fetch_guilds(&pool).await.unwrap();
+    assert_eq!(guilds.len(), 1);
+    assert_eq!(
+        guilds[0].mention_roles,
+        vec!["111111111111111111", "222222222222222222"],
+        "fetch_guilds must populate mention_roles from the DB"
+    );
+}
+

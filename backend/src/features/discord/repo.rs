@@ -14,6 +14,7 @@ fn row_to_guild(r: &sqlx::postgres::PgRow) -> DiscordGuild {
         owner_user_id: r.get("owner_user_id"),
         channel_id: r.get("channel_id"),
         announcements_enabled: r.get("announcements_enabled"),
+        mention_roles: r.get("mention_roles"),
         last_post_error: r.get("last_post_error"),
         last_post_error_at: r.get("last_post_error_at"),
     }
@@ -25,7 +26,7 @@ pub async fn find_guilds_by_owner(
     owner_user_id: Uuid,
 ) -> Result<Vec<DiscordGuild>, ApiError> {
     let rows = sqlx::query(
-        "SELECT id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, last_post_error, last_post_error_at \
+        "SELECT id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, mention_roles, last_post_error, last_post_error_at \
          FROM discord_guilds \
          WHERE owner_user_id = $1 AND deleted_at IS NULL \
          ORDER BY created_at",
@@ -45,7 +46,7 @@ pub async fn find_guild_by_guild_id_and_owner(
     owner_user_id: Uuid,
 ) -> Result<Option<DiscordGuild>, ApiError> {
     let row = sqlx::query(
-        "SELECT id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, last_post_error, last_post_error_at \
+        "SELECT id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, mention_roles, last_post_error, last_post_error_at \
          FROM discord_guilds \
          WHERE guild_id = $1 AND owner_user_id = $2 AND deleted_at IS NULL \
          LIMIT 1",
@@ -65,7 +66,7 @@ pub async fn find_guild_by_guild_id(
     guild_id: &str,
 ) -> Result<Option<DiscordGuild>, ApiError> {
     let row = sqlx::query(
-        "SELECT id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, last_post_error, last_post_error_at \
+        "SELECT id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, mention_roles, last_post_error, last_post_error_at \
          FROM discord_guilds \
          WHERE guild_id = $1 AND deleted_at IS NULL \
          LIMIT 1",
@@ -104,7 +105,7 @@ pub async fn upsert_guild(
                  channel_id    = EXCLUDED.channel_id,
                  deleted_at    = NULL,
                  updated_at    = NOW()
-         RETURNING id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, last_post_error, last_post_error_at",
+         RETURNING id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, mention_roles, last_post_error, last_post_error_at",
     )
     .bind(guild_id)
     .bind(guild_name)
@@ -172,7 +173,7 @@ pub async fn upsert_guild_from_slash(
                  channel_id    = EXCLUDED.channel_id,
                  deleted_at    = NULL,
                  updated_at    = NOW()
-         RETURNING id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, last_post_error, last_post_error_at",
+         RETURNING id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, mention_roles, last_post_error, last_post_error_at",
     )
     .bind(guild_id)
     .bind(guild_name)
@@ -323,11 +324,34 @@ pub async fn remove_guild_member(
     Ok(result.rows_affected() > 0)
 }
 
+/// Update the mention roles for a guild. Returns the updated guild, or None if not found.
+pub async fn set_mention_roles(
+    pool: &PgPool,
+    owner_user_id: Uuid,
+    guild_id: &str,
+    roles: &[String],
+) -> Result<Option<DiscordGuild>, ApiError> {
+    let row = sqlx::query(
+        "UPDATE discord_guilds \
+         SET mention_roles = $3, updated_at = NOW() \
+         WHERE owner_user_id = $1 AND guild_id = $2 AND deleted_at IS NULL \
+         RETURNING id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, mention_roles, last_post_error, last_post_error_at",
+    )
+    .bind(owner_user_id)
+    .bind(guild_id)
+    .bind(roles)
+    .fetch_optional(pool)
+    .await
+    .map_err(internal_error)?;
+
+    Ok(row.as_ref().map(row_to_guild))
+}
+
 /// Used by the bot via direct DB access — not called from the backend binary.
 #[allow(dead_code)]
 pub async fn list_all_guilds(pool: &PgPool) -> Result<Vec<DiscordGuild>, ApiError> {
     let rows = sqlx::query(
-        "SELECT id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, last_post_error, last_post_error_at \
+        "SELECT id, guild_id, guild_name, owner_user_id, channel_id, announcements_enabled, mention_roles, last_post_error, last_post_error_at \
          FROM discord_guilds",
     )
     .fetch_all(pool)

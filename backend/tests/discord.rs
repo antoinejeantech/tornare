@@ -506,3 +506,189 @@ async fn interactions_ping_with_valid_signature_returns_pong(pool: PgPool) {
     let resp: Value = res.json().await.unwrap();
     assert_eq!(resp["type"].as_u64().unwrap(), 1, "ping must respond with type=1 pong");
 }
+
+// ---------------------------------------------------------------------------
+// Mention roles API
+// ---------------------------------------------------------------------------
+
+/// Helper: register a discord user and a guild, return (token, guild_id_str).
+async fn setup_guild_owner(
+    client: &Client,
+    pool: &PgPool,
+    base: &str,
+    email: &str,
+    username: &str,
+    discord_sub: &str,
+    guild_id: &str,
+) -> (String, String) {
+    let body = register_verified(client, pool, base, email, username).await;
+    let token = body["access_token"].as_str().unwrap().to_string();
+    let user_id = uuid::Uuid::parse_str(body["user"]["id"].as_str().unwrap()).unwrap();
+
+    sqlx::query(
+        "INSERT INTO auth_identities (id, user_id, provider, provider_user_id) \
+         VALUES (gen_random_uuid(), $1, 'discord', $2)",
+    )
+    .bind(user_id)
+    .bind(discord_sub)
+    .execute(pool)
+    .await
+    .unwrap();
+
+    client
+        .put(format!("{base}/api/discord/guild"))
+        .bearer_auth(&token)
+        .json(&json!({"guild_id": guild_id, "channel_id": "ch-mention-test"}))
+        .send()
+        .await
+        .unwrap();
+
+    (token, guild_id.to_string())
+}
+
+/// PATCH /api/discord/guild/:id/mention-roles with valid snowflakes must persist
+/// and be returned on the guild object.
+#[sqlx::test]
+async fn set_mention_roles_persists_and_returns_roles(pool: PgPool) {
+    let base = spawn_test_server(pool.clone()).await;
+    let client = Client::new();
+    let (token, guild_id) = setup_guild_owner(
+        &client,
+        &pool,
+        &base,
+        "mroles@test.local",
+        "mroles",
+        "discord-mroles-1",
+        "MROLEGUILD1",
+    )
+    .await;
+
+    let res = client
+        .patch(format!("{base}/api/discord/guild/{guild_id}/mention-roles"))
+        .bearer_auth(&token)
+        .json(&json!({"roles": ["123456789012345678", "987654321098765432"]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200, "setting valid roles must return 200");
+
+    let body: Value = res.json().await.unwrap();
+    let roles = body["mention_roles"].as_array().unwrap();
+    assert_eq!(roles.len(), 2, "two roles must be stored");
+    assert!(
+        roles.iter().any(|r| r.as_str() == Some("123456789012345678")),
+        "first role must be present"
+    );
+    assert!(
+        roles.iter().any(|r| r.as_str() == Some("987654321098765432")),
+        "second role must be present"
+    );
+}
+
+/// Setting an empty array must clear all previously-stored roles.
+#[sqlx::test]
+async fn set_mention_roles_empty_array_clears_roles(pool: PgPool) {
+    let base = spawn_test_server(pool.clone()).await;
+    let client = Client::new();
+    let (token, guild_id) = setup_guild_owner(
+        &client,
+        &pool,
+        &base,
+        "clroles@test.local",
+        "clroles",
+        "discord-clroles-1",
+        "CLEARROLEGUILD",
+    )
+    .await;
+
+    // Set two roles first.
+    client
+        .patch(format!("{base}/api/discord/guild/{guild_id}/mention-roles"))
+        .bearer_auth(&token)
+        .json(&json!({"roles": ["111111111111111111"]}))
+        .send()
+        .await
+        .unwrap();
+
+    // Now clear them.
+    let res = client
+        .patch(format!("{base}/api/discord/guild/{guild_id}/mention-roles"))
+        .bearer_auth(&token)
+        .json(&json!({"roles": []}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status().as_u16(), 200);
+    let body: Value = res.json().await.unwrap();
+    assert_eq!(
+        body["mention_roles"].as_array().unwrap().len(),
+        0,
+        "mention_roles must be empty after clearing"
+    );
+}
+
+/// An invalid (non-numeric) role ID must be rejected with 400.
+#[sqlx::test]
+async fn set_mention_roles_rejects_non_numeric_id(pool: PgPool) {
+    let base = spawn_test_server(pool.clone()).await;
+    let client = Client::new();
+    let (token, guild_id) = setup_guild_owner(
+        &client,
+        &pool,
+        &base,
+        "invalidrole@test.local",
+        "invalidrole",
+        "discord-invalidrole-1",
+        "INVALIDROLEGUILD",
+    )
+    .await;
+
+    let res = client
+        .patch(format!("{base}/api/discord/guild/{guild_id}/mention-roles"))
+        .bearer_auth(&token)
+        .json(&json!({"roles": ["@everyone"]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        res.status().as_u16(),
+        400,
+        "non-numeric role ID must return 400"
+    );
+}
+
+/// A user who does not own the guild cannot set mention roles.
+#[sqlx::test]
+async fn set_mention_roles_requires_ownership(pool: PgPool) {
+    let base = spawn_test_server(pool.clone()).await;
+    let client = Client::new();
+    let (_token_owner, guild_id) = setup_guild_owner(
+        &client,
+        &pool,
+        &base,
+        "roleowner@test.local",
+        "roleowner",
+        "discord-roleown-1",
+        "OWNROLEGUILD",
+    )
+    .await;
+
+    // A different user with a discord identity.
+    let body_other =
+        register_verified(&client, &pool, &base, "roleother@test.local", "roleother").await;
+    let token_other = body_other["access_token"].as_str().unwrap().to_string();
+
+    let res = client
+        .patch(format!("{base}/api/discord/guild/{guild_id}/mention-roles"))
+        .bearer_auth(&token_other)
+        .json(&json!({"roles": ["111111111111111111"]}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        res.status().as_u16(),
+        404,
+        "non-owner must not be able to set mention roles"
+    );
+}
+
