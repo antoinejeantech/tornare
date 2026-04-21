@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ApiHttpError } from '../lib/api'
 import { useAuthStore } from '../stores/auth'
 
 const { t } = useI18n()
@@ -18,8 +19,12 @@ async function submit() {
   try {
     await authStore.forgotPassword(email.value.trim())
     submitted.value = true
-  } catch {
-    submitError.value = t('forgotPassword.submitError')
+  } catch (err) {
+    if (err instanceof ApiHttpError && err.status === 429) {
+      submitError.value = err.message
+    } else {
+      submitError.value = t('forgotPassword.submitError')
+    }
   } finally {
     submitting.value = false
   }
@@ -58,6 +63,8 @@ async function submit() {
         <span class="material-symbols-rounded fp-icon fp-icon-ok" aria-hidden="true">mark_email_read</span>
         <h1 class="fp-title">{{ t('forgotPassword.successTitle') }}</h1>
         <p class="muted">{{ t('forgotPassword.successSubtitle') }}</p>
+        <p class="muted fp-note">{{ t('forgotPassword.rateLimitHint') }}</p>
+        <p class="muted fp-note">{{ t('forgotPassword.spamHint') }}</p>
       </template>
 
       <p class="fp-back">
@@ -100,6 +107,11 @@ async function submit() {
 
 .fp-title {
   margin: 0;
+}
+
+.fp-note {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 .fp-back {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../stores/auth'
@@ -12,13 +12,14 @@ const email = ref('')
 const submitting = ref(false)
 const message = ref('')
 const error = ref('')
+const canResend = computed(() => email.value.trim().length > 0)
 
 onMounted(() => {
   email.value = typeof route.query.email === 'string' ? route.query.email : ''
 })
 
 async function resend() {
-  if (!email.value.trim() || submitting.value) return
+  if (!canResend.value || submitting.value) return
 
   submitting.value = true
   message.value = ''
@@ -41,16 +42,20 @@ async function resend() {
       <h1 class="pending-title">{{ t('verifyEmailPending.title') }}</h1>
       <p class="muted">{{ t('verifyEmailPending.subtitle') }}</p>
       <p v-if="email" class="pending-email">{{ email }}</p>
+      <p v-else class="status status-error">{{ t('verifyEmailPending.missingEmail') }}</p>
 
       <p class="muted pending-note">{{ t('verifyEmailPending.note') }}</p>
 
       <div class="pending-resend">
-        <button class="btn-secondary" type="button" :disabled="submitting" @click="resend">
+        <button class="btn-secondary" type="button" :disabled="submitting || !canResend" @click="resend">
           {{ submitting ? t('verifyEmailPending.sending') : t('verifyEmailPending.resendBtn') }}
         </button>
+        <p v-if="!canResend" class="muted pending-resend-help">{{ t('verifyEmailPending.resendUnavailable') }}</p>
       </div>
 
       <p v-if="message" class="status status-success">{{ message }}</p>
+      <p v-if="message" class="muted pending-note">{{ t('verifyEmailPending.rateLimitHint') }}</p>
+      <p v-if="message" class="muted pending-note">{{ t('verifyEmailPending.spamHint') }}</p>
       <p v-if="error" class="status status-error">{{ error }}</p>
     </section>
   </main>
@@ -95,5 +100,10 @@ async function resend() {
 .pending-resend {
   border-top: 1px solid var(--line);
   padding-top: 1rem;
+}
+
+.pending-resend-help {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
 }
 </style>

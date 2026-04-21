@@ -200,7 +200,7 @@ onMounted(async () => {
           <InlineArrowLink to="/events" :label="t('home.viewAll')" class="home-ticker-view-all" />
         </div>
         <p v-if="loadingEvents" class="muted home-ticker-empty">{{ t('home.loadingEvents') }}</p>
-        <p v-else-if="sortedEvents.length === 0" class="muted home-ticker-empty">{{ t('home.noEvents') }} <RouterLink to="/events">{{ t('home.createOne') }}</RouterLink> {{ t('home.noEventsHint') }}</p>
+        <p v-else-if="sortedEvents.length === 0" class="muted home-ticker-empty">{{ t('home.noEvents') }} <RouterLink class="home-ticker-empty-link" to="/events">{{ t('home.createOne') }}</RouterLink> {{ t('home.noEventsHint') }}</p>
         <ul v-else class="home-ticker-list">
           <EventListItem
             v-for="event in sortedEvents.slice(0, 6)"
@@ -402,6 +402,17 @@ onMounted(async () => {
 .home-ticker-empty {
   padding: 1rem 0.72rem;
   font-size: 0.88rem;
+}
+
+.home-ticker-empty-link {
+  color: color-mix(in srgb, var(--brand-1) 90%, white 10%);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.home-ticker-empty-link:hover {
+  color: color-mix(in srgb, var(--brand-1) 76%, white 24%);
+  text-decoration: underline;
 }
 
 .home-eyebrow {
